@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DEVELOPER
+  OFFICE_HEAD
+  USER
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String?
+  role      Role     @default(USER)
+  externalId String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  picture   String?
+  // URL to a user-uploaded avatar hosted by our app (preferred for profile overrides)
+  avatarUrl String?
+  lastLoginAt DateTime?
+}

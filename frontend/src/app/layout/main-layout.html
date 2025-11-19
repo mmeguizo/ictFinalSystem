@@ -1,0 +1,162 @@
+<nz-layout class="app-layout">
+  <nz-sider
+    class="menu-sidebar"
+    nzCollapsible
+    nzWidth="256px"
+    nzBreakpoint="md"
+    [(nzCollapsed)]="isCollapsed"
+    [nzTrigger]="null"
+  >
+    <div class="sidebar-logo">
+      <a href="https://ng.ant.design/" target="_blank">
+        <img src="/assets/chmsu-logo.png" alt="CHMSU logo" />
+        <h1>ICT Ticket</h1>
+      </a>
+    </div>
+    <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="isCollapsed">
+      <li nz-submenu nzOpen nzTitle="Dashboard" nzIcon="dashboard">
+        <ul>
+          <li nz-menu-item nzMatchRouter>
+            <a routerLink="/welcome">Welcome</a>
+          </li>
+          <li nz-menu-item nzMatchRouter>
+            <a>Monitor</a>
+          </li>
+          <li nz-menu-item nzMatchRouter>
+            <a>Workplace</a>
+          </li>
+        </ul>
+      </li>
+      <li nz-submenu nzOpen nzTitle="Form" nzIcon="form">
+        <ul>
+          <li nz-menu-item nzMatchRouter>
+            <a>Basic Form</a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </nz-sider>
+  <nz-layout>
+    <nz-header>
+      <div class="app-header">
+        <span class="header-trigger" (click)="isCollapsed = !isCollapsed">
+          <nz-icon class="trigger" [nzType]="isCollapsed ? 'menu-unfold' : 'menu-fold'" />
+        </span>
+        <div class="header-right">
+          <button nz-button nzType="text" nz-dropdown [nzDropdownMenu]="userMenu" nzPlacement="bottomRight">
+            <img
+              [src]="avatarSrc()"
+              (error)="handleAvatarError()"
+              alt="User avatar"
+              class="header-avatar"
+              width="40"
+              height="40"
+            />
+            <!-- <nz-icon nzType="down" style="margin-left: 4px; font-size: 12px;"></nz-icon> -->
+          </button>
+          <nz-dropdown-menu #userMenu="nzDropdownMenu">
+            <ul nz-menu>
+              <li nz-menu-item (click)="openProfile()">
+                <nz-icon nzType="user"></nz-icon>
+                <span> Profile</span>
+              </li>
+              <li nz-menu-divider></li>
+              <li nz-menu-item (click)="logout()">
+                <nz-icon nzType="logout"></nz-icon>
+                <span> Logout</span>
+              </li>
+            </ul>
+          </nz-dropdown-menu>
+        </div>
+      </div>
+    </nz-header>
+    <nz-content>
+      <div class="inner-content">
+        <router-outlet></router-outlet>
+      </div>
+    </nz-content>
+  </nz-layout>
+</nz-layout>
+
+<!-- Profile modal -->
+<nz-modal
+  [nzVisible]="isProfileOpen()"
+  (nzVisibleChange)="isProfileOpen.set($event)"
+  nzTitle="Profile"
+  (nzOnCancel)="closeProfile()"
+  (nzOnOk)="saveProfile()"
+>
+  <ng-container *nzModalContent>
+    <form [formGroup]="profileForm" nz-form nzLayout="vertical">
+      <nz-form-item>
+        <nz-form-label>Avatar</nz-form-label>
+        <nz-form-control>
+          <div class="avatar-row">
+            <img
+              [src]="avatarSrc()"
+              (error)="handleAvatarError()"
+              alt="User avatar"
+              class="modal-avatar"
+              width="80"
+              height="80"
+            />
+            <input
+              #fileInput
+              type="file"
+              accept="image/*"
+              style="display: none"
+              (change)="onFileSelected($event)"
+            />
+            <button nz-button nzType="default" type="button" (click)="fileInput.click()">
+              <nz-icon nzType="upload" />
+              Upload
+            </button>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label>Name</nz-form-label>
+        <nz-form-control>
+          <input nz-input formControlName="displayName" placeholder="Your name" />
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label>New password</nz-form-label>
+        <nz-form-control>
+          <div class="password-field">
+            <input
+              nz-input
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="••••••"
+            />
+            <button
+              nz-button
+              nzType="text"
+              type="button"
+              (click)="showPassword.set(!showPassword())"
+            >
+              <nz-icon [nzType]="showPassword() ? 'eye-invisible' : 'eye'"></nz-icon>
+            </button>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label>Confirm password</nz-form-label>
+        <nz-form-control>
+          <div class="password-field">
+            <input
+              nz-input
+              [type]="showConfirm() ? 'text' : 'password'"
+              formControlName="confirm"
+              placeholder="••••••"
+            />
+            <button nz-button nzType="text" type="button" (click)="showConfirm.set(!showConfirm())">
+              <nz-icon [nzType]="showConfirm() ? 'eye-invisible' : 'eye'"></nz-icon>
+            </button>
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+    </form>
+  </ng-container>
+</nz-modal>

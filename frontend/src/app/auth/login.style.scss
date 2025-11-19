@@ -1,0 +1,60 @@
+:host { display: block; }
+.login-container {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card-bg, #fff);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+}
+h1 { margin: 0 0 1rem; font-size: 1.5rem; }
+.form-item { margin-bottom: 0.75rem; }
+.label { display: inline-block; margin: 0.5rem 0; }
+.error { color: #b91c1c; margin-top: 0.25rem; font-size: 0.9rem; }
+.success { color: #065f46; margin-top: 0.75rem; }
+.control { width: 100%; }
+input { width: 100%; padding: 0.5rem 0.6rem; border: 1px solid #d1d5db; border-radius: 8px; }
+input[aria-invalid="true"] { border-color: #b91c1c; }
+button.primary { width: 100%; margin-top: 0.75rem; padding: 0.5rem 0.6rem; border-radius: 8px; border: 1px solid #2563eb; background: #2563eb; color: #fff; }
+
+
+
+#chmsu-logo {
+  display: block;
+  margin: 0 auto 0.75rem;
+  width: 400px;
+  height: auto;
+  max-width: 40%;
+}
+
+.login-logo img {
+  display: block;
+  margin: 0 auto 0.75rem;
+  width: 96px;
+  height: auto;
+  max-width: 48%;
+}
+
+@media (min-width: 640px) {
+  .login-logo img { width: 120px; max-width: 100%; }
+}
+
+
+#login-title {
+  text-align: center;
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.actions { display:block; gap:0.5rem; justify-content:center; align-items:center; }
+.sso-button { background: #000; color: #fff; border: none; width: 100%; }
+.normal-button { background: green; color: #fff; border: none; width: 100%; }
+.sso-note { text-align:center; font-size: 0.85rem; color: #6b7280; margin-top:0.5rem; }

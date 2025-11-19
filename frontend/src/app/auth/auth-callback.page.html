@@ -1,0 +1,23 @@
+<main class="callback-container">
+  <nz-card class="callback-card">
+    @if (processing) {
+      <div class="spin-wrapper">
+        <nz-spin nzSize="large"></nz-spin>
+        <p>Completing sign-in and preparing your account...</p>
+      </div>
+    } @else {
+      <nz-result [nzStatus]="error ? 'error' : (created ? 'success' : 'info')"
+                 [nzTitle]="message || (error ? 'Error' : 'Completed')">
+        <div nz-result-extra>
+          @if (!error) {
+            <button nz-button nzType="primary" (click)="continueToApp()">Continue to app</button>
+          }
+          <button nz-button nzType="default" (click)="backToLogin()">Back to login</button>
+        </div>
+      </nz-result>
+      @if (error) {
+        <p class="error-detail">{{ error }}</p>
+      }
+    }
+  </nz-card>
+</main>

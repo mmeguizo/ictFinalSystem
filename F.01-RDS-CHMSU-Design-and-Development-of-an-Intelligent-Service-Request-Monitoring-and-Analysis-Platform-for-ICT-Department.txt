@@ -1,0 +1,430 @@
+Format of an Institutional Research/Innovation/Invention
+Proposal
+
+Document Code: F.01-RDS-CHMSU
+Revision No.: 0
+Effective Date: October 31, 2024
+Page: 1 of 7
+
+Title:
+Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
+
+Name of Proponent(s):
+Russel M. Dela Torre (College of Industrial Technology, CHMSU Main Campus)
+Mark Meguizo (ICT Department, CHMSU Main Campus)
+
+Campus: Talisay
+Research Type: (Select below)
+o Descriptive
+o
+o
+o Experimental
+o
+o Correlational
+
+Causal-comparative
+Ethnographic
+Historical
+
+o
+o
+
+Survey
+Action
+
+Focused Agenda: Digitalization, System Development
+INTRODUCTION
+The rapid digital transformation in Philippine State Universities and Colleges (SUCs) has intensified the need for
+efficient service delivery within ICT departments, which play a central role in supporting academic and administrative
+functions (Espinosa, 2023; World Bank, 2024). However, the sector faces persistent challenges, including inadequate
+ICT infrastructure, limited digital skills among staff and students, and outdated operational models that hinder the
+responsive management of service requests (PIDS, 2020; Espinosa, 2023). These issues are further compounded by
+insufficient funding, lack of qualified personnel, and fragmented systems, making ICT service monitoring and analysis
+a critical pain point for most SUCs (PHJLIS, 2023; World Bank, 2024).
+Against this backdrop, this research proposes the design and development of an intelligent service request monitoring
+and analysis platform tailored for ICT departments for Philippine SUCs. The proposed platform seeks to address critical
+issues such as delays, manual tracking bottlenecks, inefficient workflow assignment, and the absence of actionable
+analytics, all of which undermine service quality and accountability (Studocu, 2023; PIDS, 2020). By automating the
+logging, tracking, prioritizing, and analysis of ICT service requests, the platform is envisioned as a key innovation that
+streamlines internal operations, facilitates better communication, and empowers ICT managers with real-time
+performance metrics.
+The investigation aligns directly with national and institutional research agendas around digital transformation, egovernance, and improved technology management in higher education (World Bank, 2024; Ombudsman/UNDP,
+2013). Specifically, it supports objectives articulated by the Commission on Higher Education and various digitalization
+initiatives that prioritize robust ICT infrastructure, access, and governance reforms for SUCs (World Bank, 2024; PIDS,
+2020).
+This research is significant as it does not merely investigate the current barriers to service request management, but
+innovates by developing a centralized, intelligent platform designed to achieve three core outcomes: (1) improved
+service turnaround through automation and analytics, (2) greater transparency and accountability in ICT operations,
+and (3) actionable insights for evidence-based planning. The investigation will focus on inventing practical workflows
+and intelligent rule-based assignment algorithms tailored for resource-constrained ICT offices.
+There is a clear and urgent need to innovate, as current manual and semi-digital approaches are unable to meet the
+demands of increasingly complex university operations, thereby limiting institutional capacity for service delivery,
+stakeholder satisfaction, and digital maturity (PIDS, 2020; World Bank, 2024). This research aims to provide a scalable
+model and system that can be adapted and adopted by other SUCs, advancing both national digital transformation
+goals and local institutional excellence in ICT service management.
+
+Research Objectives / Problem Statements
+The general objective of the study is to design and develop an intelligent service request monitoring and analysis
+platform that streamlines and enhances the effectiveness, transparency, and responsiveness of ICT service delivery
+and management thereby addressing existing challenges in service tracking, workload assignment, and real-time
+analytics within resource-constrained academic environments.
+Specifically, it also aimed to:
+1. design and develop Energy Building Management System with following technical features:
+a. AI-Powered Self-Service Portal,
+b. Automated Ticket Routing and Categorization,
+c. Real-Time Tracking and Status Updates,
+STATUS
+
+Format of an Institutional Research/Innovation/Invention
+Proposal
+
+2.
+3.
+
+4.
+
+Document Code: F.01-RDS-CHMSU
+Revision No.: 0
+Effective Date: October 31, 2024
+Page: 2 of 7
+
+d. Integrated Reporting and Analytics,
+e. SLA Enforcement and Performance Tracking,
+f. Comprehensive Ticket Lifecycle Management;
+test the functionality of the aforementioned technical features;
+evaluate the system usability in terms of:
+a. System Usefulness,
+b. Information Quality,
+c. and Interface Quality; and,
+d. Overall System Usability
+develop the system’s user-manual.
+
+Framework
+The study follows the IPOO (Input-Process-Output-Outcomes) framework shown in Figure 1. The framework provides
+a comprehensive conceptual structure for the proposed research, linking resources, activities, deliverables, and
+expected impacts in a logical progression. This framework serves as a guide to ensure systematic planning, execution,
+and evaluation of the innovation (ManagementConsulted, 2024).
+Figure 1
+Framework of the Study.
+
+INPUT
+• Existing ICT service
+request data and logs
+• ICT department
+personnel and
+stakeholders
+• Hardware and
+software resources
+• Institutional ICT
+policies and workflow
+documentation
+• User feedback and
+requirements from SUC
+ICT staff and end-users
+
+PROCESS
+• Existing ICT service
+request data and logs
+• ICT department
+personnel and
+stakeholders
+• Hardware and
+software resources
+• Institutional ICT
+policies and workflow
+documentation
+• User feedback and
+requirements from SUC
+ICT staff and end-users
+
+OUTPUT
+• Intelligent Service
+Request Monitoring
+and Analysis Platform
+• System Manual and
+documentation
+
+OUTCOMES
+• Improved efficiency
+and transparency of
+ICT service
+management in SUCs
+• Reduced service
+request turnaround
+time
+• Data-driven decisionmaking for ICT
+resource allocation
+
+In the Input phase, essential elements such as existing ICT service request records, personnel insights, infrastructure
+details, and institutional policies will be collected and analyzed. These inputs form the critical baseline data and
+parameters that inform the platform’s design and development, ensuring that it addresses real-world needs and
+conditions specific to Philippine SUCs.
+The Process encompasses the core activities including needs assessment, system design, development of intelligent
+modules, testing, and stakeholder training. This transformation phase converts inputs into functional system
+components and validated workflows that are tailored to improve service request management in resource-constrained
+university settings. It represents the methodological heart of the research where planned interventions are executed.
+Output refers to the immediate tangible products of the research such as the fully functional intelligent service request
+monitoring and analysis platform, system and user manuals and other documentation. These outputs are the concrete
+deliverables expected to emerge from the process and are essential to realizing the research objectives and serving
+as tools for ICT departments.
+Finally, Outcomes include the broader institutional and operational benefits anticipated from adopting the outputs.
+These outcomes involve enhanced ICT service efficiency, improved transparency and accountability, and data-driven
+governance. The outcomes signify the effective contribution of the research to institutional goals and wider digital
+transformation agendas in higher education.
+
+Scope and Limitations
+The study focuses on the design and development of an intelligent service request monitoring and analysis
+platform specifically for ICT departments of Philippine State Universities and Colleges (SUCs). The
+system’s main scope covers the automation of request logging, intelligent workload assignment, real-time
+analytics, and user notification processes within the context of SUC ICT operations. It is designed for
+STATUS
+
+Format of an Institutional Research/Innovation/Invention
+Proposal
+
+Document Code: F.01-RDS-CHMSU
+Revision No.: 0
+Effective Date: October 31, 2024
+Page: 3 of 7
+
+integration with existing ICT service management practices and will primarily involve staff and stakeholders
+from selected SUC campuses during pilot implementation and validation phases. The coverage includes
+collation of service request data, analysis of patterns, and provision of performance dashboards for ICT
+managers and administrators.
+The study is limited to the ICT service support and management functions and does not cover full
+enterprise resource planning (ERP) or other university-wide transactions outside the ICT department.
+Implementation will be constrained by the quality and completeness of existing service request data, as
+well as user adoption and technological readiness in individual SUCs. The platform’s evaluation will be
+restricted to short- to medium-term impacts on efficiency, transparency, and stakeholder satisfaction;
+external factors such as institutional funding, internet infrastructure, and policy changes are outside the
+direct scope of the system’s design and assessment. Furthermore, the generalizability of outcomes may
+be limited due to institutional differences in ICT maturity and management capacity across Philippine SUCs.
+
+MATERIALS AND METHODS (Design, procedures, instruments, participants/subjects, etc..)
+RESEARCH DESIGN
+This study will employ a combination of developmental and descriptive research designs to achieve its
+objectives. The developmental research design will guide the systematic process of creating the Intelligent
+Service Request Monitoring and Analysis Platform, ensuring that each step of analysis, design, system
+prototyping, and iterative refinement aligns with best software engineering and educational technology
+standards (Scribbr, 2023). The development phase will include requirement gathering from ICT stakeholders,
+system architecture design, module coding, pilot testing, and incremental improvement based on feedback
+from pilot adopters in selected SUCs.
+The study will utilize the Iterative Development Model depicted in Figure 2. This system development is a
+cyclic and evolutionary approach to system development, emphasizing continuous refinement through
+repeated cycles of planning, implementation, evaluation, and verification (Atkinson & Hummel, 2012; Ali,
+2020).
+Figure 2.
+Iterative Development Model
+
+Initialization
+The process begins with initialization, where project goals, scope, and key stakeholders are identified.
+Planning
+During this stage, detailed project planning occurs, including defining tasks, schedules, resources, and risk
+mitigation strategies. Planning ensures that each iteration aligns with project objectives and user needs.
+Requirements
+The requirements phase involves gathering and analyzing system needs from ICT department stakeholders.
+This step establishes what features and capabilities the platform must achieve, such as intelligent ticket
+handling, real-time analytics, and integration with existing systems.
+Design
+Based on requirements, system architecture and user interfaces are designed. Emphasis is placed on
+modularity and scalability to accommodate evolving ICT service needs.
+Implementation
+Development and coding of system modules occur during this phase. Functional components such as
+automated ticketing, dashboard creation, and workflow algorithms are incrementally produced and integrated.
+Verification
+
+STATUS
+
+Format of an Institutional Research/Innovation/Invention
+Proposal
+
+Document Code: F.01-RDS-CHMSU
+Revision No.: 0
+Effective Date: October 31, 2024
+Page: 4 of 7
+
+Verification involves rigorous testing of developed modules against requirements. This includes unit and
+integration tests, as well as user acceptance testing, to ensure each feature performs as intended.
+Evaluation
+Feedback from stakeholders and end users is gathered through reviews and pilot testing. Insights from this
+evaluation are fed back into the planning stage, promoting ongoing system improvement.
+Deployment
+Once verified and evaluated, the platform is deployed within the ICT department’s operational environment.
+The model allows for further iterations even after deployment, ensuring the platform remains responsive to
+emerging needs and challenges.
+This approach is particularly well-suited for complex ICT systems in academic institutions, as it encourages
+stakeholder collaboration, allows for incremental delivery of features, and supports rapid adaptation to
+feedback and changing requirements. By using the Iterative Development Model, the platform can evolve
+alongside institutional needs, achieving higher reliability, user satisfaction, and operational effectiveness.
+
+PLAN OF IMPLEMENTATION (in Gantt Chart form)
+Figure 3 below is a one-year Gantt chart for the research project, structured according to the iterative
+development model. It shows two full development cycles of each major phase—with overlap and feedback—
+reflecting continuous improvement and refinement leading to deployment and final reporting.
+Figure 3
+Implementation Plan of the Study
+
+EXPECTED OUTPUT
+The primary output is a fully functioning, intelligent service request monitoring and analysis platform that brings
+together automation, analytics, and user-friendly interfaces for managing ICT support cases. The system will
+feature modules for automated ticket creation and intelligent workload assignment, leveraging AI to categorize,
+prioritize, and route requests based on urgency and context. A real-time analytics dashboard will enable ICT
+managers to visualize service request trends, turnaround times, common issue categories, and compliance
+with institutional service-level agreements.
+Additional deliverables include a user manuals and other technical documentation—to support onboarding
+and continuous learning for ICT staff and users. The platform will be designed for compatibility with existing
+infrastructure, and it will offer integration options for inventory management and user feedback mechanisms.
+
+STATUS
+
+Format of an Institutional Research/Innovation/Invention
+Proposal
+
+Document Code: F.01-RDS-CHMSU
+Revision No.: 0
+Effective Date: October 31, 2024
+Page: 5 of 7
+
+DETAILED BUDGET
+Budgetary requirements needed to develop and implement the Intelligent Service Request Monitoring and
+Analysis Platform for ICT Department is detailed in Table 1. This amounts to approximately P175,000.00.
+Table 1
+Budgetary Requirements
+PARTICULARS
+(Itemized and costed)
+
+FUND SOURCES / AMOUNT
+CHMSU
+OTHER AGENCY
+
+GRAND TOTAL
+
+•
+
+Personal Services
+Honorarium & Allowances
+
+Php 50,000.00
+Php 50,000.00
+
+Php 0.00
+Php 0.00
+
+Php 50,000.00
+Php 50,000.00
+
+•
+
+MOOE
+Software
+Traveling Expenses
+Meals & Accommodation
+
+Php 35,000.00
+Php 30,000.00
+Php 2,500.00
+Php 2,500.00
+
+Php 0.00
+Php 0.00
+Php 0.00
+Php 0.00
+
+Php 35,000.00
+Php 30,000.00
+Php 2,500.00
+Php 2,500.00
+
+•
+
+Capital Outlay
+Laptop
+
+Php 70,000.00
+Php 70,000.00
+
+Php 0.00
+Php 0.00
+
+Php 70,000.00
+Php 70,000.00
+
+Php 175,000.00
+
+Php 0.00
+
+Php 175,000.00
+
+Total
+
+Cooperating Universities/Funding Agencies (If, collaborative Research)
+•
+
+N/A
+
+Attachment (s):
+
+STATUS
+
+Format of an Institutional Research/Innovation/Invention
+Proposal
+
+Document Code: F.01-RDS-CHMSU
+Revision No.: 0
+Effective Date: October 31, 2024
+Page: 6 of 7
+
+References:
+A survey on intelligent management of alerts and incidents in IT services.
+(2024). https://netman.aiops.org/wp-content/uploads/2024/08/A-survey-on-intelligentmanagement-of-alerts-and-incidents-in-IT-services.pdf
+Ali, Y. M. (2020). Iterative and Incremental Development Analysis Study of Vocational Career
+Information Systems.
+SSRN. https://papers.ssrn.com/sol3/Delivery.cfm/SSRN_ID3715318_code3121899.pdf?abstracti
+d=3715318&mirid=1
+Application and Research of the Intelligent Management ... (2021). Wiley Online
+Library. https://onlinelibrary.wiley.com/doi/10.1155/2021/6515792
+Atkinson, C., & Hummel, O. (2012). Iterative and incremental development of component-based
+software architectures. ACM. https://dl.acm.org/doi/10.1145/2304736.2304750
+Espinosa, A. A., Gomez, M. A. C., Miranda, P. A., David, A. P., Abulon, E. L. R., Hermosisima, M. V. C.,
+Quinosa Jr., E. A., Soliman, A. A., De Vera, J. L., Claros, I. H. A., & Cruz, H. G. M. (2023).
+Technology in education: A case study on the Philippines. UNESCO.
+https://unesdoc.unesco.org/ark:/48223/pf0000387743
+Intelligent Network Applications Monitoring and Diagnosis ... (2021, July 24).
+PMC. https://pmc.ncbi.nlm.nih.gov/articles/PMC8348484/
+Lagas, S., & Isip, J. D. (2023). Challenges to digital services in Philippine academic libraries. Philippine
+Journal of Librarianship and Information Studies, 43(1), 27–38.
+http://phjlis.org/index.php/phjlis/article/view/133
+ManagementConsulted. (2024). Input Output Process Model. https://managementconsulted.com/inputoutput-process-model/
+Ombudsman/United Nations Development Programme (UNDP). (2013). Report on the Rapid Assessment
+of ICT Utilization for Enhanced Public Service Delivery.
+https://www.ombudsman.gov.ph/UNDP4/wp-content/uploads/2013/02/ICT-UtilizationStudy.pdf
+Philippine Institute for Development Studies (PIDS). (2020). Educational challenges in the Philippines.
+https://pids.gov.ph/details/news/in-the-news/educational-challenges-in-the-philippines
+QuestionPro. (2025, May 22). Descriptive Research: Characteristics, Methods +
+Examples. https://www.questionpro.com/blog/descriptive-research/
+Research and Practice on the Intelligence of Customer ... (2024). ACM Digital
+Library. https://dl.acm.org/doi/full/10.1145/3703187.3703213
+ScienceDirect. (2023). Iterative Development - an overview | ScienceDirect
+Topics. https://www.sciencedirect.com/topics/computer-science/iterative-development
+Scribbr. (2023, June 21). Descriptive Research | Definition, Types, Methods &
+Examples. https://www.scribbr.com/methodology/descriptive-research/
+
+STATUS
+
+Format of an Institutional Research/Innovation/Invention
+Proposal
+
+Document Code: F.01-RDS-CHMSU
+Revision No.: 0
+Effective Date: October 31, 2024
+Page: 7 of 7
+
+Studocu. (2023). ICT Facilities and Skills: Challenges Faced by Higher Education.
+https://www.studocu.com/ph/document/san-nicolas-integrated-school/bachelor-of-science-ininformation-technology-technology/the-ict-facilities-skills-usage-and-the-problems-faced-bythe-students-of-higher-education-4921/91009283
+World Bank. (2024). Digital transformation of Philippine higher education.
+https://documents1.worldbank.org/curated/en/099925001062333685/pdf/P17757402843a10c
+90b3e30308406a38304.pdf
+
+STATUS
+
+
