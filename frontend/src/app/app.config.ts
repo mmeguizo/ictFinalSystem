@@ -1,7 +1,7 @@
 import { ApplicationConfig, inject, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
-
 import { routes } from './app.routes';
+
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { icons } from './icons-provider';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
@@ -13,6 +13,8 @@ import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
 import { InMemoryCache } from '@apollo/client/core';
+import { provideAuth0 } from '@auth0/auth0-angular';
+import { NzMessageService } from 'ng-zorro-antd/message';
 
 registerLocaleData(en);
 
@@ -33,6 +35,21 @@ export const appConfig: ApplicationConfig = {
         link: httpLink.create({ uri: apiUrl }),
         cache: new InMemoryCache(),
       };
+    }),
+    provideAuth0({
+      domain: 'dev-r7i2pqcybdndjxwt.us.auth0.com',
+      clientId: 'WkpoCJqPf7qphHyBAvNF3PWPuVIb8xfl',
+      authorizationParams: {
+        redirect_uri: typeof window !== 'undefined' ? window.location.origin : '',
+        audience: 'https://ictsystem.api',
+        scope: 'openid profile email offline_access',
+      },
+      useRefreshTokens: true,
+      cacheLocation: 'localstorage',
+      // Handle errors during callback
+      errorPath: '/login', // Redirect to login on error
+       // Skip redirect callback if there's an error
+      skipRedirectCallback: false,
     }),
   ]
 };

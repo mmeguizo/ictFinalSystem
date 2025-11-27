@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:ictsystem": "node dist/ictsystem/server/server.mjs"
+    "serve:ssr:ictsystem": "node dist/ictsystem/server/server.mjs",
+     "starter": "node --max_old_space_size=4048 ./node_modules/@angular/cli/bin/ng serve"
   },
   "prettier": {
     "printWidth": 100,

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Injector, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, inject, signal, OnInit } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormControl, FormGroup, AbstractControl, ValidationErrors } from '@angular/forms';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -11,10 +11,11 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzTypographyModule } from 'ng-zorro-antd/typography';
 import { NgOptimizedImage } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '@auth0/auth0-angular';
 import { AuthApiService } from '../api/auth-api.service';
 import { firstValueFrom } from 'rxjs';
+import { NzMessageService } from 'ng-zorro-antd/message';
 
 type LoginForm = FormGroup<{
   email: FormControl<string>;
@@ -33,11 +34,18 @@ export class LoginPage {
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly authApi = inject(AuthApiService);
-
+  private readonly route = inject(ActivatedRoute);
+  private readonly message = inject(NzMessageService);
   readonly form: LoginForm = this.fb.group({
     email: this.fb.control('', { validators: [Validators.required, Validators.email] }),
     password: this.fb.control('', { validators: [Validators.required, Validators.minLength(6)] }),
   });
+
+   ngOnInit(): void {
+    // Check for Auth0 errors in URL on page load
+    this.checkAuth0Errors();
+  }
+
 
   readonly busy = signal(false);
   readonly ssoBusy = signal(false);
@@ -84,11 +92,11 @@ export class LoginPage {
         console.log('✓ Local login successful:', user.email);
         this.loggedIn.set(true);
         this.busy.set(false);
-        
+
         // Navigate after a brief delay to ensure state updates
         setTimeout(() => {
-          console.log('Navigating to /welcome...');
-          this.router.navigateByUrl('/welcome').then(
+          console.log('Navigating to /dashboard...');
+          this.router.navigateByUrl('/dashboard').then(
             (success) => console.log('Navigation success:', success),
             (error) => console.error('Navigation error:', error)
           );
@@ -103,10 +111,40 @@ export class LoginPage {
     }
   }
 
+    private checkAuth0Errors(): void {
+    const error = this.route.snapshot.queryParams['error'];
+    const errorDescription = this.route.snapshot.queryParams['error_description'];
+
+    if (error) {
+      // Display error as toast
+      const displayMessage = errorDescription ||
+        'Authentication failed. Please try again.';
+
+      this.message.error(displayMessage, { nzDuration: 5000 });
+
+      // Also set in the error signal for display in template
+      this.error.set(displayMessage);
+
+      console.error('Auth0 error:', {
+        error,
+        description: errorDescription,
+      });
+
+      // Clear error params from URL
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {},
+        replaceUrl: true,
+      });
+    }
+  }
+
+
   // Start Auth0 login redirect flow
   loginWithAuth0(): void {
     // Resolve AuthService only in the browser to avoid SSR DI/initialization
     if (typeof window === 'undefined') return;
+    this.error.set(null); // Clear any existing errors
     this.ssoBusy.set(true);
     const auth = this.injector.get(AuthService, null);
     auth?.loginWithRedirect();

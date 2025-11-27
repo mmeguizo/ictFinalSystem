@@ -39,6 +39,35 @@ If any terminal command needs to be run (installs, builds, restarts, etc.), desc
 - Keep state transformations pure and predictable
 - Do NOT use `mutate` on signals, use `update` or `set` instead
 
+### When To Move From Signals To NgRx/NGXS
+
+- **Growing global state surface:** multiple unrelated features need to read/write the same data (user, perms, settings, caches).
+- **Complex async flows / side effects:** you have many coordinated server calls, retries, debouncing, or long-running background processes that are hard to test or reason about as local effects.
+- **Optimistic updates & conflict resolution:** UI needs optimistic updates with rollback or complex merge/conflict handling across clients.
+- **Performance with many components:** many components subscribe to the same changing state and you need fine-grained memoization, selectors, or normalized entities to avoid re-renders.
+- **Team scale & consistency:** multiple engineers need a predictable pattern for actions, reducers/effects, and time-travel debugging (DevTools) helps onboard and debug.
+
+### Migration Checklist (incremental)
+
+1. **Evaluate and plan:** identify 2–3 core state domains to migrate first (for example: `auth`, `entities/tickets`, `ui/preferences`). Keep scope small.
+2. **Define contracts:** for each domain, design the public shape (state interface), the actions that will be dispatched, and the selectors consumers will use.
+3. **Introduce store module:** add a lightweight NgRx/NGXS store module and wire DevTools in development only. Keep it feature-lazy where possible.
+4. **Create adapters & selectors:** for entity-like data use NgRx Entity adapters, create selectors for derived data to replace `computed()` in many places.
+5. **Move side-effects:** implement `Effects` (NgRx) or `Actions/Services` (NGXS) for async flows. Keep HTTP services (API clients) as single-responsibility services and call them from effects.
+6. **Facade layer:** create a small facade service per domain that exposes observables/selectors and dispatch methods — this keeps components free of store details and eases testing.
+7. **Incremental switch:** update a few small components to read from the facade/selectors instead of signals; keep component-local signals for ephemeral UI-only state.
+8. **Tests & contracts:** add unit tests for reducers, effects, and facades. Add integration smoke tests for major flows.
+9. **Performance verification:** measure bundle size and runtime perf; lazy-load large slices and ensure selectors are memoized and return stable references.
+10. **Deprecate signals slowly:** once a domain is fully migrated, remove duplicated signals for that domain and update docs.
+
+### Practical Tips
+
+- Keep using signals for purely local UI state (form inputs, open/closed toggles, ephemeral previews). Use the store for authoritative, shared application state.
+- Use typed actions and feature-scoped state to limit cognitive load.
+- Prefer a facade layer — it decouples components from store implementation details and makes future migrations easier.
+- Start small: migrating a single feature end-to-end is more valuable than a big-bang rewrite.
+
+
 ## Templates
 
 - Keep templates simple and avoid complex logic

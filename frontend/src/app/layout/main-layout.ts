@@ -12,6 +12,7 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzLayoutModule } from 'ng-zorro-antd/layout';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
@@ -57,7 +58,13 @@ export class MainLayout {
   avatarUrl = signal<string | null>(null);
   isUploadingAvatar = signal(false);
   avatarPreview = signal<string | null>(null); // unsaved data URL preview
+  // Add email signal for display
+  userEmail = signal<string | null>(null);
   private pendingAvatarDataUrl: string | null = null;
+  // Track if profile has changes (for disabling save button)
+  readonly hasProfileChanges = computed(() => {
+    return this.profileForm.dirty || this.pendingAvatarDataUrl !== null;
+  });
   readonly inspectMode = false; // toggle to skip GraphQL calls while inspecting payloads
   private readonly defaultAvatar = 'assets/no-photo.png';
   readonly avatarSrc = computed(() => {
@@ -87,6 +94,12 @@ export class MainLayout {
           const tokenAvatar =
             profile && typeof profile.picture === 'string' ? profile.picture.trim() : '';
           // console.log('Auth user$ emitted profile', { profile });
+
+          const email = profile?.email ?? null;
+          if(email) {
+            this.userEmail.set(email);
+          }
+
           if (tokenAvatar) {
             // console.log('Using token picture as avatar (fast fallback)', tokenAvatar);
             this.avatarUrl.set(tokenAvatar);
@@ -120,6 +133,8 @@ export class MainLayout {
         console.log('✓ Data URL created! Length:', dataUrl?.length, 'Preview:', dataUrl?.substring(0, 50));
         this.pendingAvatarDataUrl = dataUrl;
         this.avatarPreview.set(dataUrl);
+        // Mark form as dirty since avatar changed
+        this.profileForm.markAsDirty();
         this.cdr.markForCheck();
         console.log('✓ Preview signal set:', !!this.avatarPreview());
         // console.log('✓ avatarSrc will now return:', this.avatarSrc());
@@ -143,6 +158,8 @@ export class MainLayout {
     this.pendingAvatarDataUrl = null;
     // load current user to populate fields
     this.loadCurrentUser().catch(() => {});
+    // Mark form as pristine after loading data
+    setTimeout(() => this.profileForm.markAsPristine(), 100);
   }
 
   closeProfile(): void {
@@ -159,6 +176,16 @@ export class MainLayout {
   }
 
   async saveProfile(): Promise<void> {
+    // Check if form has any changes or if avatar was uploaded
+    const hasFormChanges = this.profileForm.dirty;
+    const hasAvatarChange = this.pendingAvatarDataUrl !== null;
+
+    if (!hasFormChanges && !hasAvatarChange) {
+      this.message.info('No changes to save');
+      this.isProfileOpen.set(false);
+      return;
+    }
+
     const { password, confirm, displayName } = this.profileForm.value as {
       displayName?: string;
       password?: string;
@@ -269,9 +296,22 @@ export class MainLayout {
 
     // Try local token first
     const localToken = localStorage.getItem('auth_token');
+
     if (localToken) {
       token = localToken;
       console.log('Using local auth token');
+
+
+      // Decode token to get email for display
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if(payload.email){
+          this.userEmail.set(payload.email);
+        }
+      } catch (error) {
+       console.warn('Failed to decode JWT token', error);
+      }
+
     } else {
       // Fall back to Auth0 token
       const auth = this.injector.get(AuthService, null as any) as AuthService | null;
@@ -287,6 +327,11 @@ export class MainLayout {
       const resp: any = await firstValueFrom(this.api.getMe(token));
       const me = resp?.data?.me;
       if (me) {
+
+        if(me.email){
+          this.userEmail.set(me.email);
+        }
+
         this.profileForm.patchValue({ displayName: me.name ?? '' });
         const serverAvatar = normalizeAvatar(me.avatarUrl) ?? normalizeAvatar(me.picture);
         if (serverAvatar) {

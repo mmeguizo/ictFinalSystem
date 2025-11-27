@@ -21,7 +21,7 @@ export const redirectIfAuthenticated: CanMatchFn = () => {
   // Check local token first
   if (hasLocalToken()) {
     const router = inject(Router);
-    return router.createUrlTree(['/welcome']);
+    return router.createUrlTree(['/dashboard']);
   }
 
   const injector = inject(Injector);
@@ -33,7 +33,7 @@ export const redirectIfAuthenticated: CanMatchFn = () => {
     take(1),
     switchMap(() => auth.isAuthenticated$),
     take(1),
-    map((isAuth) => (isAuth ? router.createUrlTree(['/welcome']) : true))
+    map((isAuth) => (isAuth ? router.createUrlTree(['/dashboard']) : true))
   );
 };
 

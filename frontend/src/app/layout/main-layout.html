@@ -8,62 +8,64 @@
     [nzTrigger]="null"
   >
     <div class="sidebar-logo">
-      <a href="https://ng.ant.design/" target="_blank">
-        <img src="/assets/chmsu-logo.png" alt="CHMSU logo" />
-        <h1>ICT Ticket</h1>
-      </a>
+      <img src="assets/chmsu-logo.png" alt="CHMSU Logo" width="40" height="40" />
+      @if (!isCollapsed) {
+        <h1>ICT TICKET</h1>
+      }
     </div>
     <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="isCollapsed">
-      <li nz-submenu nzOpen nzTitle="Dashboard" nzIcon="dashboard">
-        <ul>
-          <li nz-menu-item nzMatchRouter>
-            <a routerLink="/welcome">Welcome</a>
-          </li>
-          <li nz-menu-item nzMatchRouter>
-            <a>Monitor</a>
-          </li>
-          <li nz-menu-item nzMatchRouter>
-            <a>Workplace</a>
-          </li>
-        </ul>
+      <li nz-menu-item nzMatchRouter>
+        <a routerLink="/dashboard">
+          <i nz-icon nzType="dashboard" nzTheme="outline"></i>
+          <span>Dashboard</span>
+        </a>
       </li>
-      <li nz-submenu nzOpen nzTitle="Form" nzIcon="form">
-        <ul>
-          <li nz-menu-item nzMatchRouter>
-            <a>Basic Form</a>
-          </li>
-        </ul>
+      <li nz-menu-item nzMatchRouter>
+        <a routerLink="/welcome">
+          <i nz-icon nzType="home" nzTheme="outline"></i>
+          <span>Welcome</span>
+        </a>
       </li>
     </ul>
   </nz-sider>
   <nz-layout>
     <nz-header>
       <div class="app-header">
-        <span class="header-trigger" (click)="isCollapsed = !isCollapsed">
-          <nz-icon class="trigger" [nzType]="isCollapsed ? 'menu-unfold' : 'menu-fold'" />
-        </span>
+        <i
+          class="header-trigger"
+          nz-icon
+          [nzType]="isCollapsed ? 'menu-unfold' : 'menu-fold'"
+          (click)="isCollapsed = !isCollapsed"
+        ></i>
         <div class="header-right">
-          <button nz-button nzType="text" nz-dropdown [nzDropdownMenu]="userMenu" nzPlacement="bottomRight">
-            <img
-              [src]="avatarSrc()"
-              (error)="handleAvatarError()"
-              alt="User avatar"
-              class="header-avatar"
-              width="40"
-              height="40"
-            />
-            <!-- <nz-icon nzType="down" style="margin-left: 4px; font-size: 12px;"></nz-icon> -->
-          </button>
+          <div
+            nz-dropdown
+            [nzDropdownMenu]="userMenu"
+            nzTrigger="click"
+            nzPlacement="bottomRight"
+          >
+            <a>
+              <img
+                [src]="avatarSrc()"
+                (error)="handleAvatarError()"
+                alt="User avatar"
+                class="user-avatar"
+                width="32"
+                height="32"
+              />
+            </a>
+          </div>
+
           <nz-dropdown-menu #userMenu="nzDropdownMenu">
             <ul nz-menu>
               <li nz-menu-item (click)="openProfile()">
-                <nz-icon nzType="user"></nz-icon>
-                <span> Profile</span>
+                <i nz-icon nzType="user" nzTheme="outline"></i>
+                <span>Profile</span>
               </li>
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="logout()">
-                <nz-icon nzType="logout"></nz-icon>
-                <span> Logout</span>
+                <i nz-icon nzType="logout" nzTheme="outline"></i>
+                <span>Logout</span>
               </li>
             </ul>
           </nz-dropdown-menu>
@@ -72,9 +74,23 @@
     </nz-header>
     <nz-content>
       <div class="inner-content">
-        <router-outlet></router-outlet>
+        <router-outlet />
       </div>
     </nz-content>
+    <nz-footer class="app-footer">
+      <div class="footer-content" role="contentinfo" aria-label="Footer">
+        Crafted by:
+        <a
+          href="https://github.com/mmeguizo"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="footer-link"
+          aria-label="Visit mmeguizo's GitHub profile"
+        >
+          meguizo
+        </a>
+      </div>
+    </nz-footer>
   </nz-layout>
 </nz-layout>
 
@@ -83,11 +99,26 @@
   [nzVisible]="isProfileOpen()"
   (nzVisibleChange)="isProfileOpen.set($event)"
   nzTitle="Profile"
+  [nzOkDisabled]="!hasProfileChanges()"
   (nzOnCancel)="closeProfile()"
   (nzOnOk)="saveProfile()"
 >
   <ng-container *nzModalContent>
     <form [formGroup]="profileForm" nz-form nzLayout="vertical">
+
+       <!-- Email (read-only display) -->
+      <nz-form-item>
+        <nz-form-label>Email</nz-form-label>
+        <nz-form-control>
+          <input
+            nz-input
+            [value]="userEmail() || 'Loading...'"
+            readonly
+            disabled
+            class="email-readonly"
+          />
+        </nz-form-control>
+      </nz-form-item>
       <nz-form-item>
         <nz-form-label>Avatar</nz-form-label>
         <nz-form-control>
