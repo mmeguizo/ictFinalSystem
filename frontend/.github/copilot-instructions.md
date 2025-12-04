@@ -42,27 +42,35 @@ If any terminal command needs to be run (installs, builds, restarts, etc.), desc
 ### When To Move From Signals To NgRx/NGXS
 
 - **Growing global state surface:** multiple unrelated features need to read/write the same data (user, perms, settings, caches).
-- **Complex async flows / side effects:** you have many coordinated server calls, retries, debouncing, or long-running background processes that are hard to test or reason about as local effects.
+- **Complex async flows / side effects:** many coordinated server calls, retries, debouncing, or long-running background processes that are hard to test or reason about as local effects.
 - **Optimistic updates & conflict resolution:** UI needs optimistic updates with rollback or complex merge/conflict handling across clients.
-- **Performance with many components:** many components subscribe to the same changing state and you need fine-grained memoization, selectors, or normalized entities to avoid re-renders.
-- **Team scale & consistency:** multiple engineers need a predictable pattern for actions, reducers/effects, and time-travel debugging (DevTools) helps onboard and debug.
+- **Performance with many components:** many components subscribe to the same changing state; you need fine-grained memoization, selectors, or normalized entities to avoid re-renders.
+- **Team scale & consistency:** multiple engineers need a predictable pattern for actions, reducers/effects, and DevTools time-travel helps onboard and debug.
 
-### Migration Checklist (incremental)
+### Migration Checklist (Incremental)
 
-1. **Evaluate and plan:** identify 2–3 core state domains to migrate first (for example: `auth`, `entities/tickets`, `ui/preferences`). Keep scope small.
-2. **Define contracts:** for each domain, design the public shape (state interface), the actions that will be dispatched, and the selectors consumers will use.
-3. **Introduce store module:** add a lightweight NgRx/NGXS store module and wire DevTools in development only. Keep it feature-lazy where possible.
-4. **Create adapters & selectors:** for entity-like data use NgRx Entity adapters, create selectors for derived data to replace `computed()` in many places.
-5. **Move side-effects:** implement `Effects` (NgRx) or `Actions/Services` (NGXS) for async flows. Keep HTTP services (API clients) as single-responsibility services and call them from effects.
-6. **Facade layer:** create a small facade service per domain that exposes observables/selectors and dispatch methods — this keeps components free of store details and eases testing.
-7. **Incremental switch:** update a few small components to read from the facade/selectors instead of signals; keep component-local signals for ephemeral UI-only state.
-8. **Tests & contracts:** add unit tests for reducers, effects, and facades. Add integration smoke tests for major flows.
-9. **Performance verification:** measure bundle size and runtime perf; lazy-load large slices and ensure selectors are memoized and return stable references.
-10. **Deprecate signals slowly:** once a domain is fully migrated, remove duplicated signals for that domain and update docs.
+1. **Evaluate and plan:** identify 2–3 core domains to migrate first (e.g., `auth`, `entities/tickets`, `ui/preferences`). Keep scope small.
+2. **Define contracts:** design the state interfaces, actions, and selectors for each domain. Treat selectors as the public API.
+3. **Introduce store module:** add NgRx/NGXS and DevTools in development only. Prefer feature-lazy registration.
+4. **Create adapters & selectors:** use NgRx Entity for collections; implement memoized selectors for derived data to replace `computed()` where shared.
+5. **Move side-effects:** implement `Effects` (NgRx) or `Actions/Services` (NGXS) for async flows. Keep API clients as single-responsibility services and call them from effects.
+6. **Facade layer:** add a small facade per domain exposing observables/selectors and dispatch methods; keeps components free of store details and easier to test.
+7. **Incremental switch:** update a few small components to consume facades/selectors; keep component-local signals for ephemeral UI-only state.
+8. **Tests & contracts:** add unit tests for reducers, effects, and facades; include integration smoke tests for major flows.
+9. **Performance verification:** measure bundle size and runtime perf; lazy-load large slices; ensure selectors return stable references.
+10. **Deprecate signals slowly:** once a domain is migrated, remove duplicated signals and update docs.
+
+### Recommended Patterns
+
+- **Facade services:** per-domain facades expose `observables/selectors` and `dispatch` methods; components avoid direct store usage.
+- **Feature stores:** organize state by feature; keep reducers/effects close to their features and lazy-load in routes.
+- **Selectors as API:** treat selectors as the only way components read state; memoize and keep return shapes stable.
+- **Effect hygiene:** isolate side effects in effects; keep them small, testable, and handle retries/cancellation explicitly.
+- **SSR considerations:** guard browser-only APIs in effects/services; avoid direct `window`/`document`; schedule browser-only work post-hydration.
 
 ### Practical Tips
 
-- Keep using signals for purely local UI state (form inputs, open/closed toggles, ephemeral previews). Use the store for authoritative, shared application state.
+- Keep signals for purely local UI state (form inputs, open/closed toggles, ephemeral previews). Use the store for authoritative, shared application state.
 - Use typed actions and feature-scoped state to limit cognitive load.
 - Prefer a facade layer — it decouples components from store implementation details and makes future migrations easier.
 - Start small: migrating a single feature end-to-end is more valuable than a big-bang rewrite.
@@ -158,5 +166,7 @@ If anything above is unclear or you spot a pattern that differs from these notes
 
 You have a freedom to adjust your answers to best fit what is best practice for fixing the issue described in the user question. 
 just make sure the code is easy to read and maintain. i dont want clever or complex code.
+
+- When suggesting code changes: always specify the exact file path, the specific function/section name, and where in that section to add/replace code (e.g., "Add this after line X" or "Replace the existing Y function"). Do not show the entire file content unless absolutely necessary. Users often apply changes manually, so clarity on location is critical.
 
 

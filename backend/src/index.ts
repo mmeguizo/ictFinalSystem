@@ -4,18 +4,25 @@ import cors from 'cors';
 import path from 'path';
 import { ApolloServer } from 'apollo-server-express';
 import { makeExecutableSchema } from '@graphql-tools/schema';
-import { resolvers } from './resolvers';
-import { typeDefs } from './schema';
 import { createContext } from './context';
+import { config } from './config';
+import { logger } from './lib/logger';
+import { formatError } from './lib/errors';
+import { baseTypeDefs } from './common/base-schema';
+import { userTypeDefs, userResolvers } from './modules/users';
 
 async function start() {
+  // Combine all type definitions and resolvers
+  const typeDefs = [baseTypeDefs, userTypeDefs];
+  const resolvers = [userResolvers];
+
   const schema = makeExecutableSchema({ typeDefs, resolvers });
   const app = express();
 
   // CORS for frontend dev server
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:4200'],
+      origin: config.cors.origins,
       credentials: true,
     })
   );
@@ -24,19 +31,24 @@ async function start() {
   const uploadsDir = path.resolve(__dirname, '..', 'uploads');
   app.use('/uploads', express.static(uploadsDir));
 
-  const server = new ApolloServer({ schema, context: createContext });
+  const server = new ApolloServer({
+    schema,
+    context: createContext,
+    formatError,
+  });
+
   await server.start();
   server.applyMiddleware({ app, path: '/', bodyParserConfig: { limit: '10mb' } });
 
-  const port = Number(process.env.PORT || 4000);
-  app.listen(port, () => {
-    const base = `http://localhost:${port}`;
-    console.log(`GraphQL server running at ${base}/`);
-    console.log(`Serving uploads from ${base}/uploads`);
+  app.listen(config.port, () => {
+    const base = `${config.publicBaseUrl}`;
+    logger.info(`🚀 GraphQL server running at ${base}/`);
+    logger.info(`📁 Serving uploads from ${base}/uploads`);
+    logger.info(`🌍 Environment: ${config.nodeEnv}`);
   });
 }
 
 start().catch((err) => {
-  console.error(err);
+  logger.error('Failed to start server:', err);
   process.exit(1);
 });

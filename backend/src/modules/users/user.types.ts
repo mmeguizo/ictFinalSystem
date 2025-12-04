@@ -1,6 +1,6 @@
 import { gql } from 'apollo-server-express';
 
-export const typeDefs = gql`
+export const userTypeDefs = gql`
   enum Role {
     ADMIN
     DEVELOPER
@@ -20,12 +20,6 @@ export const typeDefs = gql`
     lastLoginAt: String
   }
 
-  type Query {
-    me: User
-    users: [User!]!
-    user(id: Int!): User
-  }
-
   input CreateUserInput {
     email: String!
     name: String
@@ -35,7 +29,6 @@ export const typeDefs = gql`
 
   input UpdateProfileInput {
     name: String
-    # Data URL like data:image/png;base64,iVBORw0...; if provided we will store an avatar file and set avatarUrl
     avatarDataUrl: String
   }
 
@@ -49,17 +42,19 @@ export const typeDefs = gql`
     user: User!
   }
 
-  type Mutation {
+  extend type Query {
+    me: User
+    users: [User!]!
+    user(id: Int!): User
+  }
+
+  extend type Mutation {
     createUser(input: CreateUserInput!): User!
     upsertMe: UpsertMePayload!
     setUserRole(id: Int!, role: Role!): User!
-    # Admin only: set password for a user by id
     setLocalPassword(id: Int!, password: String!): User!
-    # Current user updates their profile (name/avatar)
     updateMyProfile(input: UpdateProfileInput!): User!
-    # Current user sets their password (hashed server-side)
     setMyPassword(password: String!): User!
-    # Local login: authenticate with email/password, returns JWT token
     login(email: String!, password: String!): LoginPayload!
   }
 `;

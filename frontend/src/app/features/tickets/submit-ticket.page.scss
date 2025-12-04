@@ -1,0 +1,48 @@
+:host {
+  display: block;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-card {
+  margin-bottom: 16px;
+
+  h4 {
+    font-weight: 600;
+    color: #1890ff;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+}
+
+.ticket-form {
+  .ticket-date {
+    margin-bottom: 12px;
+    color: #666;
+  }
+
+  .others {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    span {
+      min-width: 56px;
+      color: #555;
+    }
+  }
+
+  .checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px 16px;
+    margin-bottom: 8px;
+  }
+
+  .actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+  }
+}

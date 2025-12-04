@@ -1,0 +1,24 @@
+# Login mutation for local authentication
+mutation Login($email: String!, $password: String!) {
+  login(email: $email, password: $password) {
+    token
+    user {
+      id
+      email
+      name
+      role
+      avatarUrl
+      picture
+    }
+  }
+}
+
+# Create user mutation (for local accounts)
+mutation CreateUser($email: String!, $password: String!, $name: String) {
+  createUser(email: $email, password: $password, name: $name) {
+    id
+    email
+    name
+    role
+  }
+}

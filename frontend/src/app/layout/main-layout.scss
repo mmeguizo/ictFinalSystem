@@ -8,6 +8,8 @@
 .app-layout {
   height: 100vh;
   min-width: 0; // avoid flex overflow squeezing
+  display: flex;
+  flex-direction: row;
 }
 
 .menu-sidebar {
@@ -15,6 +17,7 @@
   z-index: 10;
   min-height: 100vh;
   box-shadow: 2px 0 6px rgba(0,21,41,.35);
+  flex-shrink: 0;
 }
 
 .header-trigger {
@@ -85,17 +88,22 @@ nz-content {
 nz-layout {
   width: 100%;
   min-width: 0; // allow flex children to shrink without overflow
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
 // nested layout (content area)
 nz-layout > nz-content {
   min-width: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .inner-content {
   padding: 24px;
   background: #fff;
-  height: 100%;
   width: 100%;
   min-width: 0;
 }
@@ -140,6 +148,7 @@ nz-layout > nz-content {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
   background: transparent;
+  flex-shrink: 0;
 
   .footer-content {
     display: inline-flex;
@@ -159,5 +168,9 @@ nz-layout > nz-content {
     text-decoration: none;
     outline: none;
   }
+}
+
+.space-left {
+  margin-left: 8px;
 }
 // ...existing code...

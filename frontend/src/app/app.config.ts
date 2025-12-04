@@ -5,16 +5,37 @@ import { routes } from './app.routes';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { icons } from './icons-provider';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
+import {
+  UserOutline,
+  LogoutOutline,
+  InboxOutline,
+  FileTextOutline,
+  SyncOutline,
+  DashboardOutline,
+  HomeOutline,
+  SettingOutline,
+  MenuFoldOutline,
+  MenuUnfoldOutline,
+  UploadOutline,
+  EyeOutline,
+  EyeInvisibleOutline,
+  BarChartOutline,
+  AlertOutline
+} from '@ant-design/icons-angular/icons';
 import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
 import { registerLocaleData } from '@angular/common';
 import en from '@angular/common/locales/en';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
 import { InMemoryCache } from '@apollo/client/core';
 import { provideAuth0 } from '@auth0/auth0-angular';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { environment } from './core/config/environment';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
+import { loadingInterceptor } from './core/interceptors/loading.interceptor';
 
 registerLocaleData(en);
 
@@ -27,41 +48,46 @@ export const appConfig: ApplicationConfig = {
     provideNzIcons(icons),
     provideNzI18n(en_US),
     provideAnimationsAsync(),
-    provideHttpClient(withFetch()),
+    // HTTP client with interceptors for auth, error handling, and loading
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([authInterceptor, errorInterceptor, loadingInterceptor])
+    ),
+    // Apollo GraphQL client
     provideApollo(() => {
       const httpLink = inject(HttpLink);
-      const apiUrl = resolveApiUrl();
       return {
-        link: httpLink.create({ uri: apiUrl }),
+        link: httpLink.create({ uri: environment.apiUrl }),
         cache: new InMemoryCache(),
       };
     }),
+    // Auth0 authentication
     provideAuth0({
-      domain: 'dev-r7i2pqcybdndjxwt.us.auth0.com',
-      clientId: 'WkpoCJqPf7qphHyBAvNF3PWPuVIb8xfl',
+      domain: environment.auth0.domain,
+      clientId: environment.auth0.clientId,
       authorizationParams: {
         redirect_uri: typeof window !== 'undefined' ? window.location.origin : '',
-        audience: 'https://ictsystem.api',
+        audience: environment.auth0.audience,
         scope: 'openid profile email offline_access',
       },
       useRefreshTokens: true,
       cacheLocation: 'localstorage',
-      // Handle errors during callback
-      errorPath: '/login', // Redirect to login on error
-       // Skip redirect callback if there's an error
+      errorPath: '/login',
       skipRedirectCallback: false,
     }),
+    provideNzIcons([
+      UserOutline,
+      LogoutOutline,
+      InboxOutline,
+      FileTextOutline,
+      SyncOutline,
+      DashboardOutline,
+      HomeOutline,
+      SettingOutline,
+      MenuFoldOutline,
+      MenuUnfoldOutline,
+      UploadOutline,
+      AlertOutline
+    ])
   ]
 };
-
-function resolveApiUrl(): string {
-  const globalApi = (globalThis as any)?.API_URL;
-  if (typeof globalApi === 'string' && globalApi.length > 0) {
-    return globalApi;
-  }
-  const envApi = typeof process !== 'undefined' && process?.env ? process.env['API_URL'] ?? process.env['PUBLIC_BASE_URL'] : undefined;
-  if (envApi) {
-    return envApi;
-  }
-  return 'http://localhost:4000/';
-}

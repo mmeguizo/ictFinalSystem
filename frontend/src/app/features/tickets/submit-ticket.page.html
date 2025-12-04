@@ -1,0 +1,31 @@
+<nz-card [nzTitle]="isMIS() ? 'ICT-MIS Support Ticket' : 'Request for ICT Support Services'">
+  <div class="ticket-form">
+    <!-- Form Type Selector -->
+    <nz-form-item>
+      <nz-form-label>Form Type</nz-form-label>
+      <nz-form-control>
+        <nz-radio-group [formControl]="formTypeControl">
+          <label nz-radio nzValue="MIS">MIS (Software)</label>
+          <label nz-radio nzValue="ITS">ITS (Hardware/Network)</label>
+        </nz-radio-group>
+      </nz-form-control>
+    </nz-form-item>
+
+    <!-- Render MIS or ITS form component -->
+    @if (isMIS()) {
+      <app-mis-form />
+    }
+
+    @if (isITS()) {
+      <app-its-form />
+    }
+
+    <!-- Actions -->
+    <div class="actions">
+      <button nz-button nzType="primary" [disabled]="busy()" (click)="submit()">
+        Submit Ticket
+      </button>
+      <a nz-button nzType="default" routerLink="/dashboard">Cancel</a>
+    </div>
+  </div>
+</nz-card>
