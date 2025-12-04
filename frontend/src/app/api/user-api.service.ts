@@ -68,6 +68,7 @@ const GET_ME_QUERY = gql`
       id
       email
       name
+      role
       avatarUrl
       picture
     }

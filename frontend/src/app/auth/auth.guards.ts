@@ -65,3 +65,22 @@ export const authRequired: CanMatchFn = () => {
     })
   );
 };
+
+export const adminOnly = () => {
+  const router = inject(Router);
+  const stored = localStorage.getItem('current_user');
+  if (!stored) {
+    router.navigateByUrl('/login');
+    return false;
+  }
+  try {
+    const user = JSON.parse(stored);
+    if (String(user.role).toUpperCase() === 'ADMIN') {
+      return true;
+    }
+  } catch {
+    // fall through
+  }
+  router.navigateByUrl('/dashboard');
+  return false;
+};

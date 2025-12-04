@@ -14,13 +14,14 @@
   },
   "dependencies": {
     "@prisma/client": "^5.15.0",
-    "argon2": "^0.40.1",
     "apollo-server-express": "^3.11.1",
+    "argon2": "^0.40.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.19.2",
     "graphql": "^16.7.1",
-    "jose": "^5.2.4"
+    "jose": "^5.2.4",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/node": "^20.19.21",

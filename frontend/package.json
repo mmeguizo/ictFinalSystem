@@ -8,7 +8,9 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:ictsystem": "node dist/ictsystem/server/server.mjs",
-     "starter": "node --max_old_space_size=4048 ./node_modules/@angular/cli/bin/ng serve"
+    "starter": "node --max_old_space_size=4048 ./node_modules/@angular/cli/bin/ng serve",
+    "codegen": "graphql-codegen --config codegen.yml",
+    "codegen:watch": "graphql-codegen --config codegen.yml --watch"
   },
   "prettier": {
     "printWidth": 100,
@@ -46,6 +48,10 @@
     "@angular/build": "^20.3.5",
     "@angular/cli": "^20.3.5",
     "@angular/compiler-cli": "^20.3.0",
+    "@graphql-codegen/cli": "^5.0.0",
+    "@graphql-codegen/typescript": "^4.0.1",
+    "@graphql-codegen/typescript-operations": "^4.0.1",
+    "@graphql-codegen/typescript-apollo-angular": "^4.0.0",
     "@types/express": "^5.0.1",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.17.19",

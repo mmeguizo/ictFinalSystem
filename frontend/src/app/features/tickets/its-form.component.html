@@ -1,0 +1,217 @@
+<!-- 1. BORROW Section -->
+<nz-card nzTitle="BORROW" [nzSize]="'small'" class="section-card">
+  <div [formGroup]="borrowGroup">
+    <nz-form-item>
+      <nz-form-label>Purpose</nz-form-label>
+      <nz-form-control>
+        <input nz-input formControlName="purpose" placeholder="Purpose of borrowing" />
+      </nz-form-control>
+    </nz-form-item>
+
+    <div nz-row [nzGutter]="16">
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>Duration</nz-form-label>
+          <nz-form-control>
+            <input nz-input formControlName="duration" placeholder="e.g., 2 hours, 1 day" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>Venue/Room</nz-form-label>
+          <nz-form-control>
+            <input nz-input formControlName="venueRoom" placeholder="Location" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+    </div>
+
+    <nz-form-item>
+      <nz-form-label>Item Details (Quantity, Description, Status/Remarks)</nz-form-label>
+      <nz-form-control>
+        <textarea
+          nz-input
+          formControlName="borrowedItems"
+          rows="3"
+          placeholder="List items to borrow with quantity and details"
+        ></textarea>
+      </nz-form-control>
+    </nz-form-item>
+  </div>
+</nz-card>
+
+<!-- 2. MAINTENANCE & REPAIR Section -->
+<nz-card nzTitle="Maintenance & Repair" [nzSize]="'small'" class="section-card">
+  <div [formGroup]="maintenanceGroup">
+    <div nz-row [nzGutter]="24">
+      <!-- Desktop/Laptop PC -->
+      <div nz-col [nzXs]="24" [nzMd]="8">
+        <h4>DESKTOP/LAPTOP PC</h4>
+        <div [formGroup]="desktopLaptopGroup" class="checkbox-group">
+          <label nz-checkbox formControlName="reformatBackup">Reformat/Back-up</label>
+          <label nz-checkbox formControlName="virusRemoval">Virus Removal</label>
+          <label nz-checkbox formControlName="cleaning">Cleaning</label>
+          <label nz-checkbox formControlName="noPower">No power</label>
+          <label nz-checkbox formControlName="checkup">Check-up</label>
+        </div>
+      </div>
+
+      <!-- Internet/Network -->
+      <div nz-col [nzXs]="24" [nzMd]="8">
+        <h4>INTERNET/NETWORK</h4>
+        <div [formGroup]="internetNetworkGroup" class="checkbox-group">
+          <label nz-checkbox formControlName="newConnection">New connection</label>
+          <label nz-checkbox formControlName="noInternetConnection">No internet connection</label>
+          <label nz-checkbox formControlName="wifiRouterProblem">Wifi/Router problem</label>
+        </div>
+      </div>
+
+      <!-- Printer -->
+      <div nz-col [nzXs]="24" [nzMd]="8">
+        <h4>PRINTER</h4>
+        <div [formGroup]="printerGroup" class="checkbox-group">
+          <label nz-checkbox formControlName="noPowerDeadset">No power/Deadset</label>
+          <label nz-checkbox formControlName="paperJam">Paper jam</label>
+        </div>
+      </div>
+    </div>
+
+    <nz-form-item style="margin-top: 16px;">
+      <nz-form-label>Others Concerns (Please specify)</nz-form-label>
+      <nz-form-control>
+        <textarea
+          nz-input
+          formControlName="othersConcerns"
+          rows="2"
+          placeholder="Other issues"
+        ></textarea>
+      </nz-form-control>
+    </nz-form-item>
+  </div>
+</nz-card>
+
+<!-- 3. END-USER INFORMATION Section -->
+<nz-card nzTitle="End-User Information" [nzSize]="'small'" class="section-card">
+  <div [formGroup]="endUserGroup">
+    <div nz-row [nzGutter]="16">
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>Name</nz-form-label>
+          <nz-form-control>
+            <input nz-input formControlName="name" placeholder="End-user name" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>Date</nz-form-label>
+          <nz-form-control>
+            <input nz-input type="date" formControlName="date" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+    </div>
+
+    <div nz-row [nzGutter]="16">
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>Department/Unit</nz-form-label>
+          <nz-form-control>
+            <input nz-input formControlName="departmentUnit" placeholder="Department or unit" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>MRN</nz-form-label>
+          <nz-form-control>
+            <input nz-input formControlName="mrn" placeholder="MRN number" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+    </div>
+  </div>
+</nz-card>
+
+<!-- 4. JOB ACCOMPLISHMENT REPORT Section (typically filled by ICT staff) -->
+<nz-card nzTitle="Job Accomplishment Report" [nzSize]="'small'" class="section-card">
+  <div [formGroup]="jobAccomplishmentGroup">
+    <div nz-row [nzGutter]="16">
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>Completed By (ICT Personnel)</nz-form-label>
+          <nz-form-control>
+            <input nz-input formControlName="completedBy" placeholder="Assigned ICT personnel" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+      <div nz-col [nzXs]="24" [nzSm]="12">
+        <nz-form-item>
+          <nz-form-label>Date Completed</nz-form-label>
+          <nz-form-control>
+            <input nz-input type="date" formControlName="dateCompleted" />
+          </nz-form-control>
+        </nz-form-item>
+      </div>
+    </div>
+
+    <nz-form-item>
+      <nz-form-label>Concern/Diagnose</nz-form-label>
+      <nz-form-control>
+        <textarea nz-input formControlName="concernDiagnose" rows="2" placeholder="Issue diagnosis"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label>Work Performed</nz-form-label>
+      <nz-form-control>
+        <textarea nz-input formControlName="workPerformed" rows="2" placeholder="Actions taken"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label>Recommendation</nz-form-label>
+      <nz-form-control>
+        <textarea nz-input formControlName="recommendation" rows="2" placeholder="Recommendations"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label>Status</nz-form-label>
+      <nz-form-control>
+        <input nz-input formControlName="status" placeholder="Current status" />
+      </nz-form-control>
+    </nz-form-item>
+  </div>
+</nz-card>
+
+<!-- Additional Notes (Optional) -->
+<nz-form-item>
+  <nz-form-label>Additional Notes (Optional)</nz-form-label>
+  <nz-form-control>
+    <div [formGroup]="formGroup">
+      <textarea
+        nz-input
+        formControlName="details"
+        rows="4"
+        placeholder="Add any useful details"
+      ></textarea>
+    </div>
+  </nz-form-control>
+</nz-form-item>
+
+<!-- Additional Notes (Optional) -->
+<nz-form-item>
+  <nz-form-label>Additional Notes (Optional)</nz-form-label>
+  <nz-form-control>
+    <div [formGroup]="formGroup">
+      <textarea
+        nz-input
+        formControlName="details"
+        rows="4"
+        placeholder="Add any useful details"
+      ></textarea>
+    </div>
+  </nz-form-control>
+</nz-form-item>

@@ -27,6 +27,14 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { AuthService } from '@auth0/auth0-angular';
 import { firstValueFrom } from 'rxjs';
 import { UserApiService } from '../api/user-api.service';
+import { UserService } from '../core/services/user.service';
+
+interface MenuItem {
+  icon: string;
+  label: string;
+  path: string;
+  roles: string[];
+}
 
 @Component({
   selector: 'app-main-layout',
@@ -50,64 +58,135 @@ import { UserApiService } from '../api/user-api.service';
 })
 export class MainLayout {
   isCollapsed = false;
-  // profile modal state
   isProfileOpen = signal(false);
-  // password visibility toggles
   showPassword = signal(false);
   showConfirm = signal(false);
   avatarUrl = signal<string | null>(null);
   isUploadingAvatar = signal(false);
-  avatarPreview = signal<string | null>(null); // unsaved data URL preview
-  // Add email signal for display
+  avatarPreview = signal<string | null>(null);
   userEmail = signal<string | null>(null);
   private pendingAvatarDataUrl: string | null = null;
-  // Track if profile has changes (for disabling save button)
-  readonly hasProfileChanges = computed(() => {
-    return this.profileForm.dirty || this.pendingAvatarDataUrl !== null;
-  });
-  readonly inspectMode = false; // toggle to skip GraphQL calls while inspecting payloads
+  readonly inspectMode = false;
   private readonly defaultAvatar = 'assets/no-photo.png';
+
   readonly avatarSrc = computed(() => {
+    // Preview (just selected, not saved yet)
     const preview = this.avatarPreview();
     if (preview && preview.trim().length) return preview;
-    const committed = this.avatarUrl();
-    if (committed && committed.trim().length) return committed;
+
+    // Explicitly set avatar signal (from API or Auth0)
+    const current = this.avatarUrl();
+    if (current && current.trim().length) return current;
+
+    // Fallback from loaded user in UserService
+    const userAvatar = normalizeAvatar(this.userService.currentUser()?.avatarUrl);
+    if (userAvatar) return userAvatar;
+
     return this.defaultAvatar;
   });
+
+  readonly hasProfileChanges = computed(() => {
+    return this.profileForm.dirty || this.avatarPreview() !== null;
+  });
+
+  // Compute menu items based on user role
+  readonly menuItems = computed(() => {
+    const user = this.userService.currentUser();
+    if (!user) return [];
+
+    const allItems: MenuItem[] = [
+      {
+        icon: 'dashboard',
+        label: 'Dashboard',
+        path: '/dashboard',
+        roles: ['USER', 'ADMIN', 'ICT_HEAD', 'MIS_HEAD', 'TECHNICIAN_ITS', 'TECHNICIAN_MIS'],
+      },
+      // {
+      //   icon: 'inbox',
+      //   label: 'Ticket Queue',
+      //   path: '/queue',
+      //   roles: ['ADMIN', 'ICT_HEAD', 'MIS_HEAD', 'TECHNICIAN_ITS', 'TECHNICIAN_MIS'],
+      // },
+      // {
+      //   icon: 'bar-chart',
+      //   label: 'Reports',
+      //   path: '/reports',
+      //   roles: ['ADMIN', 'ICT_HEAD', 'MIS_HEAD'],
+      // },
+      {
+        icon: 'setting',
+        label: 'Admin Panel',
+        path: '/admin',
+        roles: ['ADMIN'],
+      },
+      {
+        icon: 'file-text',
+        label: 'Submit Ticket',
+        path: '/tickets/new',
+        roles: ['USER', 'ADMIN'], // admin sees everything; users see their own submit page
+      },
+      {
+        icon: 'home',
+        label: 'Welcome',
+        path: '/welcome',
+        roles: ['USER', 'ADMIN', 'ICT_HEAD', 'MIS_HEAD', 'TECHNICIAN_ITS', 'TECHNICIAN_MIS'],
+      },
+    ];
+
+    // Filter items based on user role
+    return allItems.filter(item => item.roles.includes(user.role));
+  });
+
   private readonly fb = inject(FormBuilder);
   private readonly message = inject(NzMessageService);
   private readonly cdr = inject(ChangeDetectorRef);
-  // Use Injector to lazily get AuthService at runtime so SSR won't try to instantiate it
   private readonly injector = inject(Injector);
   private readonly api = inject(UserApiService);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly router = inject(Router);
+  private readonly userService = inject(UserService);
 
+  profileForm: FormGroup = this.fb.group({
+    displayName: ['', [Validators.maxLength(80)]],
+    password: ['', [Validators.minLength(6)]],
+    confirm: [''],
+  });
+
+  // Add this effect after the other signal declarations (before constructor):
+  private readonly syncUserAvatarEffect = effect(() => {
+    const user = this.userService.currentUser();
+    // Only set if we don’t already have a local avatar and no preview
+    if (user && user.avatarUrl && !this.avatarUrl() && !this.avatarPreview()) {
+      this.avatarUrl.set(user.avatarUrl);
+      this.cdr.markForCheck();
+    }
+  });
 
   constructor() {
-    effect(() => {
-      // console.log('avatarUrl signal changed', this.avatarUrl());
-    });
     if (isPlatformBrowser(this.platformId)) {
+      this.userService.initFromStorage(); // safe now
       const auth = this.injector.get(AuthService, null as any) as AuthService | null;
       if (auth) {
         auth.user$.pipe(takeUntilDestroyed()).subscribe((profile: any) => {
           const tokenAvatar =
             profile && typeof profile.picture === 'string' ? profile.picture.trim() : '';
-          // console.log('Auth user$ emitted profile', { profile });
 
           const email = profile?.email ?? null;
-          if(email) {
+          if (email) {
             this.userEmail.set(email);
           }
 
           if (tokenAvatar) {
-            // console.log('Using token picture as avatar (fast fallback)', tokenAvatar);
             this.avatarUrl.set(tokenAvatar);
             this.cdr.markForCheck();
           }
         });
       }
-      // Kick off server fetch so we get stored avatar overrides
+      const storedUser = this.userService.currentUser();
+      if (storedUser?.avatarUrl && !this.avatarUrl()) {
+        this.avatarUrl.set(storedUser.avatarUrl);
+        this.cdr.markForCheck();
+      }
       this.loadCurrentUser().catch(() => {});
     }
   }
@@ -122,22 +201,12 @@ export class MainLayout {
     }
 
     const file = input.files[0];
-    console.log('File selected:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    });
-
     this.readAsDataURL(file)
       .then((dataUrl) => {
-        console.log('✓ Data URL created! Length:', dataUrl?.length, 'Preview:', dataUrl?.substring(0, 50));
         this.pendingAvatarDataUrl = dataUrl;
         this.avatarPreview.set(dataUrl);
-        // Mark form as dirty since avatar changed
         this.profileForm.markAsDirty();
         this.cdr.markForCheck();
-        console.log('✓ Preview signal set:', !!this.avatarPreview());
-        // console.log('✓ avatarSrc will now return:', this.avatarSrc());
       })
       .catch((error) => {
         console.error('Failed to read upload file', error);
@@ -145,25 +214,18 @@ export class MainLayout {
       });
   }
 
-  profileForm: FormGroup = this.fb.group({
-    displayName: ['', [Validators.maxLength(80)]],
-    password: ['', [Validators.minLength(6)]],
-    confirm: [''],
-  });
-
   openProfile(): void {
     this.isProfileOpen.set(true);
-    // reset any unsaved preview
     this.avatarPreview.set(null);
     this.pendingAvatarDataUrl = null;
-    // load current user to populate fields
     this.loadCurrentUser().catch(() => {});
-    // Mark form as pristine after loading data
-    setTimeout(() => this.profileForm.markAsPristine(), 100);
   }
 
   closeProfile(): void {
     this.isProfileOpen.set(false);
+    this.profileForm.reset();
+    this.avatarPreview.set(null);
+    this.pendingAvatarDataUrl = null;
   }
 
   private readAsDataURL(file: File): Promise<string> {
@@ -176,13 +238,9 @@ export class MainLayout {
   }
 
   async saveProfile(): Promise<void> {
-    // Check if form has any changes or if avatar was uploaded
-    const hasFormChanges = this.profileForm.dirty;
-    const hasAvatarChange = this.pendingAvatarDataUrl !== null;
-
-    if (!hasFormChanges && !hasAvatarChange) {
+    if (!this.hasProfileChanges()) {
       this.message.info('No changes to save');
-      this.isProfileOpen.set(false);
+      this.closeProfile();
       return;
     }
 
@@ -209,24 +267,19 @@ export class MainLayout {
       this.message.error('Passwords do not match.');
       return;
     }
+
     try {
       let token: string | undefined;
 
-      // Check for local token first
       const localToken = localStorage.getItem('auth_token');
       if (localToken) {
         token = localToken;
-        console.log('[saveProfile] Using local auth token');
       } else {
-        // Try Auth0 token
         const auth = this.injector.get(AuthService, null as any) as AuthService | null;
-        console.log('[saveProfile] No local token, trying Auth0');
         if (auth) {
           try {
             token = await firstValueFrom(auth.getAccessTokenSilently());
-            console.log('[saveProfile] Auth0 token retrieved successfully');
           } catch (err: any) {
-            console.error('[saveProfile] Failed to get Auth0 token:', err);
             const errMsg = err?.message || String(err);
             if (errMsg.includes('Missing Refresh Token') || errMsg.includes('login_required')) {
               this.message.error('Session expired. Please log out and log back in.');
@@ -235,32 +288,17 @@ export class MainLayout {
           }
         }
       }
-      const avatarDataUrl = this.pendingAvatarDataUrl ?? null;
-      const avatarLogValue = avatarDataUrl ?? this.avatarPreview() ?? this.avatarUrl();
-      const payloadPreview = {
-        name: displayName || null,
-          avatarBytes: avatarLogValue?.length ?? 0,
-          hasAvatar: Boolean(avatarLogValue),
-          avatarDataUrl: avatarLogValue,
-        password,
-        confirm,
-        hasToken: Boolean(token),
-      };
-      console.log('saveProfile -> pending GraphQL payload', payloadPreview);
-      if (this.inspectMode) {
-        this.message.info('Inspect mode: payload logged, GraphQL request skipped.');
-        return;
-      }
 
       if (!token) {
         this.message.error('Authentication required. Please log out and log back in.');
         return;
       }
 
-      // Use pending Data URL if a new avatar was selected, else pass null (no change)
+      const avatarDataUrl = this.pendingAvatarDataUrl ?? null;
       const resp = await firstValueFrom(
         this.api.updateMyProfile(displayName || null, avatarDataUrl || null, token)
       );
+
       const graphQLErrors = (resp as { errors?: readonly { message?: string }[] }).errors;
       if (graphQLErrors?.length) {
         const errMsg = graphQLErrors[0]?.message ?? 'Failed to update profile';
@@ -269,20 +307,22 @@ export class MainLayout {
         }
         throw new Error(errMsg);
       }
+
       const updatedUser = resp.data?.updateMyProfile;
       if (updatedUser?.avatarUrl) {
         this.avatarUrl.set(updatedUser.avatarUrl);
-        // clear preview state after commit
         this.avatarPreview.set(null);
         this.pendingAvatarDataUrl = null;
         this.cdr.markForCheck();
       }
-      // Then set password if provided
+
       if (password) {
         await firstValueFrom(this.api.setMyPassword(password, token));
       }
+
       this.message.success('Profile updated');
       this.isProfileOpen.set(false);
+      this.profileForm.markAsPristine();
     } catch (err: any) {
       this.message.error(err?.message || 'Failed to update profile');
     }
@@ -294,31 +334,23 @@ export class MainLayout {
     }
     let token: string | undefined;
 
-    // Try local token first
     const localToken = localStorage.getItem('auth_token');
-
     if (localToken) {
       token = localToken;
-      console.log('Using local auth token');
 
-
-      // Decode token to get email for display
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        if(payload.email){
+        if (payload.email) {
           this.userEmail.set(payload.email);
         }
-      } catch (error) {
-       console.warn('Failed to decode JWT token', error);
+      } catch (err) {
+        console.warn('Failed to decode JWT token', err);
       }
-
     } else {
-      // Fall back to Auth0 token
       const auth = this.injector.get(AuthService, null as any) as AuthService | null;
       if (auth) {
         try {
           token = await firstValueFrom(auth.getAccessTokenSilently());
-          console.log('Using Auth0 token');
         } catch {}
       }
     }
@@ -327,12 +359,12 @@ export class MainLayout {
       const resp: any = await firstValueFrom(this.api.getMe(token));
       const me = resp?.data?.me;
       if (me) {
-
-        if(me.email){
+        if (me.email) {
           this.userEmail.set(me.email);
         }
 
         this.profileForm.patchValue({ displayName: me.name ?? '' });
+        this.profileForm.markAsPristine();
         const serverAvatar = normalizeAvatar(me.avatarUrl) ?? normalizeAvatar(me.picture);
         if (serverAvatar) {
           this.avatarUrl.set(serverAvatar);
@@ -345,8 +377,6 @@ export class MainLayout {
   }
 
   handleAvatarError(): boolean {
-    console.warn('Avatar image failed to load', { attempted: this.avatarUrl(), preview: this.avatarPreview() });
-    // If preview exists leave it; otherwise clear committed avatar
     if (!this.avatarPreview()) {
       this.avatarUrl.set(null);
     }
@@ -359,26 +389,25 @@ export class MainLayout {
       return;
     }
 
-    // Clear local storage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('current_user');
 
-    // Check if user is logged in via Auth0
     const auth = this.injector.get(AuthService, null as any) as AuthService | null;
     if (auth) {
       auth.isAuthenticated$.pipe().subscribe((isAuth) => {
         if (isAuth) {
-          // Auth0 logout
           auth.logout({ logoutParams: { returnTo: window.location.origin } });
         } else {
-          // Local logout - just redirect to login
           window.location.href = '/login';
         }
       });
     } else {
-      // No Auth0, just redirect
       window.location.href = '/login';
     }
+  }
+
+  onAvatarLoad(): void {
+    this.cdr.markForCheck();
   }
 }
 

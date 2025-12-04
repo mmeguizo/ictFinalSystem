@@ -22,6 +22,27 @@ type LoginForm = FormGroup<{
   password: FormControl<string>;
 }>;
 
+
+function mapRoleToRoute(role: unknown): string {
+  const r = typeof role === 'string' ? role.toUpperCase() : '';
+  switch (r) {
+    case 'ADMIN':
+      return '/admin';
+    case 'ICT_HEAD':
+    case 'MIS_HEAD':
+      return '/reports';
+    case 'TECHNICIAN_ITS':
+    case 'TECHNICIAN_MIS':
+      return '/queue';
+    case 'USER':
+      return '/dashboard';
+    default:
+      return '/dashboard';
+  }
+}
+
+
+
 @Component({
   selector: 'app-login',
   imports: [ReactiveFormsModule, NzCardModule, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule, NzDividerModule, NzSpinModule, NzIconModule, NzGridModule, NzTypographyModule, NgOptimizedImage],
@@ -87,16 +108,21 @@ export class LoginPage {
 
       if (result.data?.login) {
         const { token, user } = result.data.login;
+
+
         localStorage.setItem('auth_token', token);
         localStorage.setItem('current_user', JSON.stringify(user));
+
+
         console.log('✓ Local login successful:', user.email);
         this.loggedIn.set(true);
         this.busy.set(false);
 
         // Navigate after a brief delay to ensure state updates
         setTimeout(() => {
-          console.log('Navigating to /dashboard...');
-          this.router.navigateByUrl('/dashboard').then(
+          const route = mapRoleToRoute(user.role);
+          console.log(`Navigating to ${route}...`);
+          this.router.navigateByUrl(route).then(
             (success) => console.log('Navigation success:', success),
             (error) => console.error('Navigation error:', error)
           );
@@ -142,11 +168,16 @@ export class LoginPage {
 
   // Start Auth0 login redirect flow
   loginWithAuth0(): void {
-    // Resolve AuthService only in the browser to avoid SSR DI/initialization
     if (typeof window === 'undefined') return;
-    this.error.set(null); // Clear any existing errors
+    this.error.set(null);
     this.ssoBusy.set(true);
+
     const auth = this.injector.get(AuthService, null);
-    auth?.loginWithRedirect();
+    if (auth) {
+      // Pass appState so callback can use it to determine route
+      auth.loginWithRedirect({
+        appState: { target: '/dashboard' }, // Default; callback will override based on role
+      });
+    }
   }
 }
