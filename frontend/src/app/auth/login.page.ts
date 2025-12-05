@@ -112,8 +112,6 @@ export class LoginPage {
 
         localStorage.setItem('auth_token', token);
         localStorage.setItem('current_user', JSON.stringify(user));
-
-
         console.log('✓ Local login successful:', user.email);
         this.loggedIn.set(true);
         this.busy.set(false);
