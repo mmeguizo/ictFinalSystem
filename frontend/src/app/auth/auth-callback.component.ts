@@ -1,11 +1,11 @@
 import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '@auth0/auth0-angular';
+import { AuthService as Auth0Service } from '@auth0/auth0-angular';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { take } from 'rxjs';
 import { UserApiService } from '../api/user-api.service';
-import { UserService } from '../core/services/user.service';
+import { AuthService } from '../core/services/auth.service';
 
 function mapRoleToRoute(role: unknown): string {
   const r = typeof role === 'string' ? role.toUpperCase() : '';
@@ -48,13 +48,13 @@ function mapRoleToRoute(role: unknown): string {
 })
 export class AuthCallbackComponent implements OnInit {
   private readonly router = inject(Router);
-  private readonly auth0 = inject(AuthService);
+ private readonly auth = inject(Auth0Service);
   private readonly message = inject(NzMessageService);
- private readonly userService = inject(UserService);
+ private readonly authService = inject(AuthService);
  private readonly userApi = inject(UserApiService);
   ngOnInit(): void {
     // 1. Check for Auth0 errors first
-    this.auth0.error$.pipe(take(1)).subscribe(error => {
+    this.auth.error$.pipe(take(1)).subscribe(error => {
       if (error) {
         console.error('Auth callback error', error);
         this.message.error('Authentication failed. Please try again.');
@@ -65,7 +65,7 @@ export class AuthCallbackComponent implements OnInit {
     });
 
     // 2. When authenticated, load user and route by role
-    this.auth0.isAuthenticated$.pipe(take(1)).subscribe(isAuth => {
+    this.auth.isAuthenticated$.pipe(take(1)).subscribe(isAuth => {
       if (isAuth) {
         this.loadUserAndRoute();
       } else {
@@ -78,7 +78,7 @@ export class AuthCallbackComponent implements OnInit {
 
   private loadUserAndRoute(): void {
     // Auth0 authenticated, now fetch user from backend
-    this.auth0.getAccessTokenSilently().pipe(take(1)).subscribe({
+    this.auth.getAccessTokenSilently().pipe(take(1)).subscribe({
       next: (token: string) => {
         this.fetchUserFromBackend(token);
       },
@@ -102,20 +102,20 @@ export class AuthCallbackComponent implements OnInit {
         const user = response?.data?.me;
 
         if (user && user.role) {
-          this.userService.setUser({
+          this.authService.setUser({
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
             avatarUrl: user.avatarUrl,
-          }, true); // persist to localStorage
+          }); // AuthService auto-persists via effect
 
           const target = mapRoleToRoute(user.role);
           this.message.success('Login successful!');
           setTimeout(() => this.router.navigateByUrl(target), 200);
         } else {
           console.warn('User response missing role');
-          this.userService.setUser(null);
+          this.authService.setUser(null);
           this.router.navigateByUrl('/dashboard');
         }
       },

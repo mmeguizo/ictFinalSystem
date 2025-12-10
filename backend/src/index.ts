@@ -10,11 +10,12 @@ import { logger } from './lib/logger';
 import { formatError } from './lib/errors';
 import { baseTypeDefs } from './common/base-schema';
 import { userTypeDefs, userResolvers } from './modules/users';
+import { ticketTypeDefs, ticketResolvers } from './modules/tickets';
 
 async function start() {
   // Combine all type definitions and resolvers
-  const typeDefs = [baseTypeDefs, userTypeDefs];
-  const resolvers = [userResolvers];
+  const typeDefs = [baseTypeDefs, userTypeDefs, ticketTypeDefs];
+  const resolvers = [userResolvers, ticketResolvers];
 
   const schema = makeExecutableSchema({ typeDefs, resolvers });
   const app = express();
@@ -26,6 +27,12 @@ async function start() {
       credentials: true,
     })
   );
+  // app.use("/graphql",
+  //   cors({
+  //     origin: config.cors.origins,
+  //     credentials: true,
+  //   })
+  // );
 
   // Static uploads (avatars)
   const uploadsDir = path.resolve(__dirname, '..', 'uploads');

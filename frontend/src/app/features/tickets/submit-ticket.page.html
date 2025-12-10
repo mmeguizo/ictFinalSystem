@@ -1,5 +1,6 @@
-<nz-card [nzTitle]="isMIS() ? 'ICT-MIS Support Ticket' : 'Request for ICT Support Services'">
-  <div class="ticket-form">
+<nz-spin [nzSpinning]="busy()" nzTip="Submitting ticket...">
+  <nz-card [nzTitle]="isMIS() ? 'ICT-MIS Support Ticket' : 'Request for ICT Support Services'">
+    <div class="ticket-form">
     <!-- Form Type Selector -->
     <nz-form-item>
       <nz-form-label>Form Type</nz-form-label>
@@ -29,3 +30,4 @@
     </div>
   </div>
 </nz-card>
+</nz-spin>

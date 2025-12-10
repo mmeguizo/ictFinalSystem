@@ -1,13 +1,12 @@
 import { Routes } from '@angular/router';
-import { authRequired, redirectIfAuthenticated } from './auth/auth.guards';
-import { adminOnly } from './auth/auth.guards';
+import { authGuard, adminGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   {
     path: 'login',
     loadComponent: () => import('./auth/login.page').then(m => m.LoginPage),
-    canMatch: [redirectIfAuthenticated],
+    // No guard needed - login page is public
   },
   {
     path: 'callback',
@@ -16,7 +15,7 @@ export const routes: Routes = [
   {
     path: '',
     loadComponent: () => import('./layout/main-layout').then(m => m.MainLayout),
-    canMatch: [authRequired],
+    canActivate: [authGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       {
@@ -25,13 +24,30 @@ export const routes: Routes = [
       },
       {
         path: 'admin',
-        canMatch: [adminOnly],
+        canActivate: [adminGuard],
         loadComponent: () => import('./features/admin/admin.page').then(m => m.AdminPage),
       },
-       {
-        path: 'tickets/new',
+      {
+        path: 'tickets',
         loadComponent: () =>
-          import('./features/tickets/submit-ticket.page').then(m => m.SubmitTicketPage),
+          import('./features/tickets/tickets-layout.component').then(m => m.TicketsLayoutComponent),
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./features/tickets/my-tickets.page').then(m => m.MyTicketsPage),
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./features/tickets/submit-ticket.page').then(m => m.SubmitTicketPage),
+          },
+          {
+            path: ':ticketNumber',
+            loadComponent: () =>
+              import('./features/tickets/ticket-detail.page').then(m => m.TicketDetailPage),
+          },
+        ],
       },
       {
         path: 'welcome',

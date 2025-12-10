@@ -1,0 +1,16 @@
+.filter-bar {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+:host ::ng-deep {
+  .ant-table-cell {
+    vertical-align: middle;
+  }
+
+  .ant-tag {
+    margin: 0;
+  }
+}

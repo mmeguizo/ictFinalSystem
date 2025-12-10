@@ -24,10 +24,10 @@ import { NzUploadModule } from 'ng-zorro-antd/upload';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { AuthService } from '@auth0/auth0-angular';
+import { AuthService as Auth0Service } from '@auth0/auth0-angular';
 import { firstValueFrom } from 'rxjs';
 import { UserApiService } from '../api/user-api.service';
-import { UserService } from '../core/services/user.service';
+import { AuthService } from '../core/services/auth.service';
 
 interface MenuItem {
   icon: string;
@@ -78,8 +78,8 @@ export class MainLayout {
     const current = this.avatarUrl();
     if (current && current.trim().length) return current;
 
-    // Fallback from loaded user in UserService
-    const userAvatar = normalizeAvatar(this.userService.currentUser()?.avatarUrl);
+    // Fallback from loaded user in AuthService
+    const userAvatar = normalizeAvatar(this.authService.currentUser()?.avatarUrl);
     if (userAvatar) return userAvatar;
 
     return this.defaultAvatar;
@@ -91,7 +91,7 @@ export class MainLayout {
 
   // Compute menu items based on user role
   readonly menuItems = computed(() => {
-    const user = this.userService.currentUser();
+    const user = this.authService.currentUser();
     if (!user) return [];
 
     const allItems: MenuItem[] = [
@@ -121,7 +121,7 @@ export class MainLayout {
       },
       {
         icon: 'file-text',
-        label: 'Submit Ticket',
+        label: 'Tickets',
         path: '/tickets/new',
         roles: ['USER', 'ADMIN'], // admin sees everything; users see their own submit page
       },
@@ -144,7 +144,7 @@ export class MainLayout {
   private readonly api = inject(UserApiService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly router = inject(Router);
-  private readonly userService = inject(UserService);
+  private readonly authService = inject(AuthService);
 
   profileForm: FormGroup = this.fb.group({
     displayName: ['', [Validators.maxLength(80)]],
@@ -154,7 +154,7 @@ export class MainLayout {
 
   // Add this effect after the other signal declarations (before constructor):
   private readonly syncUserAvatarEffect = effect(() => {
-    const user = this.userService.currentUser();
+    const user = this.authService.currentUser();
     // Only set if we don’t already have a local avatar and no preview
     if (user && user.avatarUrl && !this.avatarUrl() && !this.avatarPreview()) {
       this.avatarUrl.set(user.avatarUrl);
@@ -164,8 +164,8 @@ export class MainLayout {
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
-      this.userService.initFromStorage(); // safe now
-      const auth = this.injector.get(AuthService, null as any) as AuthService | null;
+      this.authService.initFromStorage(); // safe now
+      const auth = this.injector.get(Auth0Service, null as any) as Auth0Service | null;
       if (auth) {
         auth.user$.pipe(takeUntilDestroyed()).subscribe((profile: any) => {
           const tokenAvatar =
@@ -182,7 +182,7 @@ export class MainLayout {
           }
         });
       }
-      const storedUser = this.userService.currentUser();
+      const storedUser = this.authService.currentUser();
       if (storedUser?.avatarUrl && !this.avatarUrl()) {
         this.avatarUrl.set(storedUser.avatarUrl);
         this.cdr.markForCheck();
@@ -275,7 +275,7 @@ export class MainLayout {
       if (localToken) {
         token = localToken;
       } else {
-        const auth = this.injector.get(AuthService, null as any) as AuthService | null;
+        const auth = this.injector.get(Auth0Service, null as any) as Auth0Service | null;
         if (auth) {
           try {
             token = await firstValueFrom(auth.getAccessTokenSilently());
@@ -347,7 +347,7 @@ export class MainLayout {
         console.warn('Failed to decode JWT token', err);
       }
     } else {
-      const auth = this.injector.get(AuthService, null as any) as AuthService | null;
+      const auth = this.injector.get(Auth0Service, null as any) as Auth0Service | null;
       if (auth) {
         try {
           token = await firstValueFrom(auth.getAccessTokenSilently());
@@ -392,9 +392,9 @@ export class MainLayout {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('current_user');
 
-    const auth = this.injector.get(AuthService, null as any) as AuthService | null;
+    const auth = this.injector.get(Auth0Service, null as any) as Auth0Service | null;
     if (auth) {
-      auth.isAuthenticated$.pipe().subscribe((isAuth) => {
+      auth.isAuthenticated$.pipe().subscribe((isAuth: boolean) => {
         if (isAuth) {
           auth.logout({ logoutParams: { returnTo: window.location.origin } });
         } else {

@@ -1,0 +1,203 @@
+<nz-spin [nzSpinning]="loading()">
+  @if (ticket(); as t) {
+    <div class="ticket-detail-container">
+      <!-- Header Card -->
+      <nz-card [nzTitle]="headerTemplate" [nzExtra]="headerActions">
+        <nz-descriptions [nzColumn]="2" nzBordered>
+          <nz-descriptions-item nzTitle="Ticket Number">
+            {{ t.ticketNumber }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Type">
+            <nz-tag [nzColor]="t.type === 'MIS' ? 'blue' : 'green'">
+              {{ t.type }}
+            </nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Status">
+            <nz-tag [nzColor]="getStatusColor(t.status)">
+              {{ t.status.replace('_', ' ') }}
+            </nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Priority">
+            <nz-tag [nzColor]="getPriorityColor(t.priority)">
+              {{ t.priority }}
+            </nz-tag>
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Created By">
+            {{ t.createdBy.name }} ({{ t.createdBy.email }})
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Created At">
+            {{ formatDate(t.createdAt) }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Due Date" [nzSpan]="2">
+            {{ formatDate(t.dueDate) }}
+          </nz-descriptions-item>
+        </nz-descriptions>
+
+        <nz-divider></nz-divider>
+
+        <h4>Description</h4>
+        <p style="white-space: pre-wrap">{{ t.description }}</p>
+      </nz-card>
+
+      <!-- Approval Status Card -->
+      <nz-card nzTitle="Approval Workflow" class="approval-card">
+        @if (isAwaitingSecretaryApproval()) {
+          <nz-alert
+            nzType="info"
+            nzMessage="Awaiting Secretary Approval"
+            nzDescription="This ticket is pending review by the secretary."
+            [nzShowIcon]="true"
+          ></nz-alert>
+        }
+        @if (isAwaitingDirectorApproval()) {
+          <nz-alert
+            nzType="info"
+            nzMessage="Awaiting Director Approval"
+            nzDescription="Secretary has approved. Waiting for director approval."
+            [nzShowIcon]="true"
+          ></nz-alert>
+        }
+        @if (isFullyApproved()) {
+          <nz-alert
+            nzType="success"
+            nzMessage="Fully Approved"
+            nzDescription="This ticket has been approved and assigned to the appropriate team."
+            [nzShowIcon]="true"
+          ></nz-alert>
+        }
+
+        <div class="approval-timeline">
+          <nz-descriptions [nzColumn]="1" nzBordered>
+            <nz-descriptions-item nzTitle="Secretary Approval">
+              @if (t.secretaryApprovedAt) {
+                <span class="approved">
+                  ✓ Approved on {{ formatDate(t.secretaryApprovedAt) }}
+                </span>
+              } @else {
+                <span class="pending">Pending</span>
+              }
+            </nz-descriptions-item>
+            <nz-descriptions-item nzTitle="Director Approval">
+              @if (t.directorApprovedAt) {
+                <span class="approved">
+                  ✓ Approved on {{ formatDate(t.directorApprovedAt) }}
+                </span>
+              } @else {
+                <span class="pending">Pending</span>
+              }
+            </nz-descriptions-item>
+          </nz-descriptions>
+        </div>
+      </nz-card>
+
+      <!-- Assignment Card -->
+      <nz-card nzTitle="Assigned Staff">
+        @if (t.assignments && t.assignments.length > 0) {
+          <nz-descriptions [nzColumn]="1" nzBordered>
+            @for (assignment of t.assignments; track assignment.user.id) {
+              <nz-descriptions-item [nzTitle]="assignment.user.name">
+                {{ assignment.user.role }} - Assigned {{ formatDate(assignment.assignedAt) }}
+              </nz-descriptions-item>
+            }
+          </nz-descriptions>
+        } @else {
+          <nz-empty nzNotFoundContent="Not yet assigned"></nz-empty>
+        }
+      </nz-card>
+
+      <!-- Status History Timeline -->
+      <nz-card nzTitle="Status History">
+        @if (t.statusHistory && t.statusHistory.length > 0) {
+          <nz-timeline>
+            @for (history of t.statusHistory; track history.id) {
+              <nz-timeline-item>
+                <p>
+                  <strong>{{ history.user.name }}</strong> changed status
+                  @if (history.fromStatus) {
+                    from <nz-tag [nzColor]="getStatusColor(history.fromStatus)">{{ history.fromStatus }}</nz-tag>
+                  }
+                  to <nz-tag [nzColor]="getStatusColor(history.toStatus)">{{ history.toStatus }}</nz-tag>
+                </p>
+                @if (history.comment) {
+                  <p class="comment">{{ history.comment }}</p>
+                }
+                <p class="timestamp">{{ formatDate(history.createdAt) }}</p>
+              </nz-timeline-item>
+            }
+          </nz-timeline>
+        } @else {
+          <nz-empty nzNotFoundContent="No status changes yet"></nz-empty>
+        }
+      </nz-card>
+
+      <!-- Notes Section -->
+      <nz-card nzTitle="Notes & Comments">
+        <!-- Add Note Form -->
+        <div class="add-note-form">
+          <h4>Add a Note</h4>
+          <textarea
+            nz-input
+            [ngModel]="noteContent()"
+            (ngModelChange)="noteContent.set($event)"
+            placeholder="Enter your comment or note..."
+            [nzAutosize]="{ minRows: 3, maxRows: 6 }"
+            [disabled]="submittingNote()"
+          ></textarea>
+
+          <div class="form-actions">
+            <label nz-checkbox [ngModel]="isInternalNote()" (ngModelChange)="isInternalNote.set($event)" [disabled]="submittingNote()">
+              Internal Note (only visible to staff)
+            </label>
+
+            <button
+              nz-button
+              nzType="primary"
+              (click)="submitNote()"
+              [nzLoading]="submittingNote()"
+              [disabled]="!noteContent().trim()"
+            >
+              Add Note
+            </button>
+          </div>
+        </div>
+
+        <nz-divider></nz-divider>
+
+        <!-- Notes List -->
+        @if (t.notes && t.notes.length > 0) {
+          <div class="notes-list">
+            @for (note of t.notes; track note.id) {
+              <div class="note-item" [class.internal]="note.isInternal">
+                <div class="note-header">
+                  <strong>{{ note.user.name }}</strong>
+                  <span class="note-role">({{ note.user.role }})</span>
+                  @if (note.isInternal) {
+                    <nz-tag nzColor="orange">Internal</nz-tag>
+                  }
+                  <span class="note-time">{{ formatDate(note.createdAt) }}</span>
+                </div>
+                <div class="note-content">{{ note.content }}</div>
+              </div>
+            }
+          </div>
+        } @else {
+          <nz-empty nzNotFoundContent="No notes yet"></nz-empty>
+        }
+      </nz-card>
+    </div>
+  } @else {
+    <nz-empty nzNotFoundContent="Ticket not found"></nz-empty>
+  }
+</nz-spin>
+
+<ng-template #headerTemplate>
+  @if (ticket(); as t) {
+    <span>{{ t.title }}</span>
+  }
+</ng-template>
+
+<ng-template #headerActions>
+  <button nz-button routerLink="/tickets">
+    Back to List
+  </button>
+</ng-template>
