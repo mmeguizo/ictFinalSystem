@@ -239,9 +239,9 @@ export class MISFormComponent {
     if (!requestedDate) {
       return { valid: false, error: 'Please select a Date.' };
     }
-    if (!controlNumber) {
-      return { valid: false, error: 'Please fill in Control Number.' };
-    }
+    // if (!controlNumber) {
+    //   return { valid: false, error: 'Please fill in Control Number.' };
+    // }
 
     const cat = this.categoryControl?.value;
 

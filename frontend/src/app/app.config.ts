@@ -29,8 +29,11 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
-import { InMemoryCache } from '@apollo/client/core';
-import { provideAuth0 } from '@auth0/auth0-angular';
+import { InMemoryCache, ApolloLink } from '@apollo/client/core';
+import { setContext } from '@apollo/client/link/context';
+import { provideAuth0, AuthService } from '@auth0/auth0-angular';
+import { from } from 'rxjs';
+import { mergeMap } from 'rxjs/operators';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { environment } from './core/config/environment';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
@@ -56,6 +59,33 @@ export const appConfig: ApplicationConfig = {
     // Apollo GraphQL client
     provideApollo(() => {
       const httpLink = inject(HttpLink);
+
+      // Only use auth on the browser, not during SSR
+      if (typeof window !== 'undefined') {
+        const authService = inject(AuthService);
+
+        // Create auth link to add Authorization header
+        const authLink = setContext(() => {
+          return authService.getAccessTokenSilently().toPromise().then(
+            (token) => ({
+              headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+              },
+            }),
+            (error) => {
+              console.warn('Failed to get access token for GraphQL request:', error);
+              return { headers: {} };
+            }
+          );
+        });
+
+        return {
+          link: authLink.concat(httpLink.create({ uri: environment.apiUrl })),
+          cache: new InMemoryCache(),
+        };
+      }
+
+      // Server-side: no auth
       return {
         link: httpLink.create({ uri: environment.apiUrl }),
         cache: new InMemoryCache(),
@@ -64,7 +94,7 @@ export const appConfig: ApplicationConfig = {
     // Auth0 authentication
     provideAuth0({
       domain: environment.auth0.domain,
-      clientId: environment.auth0.clientId,
+        clientId: environment.auth0.clientId,
       authorizationParams: {
         redirect_uri: typeof window !== 'undefined' ? window.location.origin : '',
         audience: environment.auth0.audience,

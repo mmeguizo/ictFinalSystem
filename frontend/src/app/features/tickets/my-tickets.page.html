@@ -1,0 +1,90 @@
+<nz-card nzTitle="My Tickets" [nzExtra]="extraTemplate">
+  <nz-spin [nzSpinning]="loading()">
+    <div class="filter-bar">
+      <nz-select
+        [(ngModel)]="statusFilter"
+        nzPlaceHolder="Filter by status"
+        style="width: 200px"
+      >
+        <nz-option nzValue="ALL" nzLabel="All Statuses"></nz-option>
+        <nz-option nzValue="PENDING" nzLabel="Pending"></nz-option>
+        <nz-option nzValue="SECRETARY_APPROVED" nzLabel="Secretary Approved"></nz-option>
+        <nz-option nzValue="DIRECTOR_APPROVED" nzLabel="Director Approved"></nz-option>
+        <nz-option nzValue="ASSIGNED" nzLabel="Assigned"></nz-option>
+        <nz-option nzValue="IN_PROGRESS" nzLabel="In Progress"></nz-option>
+        <nz-option nzValue="ON_HOLD" nzLabel="On Hold"></nz-option>
+        <nz-option nzValue="RESOLVED" nzLabel="Resolved"></nz-option>
+        <nz-option nzValue="CLOSED" nzLabel="Closed"></nz-option>
+        <nz-option nzValue="CANCELLED" nzLabel="Cancelled"></nz-option>
+      </nz-select>
+    </div>
+
+    <nz-table
+      #ticketTable
+      [nzData]="filteredTickets()"
+      [nzShowPagination]="true"
+      [nzPageSize]="10"
+      [nzSize]="'middle'"
+    >
+      <thead>
+        <tr>
+          <th>Ticket #</th>
+          <th>Type</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Assigned To</th>
+          <th>Created</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (filteredTickets().length === 0) {
+          <tr>
+            <td colspan="8">
+              <nz-empty nzNotFoundContent="No tickets found"></nz-empty>
+            </td>
+          </tr>
+        }
+        @for (ticket of ticketTable.data; track ticket.id) {
+          <tr>
+            <td>
+              <a [routerLink]="['/tickets', ticket.ticketNumber]">
+                {{ ticket.ticketNumber }}
+              </a>
+            </td>
+            <td>
+              <nz-tag [nzColor]="ticket.type === 'MIS' ? 'blue' : 'green'">
+                {{ ticket.type }}
+              </nz-tag>
+            </td>
+            <td>{{ ticket.title }}</td>
+            <td>
+              <nz-tag [nzColor]="getStatusColor(ticket.status)">
+                {{ ticket.status.replace('_', ' ') }}
+              </nz-tag>
+            </td>
+            <td>
+              <nz-tag [nzColor]="getPriorityColor(ticket.priority)">
+                {{ ticket.priority }}
+              </nz-tag>
+            </td>
+            <td>{{ getAssignedStaff(ticket) }}</td>
+            <td>{{ formatDate(ticket.createdAt) }}</td>
+            <td>
+              <a nz-button nzType="link" [routerLink]="['/tickets', ticket.ticketNumber]">
+                View
+              </a>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </nz-table>
+  </nz-spin>
+</nz-card>
+
+<ng-template #extraTemplate>
+  <button nz-button nzType="primary" routerLink="/tickets/new">
+    New Ticket
+  </button>
+</ng-template>

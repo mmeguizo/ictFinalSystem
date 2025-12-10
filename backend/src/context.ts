@@ -17,8 +17,6 @@ export async function createContext({ req }: { req: IncomingMessage }): Promise<
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
   let currentUser: (User & { wasCreated?: boolean }) | null = null;
-    console.log('JWT token:', token);
-    console.log('JWT authHeader:', authHeader);
 
   // Try JWT (local login) first
   if (token) {

@@ -1,5 +1,5 @@
 import { Directive, inject, input, TemplateRef, ViewContainerRef, effect } from '@angular/core';
-import { UserService } from '../../core/services/user.service';
+import { AuthService } from '../../core/services/auth.service';
 
 /**
  * Has Role Directive
@@ -14,7 +14,7 @@ import { UserService } from '../../core/services/user.service';
   standalone: true,
 })
 export class HasRoleDirective {
-  private readonly userService = inject(UserService);
+  private readonly authService = inject(AuthService);
   private readonly viewContainer = inject(ViewContainerRef);
   private readonly templateRef = inject(TemplateRef<any>);
 
@@ -25,7 +25,7 @@ export class HasRoleDirective {
     // Effect runs whenever user or required roles change
     effect(() => {
       const requiredRoles = this.appHasRole();
-      const currentUser = this.userService.currentUser();
+      const currentUser = this.authService.currentUser();
       const userRole = currentUser?.role;
 
       // Convert to array for consistent handling

@@ -14,6 +14,35 @@ enum Role {
   USER
 }
 
+enum TicketType {
+  MIS
+  ITS
+}
+
+enum TicketStatus {
+  PENDING
+  SECRETARY_APPROVED
+  DIRECTOR_APPROVED
+  ASSIGNED
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MISCategory {
+  WEBSITE
+  SOFTWARE
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
@@ -27,4 +56,158 @@ model User {
   // URL to a user-uploaded avatar hosted by our app (preferred for profile overrides)
   avatarUrl String?
   lastLoginAt DateTime?
+  
+  // Ticket relationships
+  createdTickets      Ticket[]           @relation("TicketCreator")
+  assignedTickets     TicketAssignment[]
+  ticketNotes         TicketNote[]
+  statusHistoryEntries TicketStatusHistory[]
+}
+
+model Ticket {
+  id                Int      @id @default(autoincrement())
+  ticketNumber      String   @unique
+  type              TicketType
+  title             String
+  description       String   @db.Text
+  status            TicketStatus @default(PENDING)
+  priority          Priority     @default(MEDIUM)
+  
+  // SLA tracking
+  dueDate           DateTime?
+  estimatedDuration Int?      // in hours
+  actualDuration    Int?      // in hours
+  
+  // Approval workflow
+  secretaryApprovedById  Int?
+  secretaryApprovedAt    DateTime?
+  directorApprovedById   Int?
+  directorApprovedAt     DateTime?
+  
+  // Relationships
+  createdById       Int
+  createdBy         User      @relation("TicketCreator", fields: [createdById], references: [id])
+  
+  // Polymorphic content
+  misTicket         MISTicket?
+  itsTicket         ITSTicket?
+  
+  // Collections
+  assignments       TicketAssignment[]
+  notes             TicketNote[]
+  attachments       TicketAttachment[]
+  statusHistory     TicketStatusHistory[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  
+  @@index([status])
+  @@index([createdById])
+  @@index([type])
+}
+
+model MISTicket {
+  id              Int         @id @default(autoincrement())
+  ticketId        Int         @unique
+  ticket          Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  category        MISCategory
+  
+  // Website fields
+  websiteNewRequest Boolean   @default(false)
+  websiteUpdate     Boolean   @default(false)
+  
+  // Software fields
+  softwareNewRequest Boolean  @default(false)
+  softwareUpdate     Boolean  @default(false)
+  softwareInstall    Boolean  @default(false)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model ITSTicket {
+  id                    Int      @id @default(autoincrement())
+  ticketId              Int      @unique
+  ticket                Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  // Borrow fields
+  borrowRequest         Boolean  @default(false)
+  borrowDetails         String?  @db.Text
+  
+  // Maintenance fields
+  maintenanceDesktopLaptop  Boolean @default(false)
+  maintenanceInternetNetwork Boolean @default(false)
+  maintenancePrinter        Boolean @default(false)
+  maintenanceDetails        String? @db.Text
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model TicketAssignment {
+  id              Int      @id @default(autoincrement())
+  ticketId        Int
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id])
+  
+  assignedAt      DateTime @default(now())
+  
+  @@unique([ticketId, userId])
+  @@index([userId])
+}
+
+model TicketNote {
+  id              Int      @id @default(autoincrement())
+  ticketId        Int
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id])
+  
+  content         String   @db.Text
+  isInternal      Boolean  @default(false) // Internal notes only visible to staff
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([ticketId])
+  @@index([userId])
+}
+
+model TicketAttachment {
+  id              Int      @id @default(autoincrement())
+  ticketId        Int
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  filename        String
+  originalName    String
+  mimeType        String
+  size            Int
+  url             String
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([ticketId])
+}
+
+model TicketStatusHistory {
+  id              Int          @id @default(autoincrement())
+  ticketId        Int
+  ticket          Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  userId          Int
+  user            User         @relation(fields: [userId], references: [id])
+  
+  fromStatus      TicketStatus?
+  toStatus        TicketStatus
+  comment         String?      @db.Text
+  
+  createdAt       DateTime     @default(now())
+  
+  @@index([ticketId])
 }

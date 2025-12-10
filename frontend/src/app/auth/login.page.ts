@@ -16,7 +16,8 @@ import { AuthService } from '@auth0/auth0-angular';
 import { AuthApiService } from '../api/auth-api.service';
 import { firstValueFrom } from 'rxjs';
 import { NzMessageService } from 'ng-zorro-antd/message';
-
+// Add to existing imports (around line 17)
+import { AuthService as AppAuthService } from '../core/services/auth.service';
 type LoginForm = FormGroup<{
   email: FormControl<string>;
   password: FormControl<string>;
@@ -57,6 +58,7 @@ export class LoginPage {
   private readonly authApi = inject(AuthApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly message = inject(NzMessageService);
+  private readonly appAuthService = inject(AppAuthService);
   readonly form: LoginForm = this.fb.group({
     email: this.fb.control('', { validators: [Validators.required, Validators.email] }),
     password: this.fb.control('', { validators: [Validators.required, Validators.minLength(6)] }),
@@ -108,6 +110,9 @@ export class LoginPage {
 
       if (result.data?.login) {
         const { token, user } = result.data.login;
+
+      // ✅ Update AuthService signals (this makes guards work)
+      this.appAuthService.setAuth(user, token);
 
 
         localStorage.setItem('auth_token', token);

@@ -169,4 +169,49 @@ just make sure the code is easy to read and maintain. i dont want clever or comp
 
 - When suggesting code changes: always specify the exact file path, the specific function/section name, and where in that section to add/replace code (e.g., "Add this after line X" or "Replace the existing Y function"). Do not show the entire file content unless absolutely necessary. Users often apply changes manually, so clarity on location is critical.
 
+- when explaining the code flows as much as possible use visuals since i am a visual learner. Use diagrams, flowcharts, or step-by-step breakdowns to illustrate complex processes or architectures.
+
+## Documentation Requirements ⚠️ IMPORTANT
+
+**ALWAYS update documentation when making changes:**
+
+1. **After adding/modifying components**: Update `frontend/docs/TICKET_SYSTEM.md` with:
+   - New component details (purpose, features, key methods)
+   - Updated user flow diagrams
+   - New routes or navigation changes
+   - Code examples for new patterns
+
+2. **After adding/modifying backend features**: Update `backend/docs/TICKET_APPROVAL_WORKFLOW.md` with:
+   - New GraphQL mutations/queries
+   - Updated service methods
+   - Database schema changes
+   - Authorization/role changes
+
+3. **After adding new features**: Create/update feature-specific docs in:
+   - `frontend/docs/[FEATURE_NAME].md` - for major new features
+   - `backend/docs/[FEATURE_NAME].md` - for backend-specific features
+
+4. **What to document**:
+   - Visual flow diagrams showing user journey
+   - Component structure and interactions
+   - API endpoints and their usage
+   - State management patterns
+   - Error handling approaches
+   - Testing guidelines
+
+5. **When to update**:
+   - ✅ Adding new pages/components
+   - ✅ Modifying routing structure
+   - ✅ Adding/changing GraphQL queries/mutations
+   - ✅ Updating database schema
+   - ✅ Changing approval workflows or business logic
+   - ✅ Adding new UI patterns or layouts
+
+**Example**: If you add a sidebar navigation, update docs to show:
+- New component code structure
+- Updated route configuration
+- Visual diagram of new layout
+- Navigation flow changes
+
+This ensures the codebase remains maintainable and new developers can quickly understand the system.```
 
