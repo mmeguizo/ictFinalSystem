@@ -26,7 +26,7 @@
             {{ t.createdBy.name }} ({{ t.createdBy.email }})
           </nz-descriptions-item>
           <nz-descriptions-item nzTitle="Created At">
-            {{ formatDate(t.createdAt) }}
+            {{ t.createdAt | date }}
           </nz-descriptions-item>
           <nz-descriptions-item nzTitle="Due Date" [nzSpan]="2">
             {{ formatDate(t.dueDate) }}

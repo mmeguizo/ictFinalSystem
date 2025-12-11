@@ -7,6 +7,8 @@ import { AuthService } from '../services/auth.service';
  * Protects routes from unauthenticated users
  * Redirects to login if user is not authenticated
  *
+ * Waits for auth initialization to prevent login page flash on refresh
+ *
  * Usage in routes:
  * {
  *   path: 'dashboard',
@@ -14,15 +16,27 @@ import { AuthService } from '../services/auth.service';
  *   canActivate: [authGuard]
  * }
  */
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
+  console.log('[GUARD] 🛡️ authGuard called for:', state.url);
+  console.log('[GUARD] initialized:', authService.initialized(), 'isAuthenticated:', authService.isAuthenticated());
+
+  // By the time guards run, APP_INITIALIZER should have completed
+  // But just in case, check initialization state
+  if (!authService.initialized()) {
+    console.warn('[GUARD] ⚠️ Auth guard ran before initialization completed - redirecting to login');
+    return router.createUrlTree(['/login']);
+  }
+
   if (authService.isAuthenticated()) {
+    console.log('[GUARD] ✅ User is authenticated - allowing access');
     return true;
   }
 
-  // Redirect to login
+  // User not authenticated - redirect to login
+  console.log('[GUARD] ❌ User not authenticated - redirecting to login');
   return router.createUrlTree(['/login']);
 };
 
@@ -41,6 +55,11 @@ export function roleGuard(allowedRoles: string[]): CanActivateFn {
   return () => {
     const authService = inject(AuthService);
     const router = inject(Router);
+
+    // Wait for initialization to complete (prevents flash on page reload)
+    if (!authService.initialized()) {
+      return false;
+    }
 
     if (!authService.isAuthenticated()) {
       return router.createUrlTree(['/login']);
@@ -66,3 +85,39 @@ export const adminGuard: CanActivateFn = roleGuard(['ADMIN']);
  * Convenience guard for admin and developer routes
  */
 export const developerGuard: CanActivateFn = roleGuard(['ADMIN', 'DEVELOPER']);
+
+/**
+ * Guest Guard
+ * Redirects authenticated users away from public pages (like login)
+ * Prevents seeing login page flash when already authenticated
+ *
+ * Usage in routes:
+ * {
+ *   path: 'login',
+ *   component: LoginPage,
+ *   canActivate: [guestGuard]
+ * }
+ */
+export const guestGuard: CanActivateFn = (route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  console.log('[GUARD] 👋 guestGuard called for:', state.url);
+  console.log('[GUARD] initialized:', authService.initialized(), 'isAuthenticated:', authService.isAuthenticated());
+
+  // If not yet initialized, allow navigation but login page will show loading
+  if (!authService.initialized()) {
+    console.log('[GUARD] ⏳ Not initialized yet - allowing access (login will show loading)');
+    return true;
+  }
+
+  // If already authenticated, redirect to dashboard
+  if (authService.isAuthenticated()) {
+    console.log('[GUARD] 🔄 Already authenticated - redirecting to dashboard');
+    return router.createUrlTree(['/dashboard']);
+  }
+
+  // Not authenticated - allow access to login page
+  console.log('[GUARD] ✅ Not authenticated - allowing access to login');
+  return true;
+};

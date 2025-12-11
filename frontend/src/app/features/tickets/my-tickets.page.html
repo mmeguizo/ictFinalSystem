@@ -70,7 +70,7 @@
               </nz-tag>
             </td>
             <td>{{ getAssignedStaff(ticket) }}</td>
-            <td>{{ formatDate(ticket.createdAt) }}</td>
+            <td>{{ ticket.createdAt | date }}</td>
             <td>
               <a nz-button nzType="link" [routerLink]="['/tickets', ticket.ticketNumber]">
                 View

@@ -164,7 +164,7 @@ export class MainLayout {
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
-      this.authService.initFromStorage(); // safe now
+      // Auth already initialized via APP_INITIALIZER in app.config.ts
       const auth = this.injector.get(Auth0Service, null as any) as Auth0Service | null;
       if (auth) {
         auth.user$.pipe(takeUntilDestroyed()).subscribe((profile: any) => {

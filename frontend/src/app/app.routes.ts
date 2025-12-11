@@ -1,12 +1,12 @@
 import { Routes } from '@angular/router';
-import { authGuard, adminGuard } from './core/guards/auth.guard';
+import { authGuard, adminGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   {
     path: 'login',
     loadComponent: () => import('./auth/login.page').then(m => m.LoginPage),
-    // No guard needed - login page is public
+    canActivate: [guestGuard], // Redirects authenticated users to dashboard
   },
   {
     path: 'callback',
