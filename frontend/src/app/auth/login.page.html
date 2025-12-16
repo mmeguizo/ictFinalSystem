@@ -1,4 +1,9 @@
 <main class="login-container">
+  @if (isCheckingAuth()) {
+    <div class="auth-loading">
+      <nz-spin nzSize="large" nzTip="Loading..."></nz-spin>
+    </div>
+  } @else {
   <nz-card class="login-card" role="region" aria-labelledby="login-title">
     <div class="login-logo">
       <img ngSrc="/assets/chmsu-logo.png" width="120" height="120" id="chmsu-logo" alt="CHMSU logo" priority />
@@ -54,4 +59,5 @@
       @if (loggedIn()) { <nz-alert nzType="success" nzMessage="Login successful! Redirecting..." nzShowIcon></nz-alert> }
     </form>
   </nz-card>
+  }
 </main>

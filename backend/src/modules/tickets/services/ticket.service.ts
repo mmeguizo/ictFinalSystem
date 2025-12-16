@@ -207,6 +207,28 @@ export class TicketService {
   }
 
   /**
+   * Get tickets pending secretary approval (PENDING status)
+   */
+  async getTicketsPendingSecretaryApproval() {
+    return this.repository.findMany({ status: TicketStatus.PENDING });
+  }
+
+  /**
+   * Get tickets pending director approval (SECRETARY_APPROVED status)
+   */
+  async getTicketsPendingDirectorApproval() {
+    return this.repository.findMany({ status: TicketStatus.SECRETARY_APPROVED });
+  }
+
+  /**
+   * Get all secretary-related tickets (PENDING + SECRETARY_APPROVED)
+   * For admin/director oversight to see which tickets are waiting vs approved
+   */
+  async getAllSecretaryTickets() {
+    return this.repository.findManyByStatuses([TicketStatus.PENDING, TicketStatus.SECRETARY_APPROVED]);
+  }
+
+  /**
    * Approve ticket as secretary
    */
   async approveAsSecretary(ticketId: number, secretaryId: number, comment?: string) {

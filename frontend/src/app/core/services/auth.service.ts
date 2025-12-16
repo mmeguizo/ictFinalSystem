@@ -27,10 +27,12 @@ export class AuthService {
   // Primary state
   private readonly _currentUser = signal<User | null>(null);
   private readonly _token = signal<string | null>(null);
+  private readonly _initialized = signal<boolean>(false);
 
   // Public read-only signals
   readonly currentUser = this._currentUser.asReadonly();
   readonly token = this._token.asReadonly();
+  readonly initialized = this._initialized.asReadonly();
 
   // Computed properties
   readonly isAuthenticated = computed(() => this._currentUser() !== null);
@@ -39,6 +41,11 @@ export class AuthService {
     const role = this._currentUser()?.role;
     return role === 'ADMIN' || role === 'DEVELOPER';
   });
+
+
+  readonly isSecretary = computed(() => this._currentUser()?.role === 'SECRETARY');
+  readonly isDirector = computed(() => this._currentUser()?.role === 'DIRECTOR');
+
   readonly isOfficeHead = computed(() => this._currentUser()?.role === 'OFFICE_HEAD');
   readonly userName = computed(() => this._currentUser()?.name || 'Guest');
   readonly userEmail = computed(() => this._currentUser()?.email || '');
@@ -73,15 +80,23 @@ export class AuthService {
    * Initialize auth state from storage (call on app init)
    */
   initFromStorage(): void {
+    console.log('[AUTH] 1️⃣ initFromStorage() called');
     const storedUser = this.storage.get<User>('current_user');
     const storedToken = this.storage.get<string>('token');
+    console.log('[AUTH] 2️⃣ Storage values:', { hasUser: !!storedUser, hasToken: !!storedToken });
 
     if (storedUser) {
       this._currentUser.set(storedUser);
+      console.log('[AUTH] 3️⃣ User restored:', storedUser.email);
     }
     if (storedToken) {
       this._token.set(storedToken);
+      console.log('[AUTH] 4️⃣ Token restored');
     }
+
+    // Mark as initialized
+    this._initialized.set(true);
+    console.log('[AUTH] 5️⃣ Initialized set to TRUE, isAuthenticated:', this.isAuthenticated());
   }
 
   /**
@@ -104,6 +119,7 @@ export class AuthService {
   setAuth(user: User, token: string): void {
     this._currentUser.set(user);
     this._token.set(token);
+    this._initialized.set(true); // Mark as initialized on login
   }
 
   /**
@@ -138,6 +154,7 @@ export class AuthService {
     this._currentUser.set(null);
     this._token.set(null);
     this.storage.clear();
+    // Keep initialized true to prevent flash
     this.router.navigate(['/login']);
   }
 
@@ -147,6 +164,7 @@ export class AuthService {
   clear(): void {
     this._currentUser.set(null);
     this._token.set(null);
+    // Keep initialized true to prevent flash
     this.storage.remove('current_user');
     this.storage.remove('token');
   }

@@ -208,6 +208,9 @@ export const ticketTypeDefs = gql`
     tickets(filter: TicketFilterInput): [Ticket!]!
     myTickets: [Ticket!]!
     myCreatedTickets: [Ticket!]!
+    ticketsPendingSecretaryApproval: [Ticket!]!
+    ticketsPendingDirectorApproval: [Ticket!]!
+    allSecretaryTickets: [Ticket!]!
     ticketAnalytics(filter: AnalyticsFilterInput): TicketAnalytics!
     slaMetrics: SLAMetrics!
   }

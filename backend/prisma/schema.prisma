@@ -10,6 +10,8 @@ datasource db {
 enum Role {
   ADMIN
   DEVELOPER
+  SECRETARY
+  DIRECTOR
   OFFICE_HEAD
   USER
 }

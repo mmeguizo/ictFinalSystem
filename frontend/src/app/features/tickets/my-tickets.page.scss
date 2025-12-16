@@ -14,3 +14,32 @@
     margin: 0;
   }
 }
+
+/* Responsive table container to keep table inside the card and enable horizontal scrolling */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+:host ::ng-deep .table-wrapper .ant-table-wrapper {
+  min-width: 100%;
+}
+
+:host ::ng-deep table {
+  table-layout: fixed; /* helps columns respect max-width */
+  width: 100%;
+  min-width: 800px; /* allow horizontal scroll on small screens */
+}
+
+:host ::ng-deep th,
+:host ::ng-deep td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:host ::ng-deep td:nth-child(3) { /* Title column - allow wrapping if needed */
+  white-space: normal;
+  word-break: break-word;
+}

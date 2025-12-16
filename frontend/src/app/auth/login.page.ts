@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Injector, inject, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, inject, signal, OnInit, computed } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormControl, FormGroup, AbstractControl, ValidationErrors } from '@angular/forms';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -59,6 +59,21 @@ export class LoginPage {
   private readonly route = inject(ActivatedRoute);
   private readonly message = inject(NzMessageService);
   private readonly appAuthService = inject(AppAuthService);
+
+  constructor() {
+    console.log('[LOGIN] 🔐 LoginPage constructor');
+    console.log('[LOGIN] initialized:', this.appAuthService.initialized(), 'isAuthenticated:', this.appAuthService.isAuthenticated());
+  }
+
+  // Show loading spinner while auth is initializing or if already authenticated (redirect pending)
+  readonly isCheckingAuth = computed(() => {
+    const initialized = this.appAuthService.initialized();
+    const isAuth = this.appAuthService.isAuthenticated();
+    const result = !initialized || isAuth;
+    console.log('[LOGIN] 📋 isCheckingAuth computed:', { initialized, isAuth, showLoading: result });
+    return result;
+  });
+
   readonly form: LoginForm = this.fb.group({
     email: this.fb.control('', { validators: [Validators.required, Validators.email] }),
     password: this.fb.control('', { validators: [Validators.required, Validators.minLength(6)] }),
@@ -177,9 +192,10 @@ export class LoginPage {
 
     const auth = this.injector.get(AuthService, null);
     if (auth) {
-      // Pass appState so callback can use it to determine route
+      // Set target to /callback so Auth0 SDK stays on callback page after processing
+      // Our callback component will then fetch user and navigate to the correct route
       auth.loginWithRedirect({
-        appState: { target: '/dashboard' }, // Default; callback will override based on role
+        appState: { target: '/callback' },
       });
     }
   }
