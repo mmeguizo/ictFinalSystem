@@ -9,6 +9,8 @@ export const createUserSchema = z.object({
 
 export const updateProfileSchema = z.object({
   name: z.string().min(2).max(120).optional(),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
+  confirmPassword: z.string().min(8, 'Confirm Password must be at least 8 characters').optional(),  
   avatarDataUrl: z.string().optional(),
 });
 

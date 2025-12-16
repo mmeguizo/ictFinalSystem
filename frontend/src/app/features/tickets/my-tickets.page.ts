@@ -11,6 +11,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { FormsModule } from '@angular/forms';
 import { TicketService, TicketListItem } from '../../core/services/ticket.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-my-tickets',
@@ -33,10 +34,21 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 export class MyTicketsPage implements OnInit {
   private readonly ticketService = inject(TicketService);
   private readonly message = inject(NzMessageService);
+  private readonly authService = inject(AuthService);
 
   readonly loading = signal(false);
   readonly tickets = signal<TicketListItem[]>([]);
   readonly statusFilter = signal<string>('ALL');
+
+  // Check if user is admin or office head (can see all tickets)
+  readonly canViewAllTickets = computed(() =>
+    this.authService.isAdmin() || this.authService.isOfficeHead()
+  );
+
+  // Dynamic page title based on role
+  readonly pageTitle = computed(() =>
+    this.canViewAllTickets() ? 'All Tickets' : 'My Tickets'
+  );
 
   readonly filteredTickets = computed(() => {
     const filter = this.statusFilter();
@@ -55,7 +67,13 @@ export class MyTicketsPage implements OnInit {
 
   loadTickets(): void {
     this.loading.set(true);
-    this.ticketService.getMyCreatedTickets().subscribe({
+
+    // Admin/Office Head sees all tickets, regular users see only their created tickets
+    const ticketQuery = this.canViewAllTickets()
+      ? this.ticketService.getAllTickets()
+      : this.ticketService.getMyCreatedTickets();
+
+    ticketQuery.subscribe({
       next: (tickets) => {
         this.tickets.set(tickets);
         this.loading.set(false);

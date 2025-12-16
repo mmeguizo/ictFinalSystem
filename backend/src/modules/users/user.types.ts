@@ -6,6 +6,7 @@ export const userTypeDefs = gql`
     DEVELOPER
     OFFICE_HEAD
     USER
+    SECRETARY
   }
 
   type User {

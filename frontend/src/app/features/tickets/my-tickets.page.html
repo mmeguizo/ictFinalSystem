@@ -1,4 +1,4 @@
-<nz-card nzTitle="My Tickets" [nzExtra]="extraTemplate">
+<nz-card [nzTitle]="pageTitle()" [nzExtra]="extraTemplate">
   <nz-spin [nzSpinning]="loading()">
     <div class="filter-bar">
       <nz-select
@@ -19,13 +19,14 @@
       </nz-select>
     </div>
 
-    <nz-table
-      #ticketTable
-      [nzData]="filteredTickets()"
-      [nzShowPagination]="true"
-      [nzPageSize]="10"
-      [nzSize]="'middle'"
-    >
+    <div class="table-wrapper">
+      <nz-table
+        #ticketTable
+        [nzData]="filteredTickets()"
+        [nzShowPagination]="true"
+        [nzPageSize]="10"
+        [nzSize]="'middle'"
+      >
       <thead>
         <tr>
           <th>Ticket #</th>
@@ -33,6 +34,9 @@
           <th>Title</th>
           <th>Status</th>
           <th>Priority</th>
+          @if (canViewAllTickets()) {
+            <th>Created By</th>
+          }
           <th>Assigned To</th>
           <th>Created</th>
           <th>Action</th>
@@ -41,7 +45,7 @@
       <tbody>
         @if (filteredTickets().length === 0) {
           <tr>
-            <td colspan="8">
+            <td [attr.colspan]="canViewAllTickets() ? 9 : 8">
               <nz-empty nzNotFoundContent="No tickets found"></nz-empty>
             </td>
           </tr>
@@ -69,6 +73,9 @@
                 {{ ticket.priority }}
               </nz-tag>
             </td>
+            @if (canViewAllTickets()) {
+              <td>{{ ticket.createdBy.name || 'Unknown'}}</td>
+            }
             <td>{{ getAssignedStaff(ticket) }}</td>
             <td>{{ ticket.createdAt | date }}</td>
             <td>
@@ -79,7 +86,8 @@
           </tr>
         }
       </tbody>
-    </nz-table>
+      </nz-table>
+    </div>
   </nz-spin>
 </nz-card>
 

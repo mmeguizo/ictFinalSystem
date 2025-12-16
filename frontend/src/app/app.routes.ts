@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, adminGuard, guestGuard } from './core/guards/auth.guard';
+import { authGuard, adminGuard, guestGuard, approverGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -32,6 +32,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/tickets/tickets-layout.component').then(m => m.TicketsLayoutComponent),
         children: [
+          {
+            path: 'approvals',
+            loadComponent: () =>
+              import('./features/approvals/secretary-approval.page').then(m => m.SecretaryApprovalPage),
+            canActivate: [approverGuard],
+          },
           {
             path: '',
             loadComponent: () =>

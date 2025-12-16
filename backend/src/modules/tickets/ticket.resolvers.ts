@@ -39,10 +39,45 @@ export const ticketResolvers = {
     },
 
     myCreatedTickets: async (_: any, __: any, context: any) => {
+      console.log('myCreatedTickets resolver called with context:', context);
       if (!context.currentUser) {
         throw new Error('Unauthorized');
       }
       return ticketService.getUserCreatedTickets(context.currentUser.id);
+    },
+
+    ticketsPendingSecretaryApproval: async (_: any, __: any, context: any) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only admins, secretaries, and office heads can view pending approvals
+      if (!['ADMIN', 'SECRETARY', 'OFFICE_HEAD'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Insufficient permissions');
+      }
+      return ticketService.getTicketsPendingSecretaryApproval();
+    },
+
+    ticketsPendingDirectorApproval: async (_: any, __: any, context: any) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only admins, directors, and office heads can view director pending approvals
+      if (!['ADMIN', 'DIRECTOR', 'OFFICE_HEAD'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Insufficient permissions');
+      }
+      return ticketService.getTicketsPendingDirectorApproval();
+    },
+
+    allSecretaryTickets: async (_: any, __: any, context: any) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only admins, directors, and office heads can view all tickets for secretary oversight
+      if (!['ADMIN', 'DIRECTOR', 'OFFICE_HEAD'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Insufficient permissions');
+      }
+      // Return ALL tickets so admin can see secretary approval status for each
+      return ticketService.getTickets();
     },
 
     ticketAnalytics: async (_: any, { filter }: { filter?: any }, context: any) => {

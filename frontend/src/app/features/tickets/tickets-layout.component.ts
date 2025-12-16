@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { NzLayoutModule } from 'ng-zorro-antd/layout';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-tickets-layout',
@@ -39,6 +40,13 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
             <span nz-icon nzType="unordered-list" nzTheme="outline"></span>
             <span>My Tickets</span>
           </li>
+          @if (canApprove()) {
+            <li nz-menu-item [routerLink]="['/tickets/approvals']" routerLinkActive="ant-menu-item-selected" [routerLinkActiveOptions]="{exact: true}">
+              <!-- <span nz-icon nzType="unordered-list" nzTheme="outline"></span> -->
+              <nz-icon nzType="solution" nzTheme="outline" />
+              <span>Secretary Approvals</span>
+            </li>
+          }
           <li nz-menu-item [routerLink]="['/tickets/new']" routerLinkActive="ant-menu-item-selected">
             <span nz-icon nzType="plus-circle" nzTheme="outline"></span>
             <span>Submit New Ticket</span>
@@ -150,5 +158,24 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
   `],
 })
 export class TicketsLayoutComponent {
+  private readonly authService = inject(AuthService);
   isCollapsed = signal(false);
+
+  readonly canApprove = computed(() =>
+    this.authService.isAdmin() ||
+    // this.authService.isOfficeHead() ||
+    this.authService.isSecretary()
+    // this.authService.isDirector()
+  );
+
+  constructor() {
+    // console.log('TicketsLayoutComponent initialized. User can approve:', this.canApprove());
+    // console.log('TicketsLayoutComponent currentUser:', this.authService.currentUser());
+    // console.log('TicketsLayoutComponent flags:', {
+    //   isAdmin: this.authService.isAdmin(),
+    //   isOfficeHead: this.authService.isOfficeHead(),
+    //   isSecretary: this.authService.isSecretary(),
+    //   isDirector: this.authService.isDirector(),
+    // });
+  }
 }

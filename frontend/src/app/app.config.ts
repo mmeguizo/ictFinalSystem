@@ -72,21 +72,41 @@ export const appConfig: ApplicationConfig = {
 
       // Only use auth on the browser, not during SSR
       if (typeof window !== 'undefined') {
-        const authService = inject(AuthService);
+        const auth0Service = inject(AuthService); // Auth0's service
+        const appAuthService = inject(AppAuthService); // Our custom service
 
         // Create auth link to add Authorization header
-        const authLink = setContext(() => {
-          return authService.getAccessTokenSilently().toPromise().then(
-            (token) => ({
+        // Checks local JWT first (email/password login), then falls back to Auth0
+        const authLink = setContext(async () => {
+          // 1. Check local JWT token first (email/password login)
+          const localToken = appAuthService.getToken();
+          if (localToken) {
+            console.log('[Apollo] Using local JWT token');
+            return {
               headers: {
-                Authorization: token ? `Bearer ${token}` : '',
+                Authorization: `Bearer ${localToken}`,
               },
-            }),
-            (error) => {
-              console.warn('Failed to get access token for GraphQL request:', error);
-              return { headers: {} };
+            };
+          }
+
+          // 2. Fall back to Auth0 token (SSO login)
+          try {
+            const auth0Token = await auth0Service.getAccessTokenSilently().toPromise();
+            if (auth0Token) {
+              console.log('[Apollo] Using Auth0 token');
+              return {
+                headers: {
+                  Authorization: `Bearer ${auth0Token}`,
+                },
+              };
             }
-          );
+          } catch (error) {
+            console.warn('[Apollo] Failed to get Auth0 access token:', error);
+          }
+
+          // 3. No token available
+          console.log('[Apollo] No auth token available');
+          return { headers: {} };
         });
 
         return {

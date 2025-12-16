@@ -86,7 +86,17 @@ export class MainLayout {
   });
 
   readonly hasProfileChanges = computed(() => {
-    return this.profileForm.dirty || this.avatarPreview() !== null;
+    if (this.passwordsValid()) return true;
+
+    // avatar preview / pending avatar checks (use your existing fields)
+    if (typeof (this as any).avatarPreview === 'function' && (this as any).avatarPreview() != null)
+      return true;
+    if ((this as any).pendingAvatarDataUrl != null) return true;
+
+    // any other form changes
+    return this.profileForm.dirty;
+    // return this.profileForm.dirty || this.avatarPreview() !== null;
+    // return true;
   });
 
   // Compute menu items based on user role
@@ -99,7 +109,7 @@ export class MainLayout {
         icon: 'dashboard',
         label: 'Dashboard',
         path: '/dashboard',
-        roles: ['USER', 'ADMIN', 'ICT_HEAD', 'MIS_HEAD', 'TECHNICIAN_ITS', 'TECHNICIAN_MIS'],
+        roles: ['USER', 'ADMIN', 'DEVELOPER', 'OFFICE_HEAD', 'SECRETARY'],
       },
       // {
       //   icon: 'inbox',
@@ -123,7 +133,7 @@ export class MainLayout {
         icon: 'file-text',
         label: 'Tickets',
         path: '/tickets/new',
-        roles: ['USER', 'ADMIN'], // admin sees everything; users see their own submit page
+        roles: ['USER', 'ADMIN', 'SECRETARY', 'OFFICE_HEAD'], // admin sees everything; users see their own submit page
       },
       {
         icon: 'home',
@@ -134,7 +144,7 @@ export class MainLayout {
     ];
 
     // Filter items based on user role
-    return allItems.filter(item => item.roles.includes(user.role));
+    return allItems.filter((item) => item.roles.includes(user.role));
   });
 
   private readonly fb = inject(FormBuilder);
@@ -161,6 +171,8 @@ export class MainLayout {
       this.cdr.markForCheck();
     }
   });
+
+  private readonly passwordsValid = signal(false);
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
@@ -189,8 +201,42 @@ export class MainLayout {
       }
       this.loadCurrentUser().catch(() => {});
     }
+
+    const pwCtrl = this.profileForm.get('password');
+    const confCtrl = this.profileForm.get('confirm');
+
+    const updatePasswordState = () => {
+      const pw = (pwCtrl?.value ?? '').toString().trim();
+      const conf = (confCtrl?.value ?? '').toString().trim();
+
+      // both empty -> ensure controls are pristine and no changes flagged
+      if (!pw && !conf) {
+        this.passwordsValid.set(false);
+        if (pwCtrl?.dirty) pwCtrl.markAsPristine();
+        if (confCtrl?.dirty) confCtrl.markAsPristine();
+        return;
+      }
+
+      // both filled and match -> mark dirty and enable Save
+      if (pw && conf && pw === conf) {
+        this.passwordsValid.set(true);
+        if (!pwCtrl?.dirty) pwCtrl?.markAsDirty();
+        if (!confCtrl?.dirty) confCtrl?.markAsDirty();
+        return;
+      }
+
+      // otherwise (one filled or mismatch) -> don't mark as "change" for save
+      this.passwordsValid.set(false);
+      // keep controls' dirty state as-is (do not mark as dirty)
+    };
+
+    pwCtrl?.valueChanges.pipe(takeUntilDestroyed()).subscribe(updatePasswordState);
+    confCtrl?.valueChanges.pipe(takeUntilDestroyed()).subscribe(updatePasswordState);
   }
 
+  passwordsMatch(): boolean {
+    return this.passwordsValid();
+  }
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     console.log('onFileSelected called', { hasFiles: !!input.files?.length });
@@ -218,6 +264,8 @@ export class MainLayout {
     this.isProfileOpen.set(true);
     this.avatarPreview.set(null);
     this.pendingAvatarDataUrl = null;
+    //reset the form first
+    // this.profileForm.reset();
     this.loadCurrentUser().catch(() => {});
   }
 
@@ -241,6 +289,12 @@ export class MainLayout {
     if (!this.hasProfileChanges()) {
       this.message.info('No changes to save');
       this.closeProfile();
+      return;
+    }
+
+     if (this.profileForm.get('password')?.value && !this.passwordsMatch()) {
+      // replace with your toast/modal error mechanism
+      alert('Passwords do not match.');
       return;
     }
 
@@ -296,7 +350,7 @@ export class MainLayout {
 
       const avatarDataUrl = this.pendingAvatarDataUrl ?? null;
       const resp = await firstValueFrom(
-        this.api.updateMyProfile(displayName || null, avatarDataUrl || null, token)
+        this.api.updateMyProfile(displayName || "", avatarDataUrl || "", token)
       );
 
       const graphQLErrors = (resp as { errors?: readonly { message?: string }[] }).errors;
@@ -391,6 +445,7 @@ export class MainLayout {
 
     localStorage.removeItem('auth_token');
     localStorage.removeItem('current_user');
+    localStorage.removeItem('token');
 
     const auth = this.injector.get(Auth0Service, null as any) as Auth0Service | null;
     if (auth) {

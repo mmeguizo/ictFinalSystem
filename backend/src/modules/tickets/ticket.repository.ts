@@ -160,6 +160,32 @@ export class TicketRepository {
     });
   }
 
+  /**
+   * Find tickets by multiple statuses (e.g., PENDING + SECRETARY_APPROVED)
+   */
+  async findManyByStatuses(statuses: TicketStatus[]) {
+    return this.prisma.ticket.findMany({
+      where: {
+        status: {
+          in: statuses,
+        },
+      },
+      include: {
+        createdBy: true,
+        misTicket: true,
+        itsTicket: true,
+        assignments: {
+          include: {
+            user: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   async updateStatus(
     ticketId: number,
     userId: number,

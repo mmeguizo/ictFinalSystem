@@ -41,6 +41,11 @@ export class AuthService {
     const role = this._currentUser()?.role;
     return role === 'ADMIN' || role === 'DEVELOPER';
   });
+
+
+  readonly isSecretary = computed(() => this._currentUser()?.role === 'SECRETARY');
+  readonly isDirector = computed(() => this._currentUser()?.role === 'DIRECTOR');
+
   readonly isOfficeHead = computed(() => this._currentUser()?.role === 'OFFICE_HEAD');
   readonly userName = computed(() => this._currentUser()?.name || 'Guest');
   readonly userEmail = computed(() => this._currentUser()?.email || '');

@@ -86,6 +86,13 @@ export const adminGuard: CanActivateFn = roleGuard(['ADMIN']);
  */
 export const developerGuard: CanActivateFn = roleGuard(['ADMIN', 'DEVELOPER']);
 
+
+/**
+ * Approver Guard
+ * Convenience guard for approver-only routes
+ */
+export const approverGuard: CanActivateFn = roleGuard(['ADMIN','SECRETARY','DIRECTOR','OFFICE_HEAD']);
+
 /**
  * Guest Guard
  * Redirects authenticated users away from public pages (like login)

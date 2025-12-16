@@ -54,6 +54,41 @@ const ADD_TICKET_NOTE = gql`
   }
 `;
 
+const ALL_TICKETS = gql`
+  query AllTickets {
+    tickets {
+      id
+      ticketNumber
+      type
+      title
+      description
+      status
+      priority
+      dueDate
+      secretaryApprovedAt
+      directorApprovedAt
+      createdAt
+      updatedAt
+      resolvedAt
+      closedAt
+      createdBy {
+        id
+        name
+        email
+      }
+      assignments {
+        user {
+          id
+          name
+          email
+          role
+        }
+        assignedAt
+      }
+    }
+  }
+`;
+
 const MY_CREATED_TICKETS = gql`
   query MyCreatedTickets {
     myCreatedTickets {
@@ -85,6 +120,110 @@ const MY_CREATED_TICKETS = gql`
         }
         assignedAt
       }
+    }
+  }
+`;
+
+const TICKETS_PENDING_SECRETARY_APPROVAL = gql`
+  query TicketsPendingSecretaryApproval {
+    ticketsPendingSecretaryApproval {
+      id
+      ticketNumber
+      type
+      title
+      description
+      status
+      priority
+      dueDate
+      createdAt
+      updatedAt
+      createdBy {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+const ALL_SECRETARY_TICKETS = gql`
+  query AllSecretaryTickets {
+    allSecretaryTickets {
+      id
+      ticketNumber
+      type
+      title
+      description
+      status
+      priority
+      dueDate
+      secretaryApprovedAt
+      secretaryApprovedById
+      directorApprovedAt
+      directorApprovedById
+      createdAt
+      updatedAt
+      createdBy {
+        id
+        name
+        email
+      }
+      assignments {
+        user {
+          id
+          name
+          email
+          role
+        }
+        assignedAt
+      }
+    }
+  }
+`;
+
+const TICKETS_PENDING_DIRECTOR_APPROVAL = gql`
+  query TicketsPendingDirectorApproval {
+    ticketsPendingDirectorApproval {
+      id
+      ticketNumber
+      type
+      title
+      description
+      status
+      priority
+      dueDate
+      secretaryApprovedAt
+      createdAt
+      updatedAt
+      createdBy {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+const APPROVE_TICKET_AS_SECRETARY = gql`
+  mutation ApproveTicketAsSecretary($ticketId: Int!, $comment: String) {
+    approveTicketAsSecretary(ticketId: $ticketId, comment: $comment) {
+      id
+      ticketNumber
+      status
+      secretaryApprovedAt
+      secretaryApprovedById
+    }
+  }
+`;
+
+const APPROVE_TICKET_AS_DIRECTOR = gql`
+  mutation ApproveTicketAsDirector($ticketId: Int!, $comment: String) {
+    approveTicketAsDirector(ticketId: $ticketId, comment: $comment) {
+      id
+      ticketNumber
+      status
+      directorApprovedAt
+      directorApprovedById
     }
   }
 `;
@@ -353,6 +492,25 @@ export class TicketService {
       );
   }
 
+  /**
+   * Get all tickets in the system (for admin/office head)
+   */
+  getAllTickets(): Observable<TicketListItem[]> {
+    return this.apollo
+      .query<{ tickets: TicketListItem[] }>({
+        query: ALL_TICKETS,
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.tickets) {
+            throw new Error('Failed to fetch all tickets');
+          }
+          return result.data.tickets;
+        })
+      );
+  }
+
   getTicketByNumber(ticketNumber: string): Observable<TicketDetail> {
     return this.apollo
       .query<{ ticketByNumber: TicketDetail }>({
@@ -385,6 +543,102 @@ export class TicketService {
             throw new Error('Failed to add note');
           }
           return result.data.addTicketNote;
+        })
+      );
+  }
+
+  /**
+   * Get tickets pending secretary approval (PENDING status)
+   */
+  getTicketsPendingSecretaryApproval(): Observable<TicketListItem[]> {
+    return this.apollo
+      .query<{ ticketsPendingSecretaryApproval: TicketListItem[] }>({
+        query: TICKETS_PENDING_SECRETARY_APPROVAL,
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.ticketsPendingSecretaryApproval) {
+            throw new Error('Failed to fetch tickets pending secretary approval');
+          }
+          return result.data.ticketsPendingSecretaryApproval;
+        })
+      );
+  }
+
+  /**
+   * Get all secretary-related tickets (PENDING + SECRETARY_APPROVED)
+   * For admin/director oversight
+   */
+  getAllSecretaryTickets(): Observable<TicketListItem[]> {
+    return this.apollo
+      .query<{ allSecretaryTickets: TicketListItem[] }>({
+        query: ALL_SECRETARY_TICKETS,
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.allSecretaryTickets) {
+            throw new Error('Failed to fetch all secretary tickets');
+          }
+          return result.data.allSecretaryTickets;
+        })
+      );
+  }
+
+  /**
+   * Get tickets pending director approval (SECRETARY_APPROVED status)
+   */
+  getTicketsPendingDirectorApproval(): Observable<TicketListItem[]> {
+    return this.apollo
+      .query<{ ticketsPendingDirectorApproval: TicketListItem[] }>({
+        query: TICKETS_PENDING_DIRECTOR_APPROVAL,
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.ticketsPendingDirectorApproval) {
+            throw new Error('Failed to fetch tickets pending director approval');
+          }
+          return result.data.ticketsPendingDirectorApproval;
+        })
+      );
+  }
+
+  /**
+   * Approve ticket as secretary
+   */
+  approveAsSecretary(ticketId: number, comment?: string): Observable<{ id: number; status: string }> {
+    return this.apollo
+      .mutate<{ approveTicketAsSecretary: { id: number; ticketNumber: string; status: string } }>({
+        mutation: APPROVE_TICKET_AS_SECRETARY,
+        variables: { ticketId, comment },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.approveTicketAsSecretary) {
+            throw new Error('Failed to approve ticket');
+          }
+          return result.data.approveTicketAsSecretary;
+        })
+      );
+  }
+
+  /**
+   * Approve ticket as director
+   */
+  approveAsDirector(ticketId: number, comment?: string): Observable<{ id: number; status: string }> {
+    return this.apollo
+      .mutate<{ approveTicketAsDirector: { id: number; ticketNumber: string; status: string } }>({
+        mutation: APPROVE_TICKET_AS_DIRECTOR,
+        variables: { ticketId, comment },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.approveTicketAsDirector) {
+            throw new Error('Failed to approve ticket');
+          }
+          return result.data.approveTicketAsDirector;
         })
       );
   }
