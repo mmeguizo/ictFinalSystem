@@ -194,7 +194,7 @@ export class SubmitTicketPage {
         const categoryData = payload.category === 'WEBSITE' ? payload.website : payload.software;
 
         // Build description with user info
-        const fullDescription = `Requester: ${payload.requesterName}\nDepartment: ${payload.department}\n${payload.controlNumber ? 'Control #: ' + payload.controlNumber + '\n' : ''}Requested Date: ${new Date(payload.requestedDate).toLocaleDateString()}\n\n${payload.details || 'No additional details provided'}`;
+        const fullDescription = `Requester: ${payload.requesterName}\nDepartment: ${payload.department}\nRequested Date: ${new Date(payload.requestedDate).toLocaleDateString()}\n\n${payload.details || 'No additional details provided'}`;
 
         const misInput: CreateMISTicketInput = {
           title: this.generateMISTitle(payload),

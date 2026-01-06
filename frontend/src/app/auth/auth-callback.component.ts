@@ -12,12 +12,14 @@ function mapRoleToRoute(role: unknown): string {
   switch (r) {
     case 'ADMIN':
       return '/admin';
-    case 'ICT_HEAD':
     case 'MIS_HEAD':
-      return '/reports';
-    case 'TECHNICIAN_ITS':
-    case 'TECHNICIAN_MIS':
-      return '/queue';
+    case 'ITS_HEAD':
+    case 'DEVELOPER':
+    case 'TECHNICAL':
+      return '/tickets'; // Department heads and staff go to tickets
+    case 'SECRETARY':
+    case 'DIRECTOR':
+      return '/tickets/approvals'; // Approvers go to approval page
     case 'USER':
       return '/dashboard';
     default:

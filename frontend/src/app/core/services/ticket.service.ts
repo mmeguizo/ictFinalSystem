@@ -54,6 +54,115 @@ const ADD_TICKET_NOTE = gql`
   }
 `;
 
+/**
+ * Mutation to assign a ticket to a staff member
+ * Used by MIS_HEAD/ITS_HEAD to assign tickets to DEVELOPER/TECHNICAL staff
+ */
+const ASSIGN_TICKET = gql`
+  mutation AssignTicket($ticketId: Int!, $userId: Int!) {
+    assignTicket(ticketId: $ticketId, userId: $userId) {
+      id
+      ticketNumber
+      status
+      assignments {
+        user {
+          id
+          name
+          email
+          role
+        }
+        assignedAt
+      }
+    }
+  }
+`;
+
+/**
+ * Mutation to update ticket status
+ * Used by DEVELOPER/TECHNICAL to mark tickets IN_PROGRESS, RESOLVED, etc.
+ */
+const UPDATE_TICKET_STATUS = gql`
+  mutation UpdateTicketStatus($ticketId: Int!, $input: UpdateTicketStatusInput!) {
+    updateTicketStatus(ticketId: $ticketId, input: $input) {
+      id
+      ticketNumber
+      status
+    }
+  }
+`;
+
+/**
+ * Query to get users by role (for assignment dropdown)
+ */
+const USERS_BY_ROLE = gql`
+  query UsersByRole($role: Role!) {
+    usersByRole(role: $role) {
+      id
+      name
+      email
+      role
+    }
+  }
+`;
+
+/**
+ * Query to get users by multiple roles
+ */
+const USERS_BY_ROLES = gql`
+  query UsersByRoles($roles: [Role!]!) {
+    usersByRoles(roles: $roles) {
+      id
+      name
+      email
+      role
+    }
+  }
+`;
+
+/**
+ * Query to get tickets assigned to the current user (for DEVELOPER/TECHNICAL)
+ */
+const MY_ASSIGNED_TICKETS = gql`
+  query MyTickets {
+    myTickets {
+      id
+      ticketNumber
+      type
+      title
+      description
+      status
+      priority
+      dueDate
+      createdAt
+      updatedAt
+      createdBy {
+        id
+        name
+        email
+      }
+      assignments {
+        user {
+          id
+          name
+          role
+        }
+        assignedAt
+      }
+      notes {
+        id
+        content
+        isInternal
+        createdAt
+        user {
+          id
+          name
+          role
+        }
+      }
+    }
+  }
+`;
+
 const ALL_TICKETS = gql`
   query AllTickets {
     tickets {
@@ -65,7 +174,7 @@ const ALL_TICKETS = gql`
       status
       priority
       dueDate
-      secretaryApprovedAt
+      secretaryReviewedAt
       directorApprovedAt
       createdAt
       updatedAt
@@ -100,7 +209,7 @@ const MY_CREATED_TICKETS = gql`
       status
       priority
       dueDate
-      secretaryApprovedAt
+      secretaryReviewedAt
       directorApprovedAt
       createdAt
       updatedAt
@@ -124,9 +233,9 @@ const MY_CREATED_TICKETS = gql`
   }
 `;
 
-const TICKETS_PENDING_SECRETARY_APPROVAL = gql`
-  query TicketsPendingSecretaryApproval {
-    ticketsPendingSecretaryApproval {
+const TICKETS_FOR_SECRETARY_REVIEW = gql`
+  query TicketsForSecretaryReview {
+    ticketsForSecretaryReview {
       id
       ticketNumber
       type
@@ -157,8 +266,8 @@ const ALL_SECRETARY_TICKETS = gql`
       status
       priority
       dueDate
-      secretaryApprovedAt
-      secretaryApprovedById
+      secretaryReviewedAt
+      secretaryReviewedById
       directorApprovedAt
       directorApprovedById
       createdAt
@@ -192,7 +301,7 @@ const TICKETS_PENDING_DIRECTOR_APPROVAL = gql`
       status
       priority
       dueDate
-      secretaryApprovedAt
+      secretaryReviewedAt
       createdAt
       updatedAt
       createdBy {
@@ -204,14 +313,28 @@ const TICKETS_PENDING_DIRECTOR_APPROVAL = gql`
   }
 `;
 
-const APPROVE_TICKET_AS_SECRETARY = gql`
-  mutation ApproveTicketAsSecretary($ticketId: Int!, $comment: String) {
-    approveTicketAsSecretary(ticketId: $ticketId, comment: $comment) {
+const REVIEW_TICKET_AS_SECRETARY = gql`
+  mutation ReviewTicketAsSecretary($ticketId: Int!, $comment: String) {
+    reviewTicketAsSecretary(ticketId: $ticketId, comment: $comment) {
       id
       ticketNumber
       status
-      secretaryApprovedAt
-      secretaryApprovedById
+      secretaryReviewedAt
+      secretaryReviewedById
+    }
+  }
+`;
+
+/**
+ * Mutation to reject a ticket as secretary
+ * Returns ticket to user with notes/reason
+ */
+const REJECT_TICKET_AS_SECRETARY = gql`
+  mutation RejectTicketAsSecretary($ticketId: Int!, $reason: String!) {
+    rejectTicketAsSecretary(ticketId: $ticketId, reason: $reason) {
+      id
+      ticketNumber
+      status
     }
   }
 `;
@@ -228,11 +351,40 @@ const APPROVE_TICKET_AS_DIRECTOR = gql`
   }
 `;
 
+/**
+ * Mutation to disapprove/reject a ticket as director
+ * Requires a reason for the rejection
+ */
+const DISAPPROVE_TICKET_AS_DIRECTOR = gql`
+  mutation DisapproveTicketAsDirector($ticketId: Int!, $reason: String!) {
+    disapproveTicketAsDirector(ticketId: $ticketId, reason: $reason) {
+      id
+      ticketNumber
+      status
+    }
+  }
+`;
+
+/**
+ * Mutation to reopen a cancelled/rejected ticket
+ * Only the original creator can reopen
+ */
+const REOPEN_TICKET = gql`
+  mutation ReopenTicket($ticketId: Int!, $input: ReopenTicketInput) {
+    reopenTicket(ticketId: $ticketId, input: $input) {
+      id
+      ticketNumber
+      status
+    }
+  }
+`;
+
 const TICKET_BY_NUMBER = gql`
   query TicketByNumber($ticketNumber: String!) {
     ticketByNumber(ticketNumber: $ticketNumber) {
       id
       ticketNumber
+      controlNumber
       type
       title
       description
@@ -241,8 +393,8 @@ const TICKET_BY_NUMBER = gql`
       dueDate
       estimatedDuration
       actualDuration
-      secretaryApprovedById
-      secretaryApprovedAt
+      secretaryReviewedById
+      secretaryReviewedAt
       directorApprovedById
       directorApprovedAt
       createdAt
@@ -307,6 +459,9 @@ const TICKET_BY_NUMBER = gql`
   }
 `;
 
+
+
+
 // Type definitions matching backend GraphQL schema
 export interface CreateMISTicketInput {
   title: string;
@@ -364,13 +519,14 @@ export interface TicketResponse {
 export interface TicketListItem {
   id: number;
   ticketNumber: string;
+  controlNumber?: string;
   type: 'MIS' | 'ITS';
   title: string;
   description: string;
   status: string;
   priority: string;
   dueDate?: string;
-  secretaryApprovedAt?: string;
+  secretaryReviewedAt?: string;
   directorApprovedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -395,7 +551,7 @@ export interface TicketListItem {
 export interface TicketDetail extends TicketListItem {
   estimatedDuration?: number;
   actualDuration?: number;
-  secretaryApprovedById?: number;
+  secretaryReviewedById?: number;
   directorApprovedById?: number;
   misTicket?: {
     category: string;
@@ -548,26 +704,26 @@ export class TicketService {
   }
 
   /**
-   * Get tickets pending secretary approval (PENDING status)
+   * Get tickets for secretary review (FOR_REVIEW status)
    */
-  getTicketsPendingSecretaryApproval(): Observable<TicketListItem[]> {
+  getTicketsForSecretaryReview(): Observable<TicketListItem[]> {
     return this.apollo
-      .query<{ ticketsPendingSecretaryApproval: TicketListItem[] }>({
-        query: TICKETS_PENDING_SECRETARY_APPROVAL,
+      .query<{ ticketsForSecretaryReview: TicketListItem[] }>({
+        query: TICKETS_FOR_SECRETARY_REVIEW,
         fetchPolicy: 'network-only',
       })
       .pipe(
         map((result) => {
-          if (!result.data?.ticketsPendingSecretaryApproval) {
-            throw new Error('Failed to fetch tickets pending secretary approval');
+          if (!result.data?.ticketsForSecretaryReview) {
+            throw new Error('Failed to fetch tickets for secretary review');
           }
-          return result.data.ticketsPendingSecretaryApproval;
+          return result.data.ticketsForSecretaryReview;
         })
       );
   }
 
   /**
-   * Get all secretary-related tickets (PENDING + SECRETARY_APPROVED)
+   * Get all secretary-related tickets (FOR_REVIEW + REVIEWED)
    * For admin/director oversight
    */
   getAllSecretaryTickets(): Observable<TicketListItem[]> {
@@ -587,7 +743,7 @@ export class TicketService {
   }
 
   /**
-   * Get tickets pending director approval (SECRETARY_APPROVED status)
+   * Get tickets pending director approval (REVIEWED status)
    */
   getTicketsPendingDirectorApproval(): Observable<TicketListItem[]> {
     return this.apollo
@@ -606,20 +762,40 @@ export class TicketService {
   }
 
   /**
-   * Approve ticket as secretary
+   * Review ticket as secretary
    */
-  approveAsSecretary(ticketId: number, comment?: string): Observable<{ id: number; status: string }> {
+  reviewAsSecretary(ticketId: number, comment?: string): Observable<{ id: number; status: string }> {
     return this.apollo
-      .mutate<{ approveTicketAsSecretary: { id: number; ticketNumber: string; status: string } }>({
-        mutation: APPROVE_TICKET_AS_SECRETARY,
+      .mutate<{ reviewTicketAsSecretary: { id: number; ticketNumber: string; status: string } }>({
+        mutation: REVIEW_TICKET_AS_SECRETARY,
         variables: { ticketId, comment },
       })
       .pipe(
         map((result) => {
-          if (!result.data?.approveTicketAsSecretary) {
-            throw new Error('Failed to approve ticket');
+          if (!result.data?.reviewTicketAsSecretary) {
+            throw new Error('Failed to review ticket');
           }
-          return result.data.approveTicketAsSecretary;
+          return result.data.reviewTicketAsSecretary;
+        })
+      );
+  }
+
+  /**
+   * Reject ticket as secretary
+   * Returns ticket to user with notes/reason visible to user
+   */
+  rejectAsSecretary(ticketId: number, reason: string): Observable<{ id: number; status: string }> {
+    return this.apollo
+      .mutate<{ rejectTicketAsSecretary: { id: number; ticketNumber: string; status: string } }>({
+        mutation: REJECT_TICKET_AS_SECRETARY,
+        variables: { ticketId, reason },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.rejectTicketAsSecretary) {
+            throw new Error('Failed to reject ticket');
+          }
+          return result.data.rejectTicketAsSecretary;
         })
       );
   }
@@ -639,6 +815,155 @@ export class TicketService {
             throw new Error('Failed to approve ticket');
           }
           return result.data.approveTicketAsDirector;
+        })
+      );
+  }
+
+  /**
+   * Disapprove/Reject ticket as director
+   * Requires a reason for the rejection
+   */
+  disapproveAsDirector(ticketId: number, reason: string): Observable<{ id: number; status: string }> {
+    return this.apollo
+      .mutate<{ disapproveTicketAsDirector: { id: number; ticketNumber: string; status: string } }>({
+        mutation: DISAPPROVE_TICKET_AS_DIRECTOR,
+        variables: { ticketId, reason },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.disapproveTicketAsDirector) {
+            throw new Error('Failed to disapprove ticket');
+          }
+          return result.data.disapproveTicketAsDirector;
+        })
+      );
+  }
+
+  /**
+   * Reopen a cancelled/rejected ticket for re-review
+   * Only the original creator can reopen the ticket
+   */
+  reopenTicket(
+    ticketId: number,
+    input?: { updatedDescription?: string; comment?: string }
+  ): Observable<{ id: number; status: string }> {
+    return this.apollo
+      .mutate<{ reopenTicket: { id: number; ticketNumber: string; status: string } }>({
+        mutation: REOPEN_TICKET,
+        variables: { ticketId, input },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.reopenTicket) {
+            throw new Error('Failed to reopen ticket');
+          }
+          return result.data.reopenTicket;
+        })
+      );
+  }
+
+  // ========================================
+  // ASSIGNMENT & STATUS METHODS
+  // Used by MIS_HEAD/ITS_HEAD and DEVELOPER/TECHNICAL
+  // ========================================
+
+  /**
+   * Assign a ticket to a staff member
+   * Used by MIS_HEAD to assign to DEVELOPER, ITS_HEAD to assign to TECHNICAL
+   */
+  assignTicketToUser(ticketId: number, userId: number): Observable<TicketListItem> {
+    return this.apollo
+      .mutate<{ assignTicket: TicketListItem }>({
+        mutation: ASSIGN_TICKET,
+        variables: { ticketId, userId },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.assignTicket) {
+            throw new Error('Failed to assign ticket');
+          }
+          return result.data.assignTicket;
+        })
+      );
+  }
+
+  /**
+   * Update ticket status
+   * Used by DEVELOPER/TECHNICAL to mark IN_PROGRESS, ON_HOLD, RESOLVED
+   */
+  updateStatus(ticketId: number, status: string, comment?: string): Observable<{ id: number; status: string }> {
+    return this.apollo
+      .mutate<{ updateTicketStatus: { id: number; ticketNumber: string; status: string } }>({
+        mutation: UPDATE_TICKET_STATUS,
+        variables: { ticketId, input: { status, comment } },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.updateTicketStatus) {
+            throw new Error('Failed to update ticket status');
+          }
+          return result.data.updateTicketStatus;
+        })
+      );
+  }
+
+  /**
+   * Get users by a specific role (for assignment dropdown)
+   * e.g., getDevelopersList() for MIS_HEAD
+   */
+  getUsersByRole(role: string): Observable<{ id: number; name: string; email: string; role: string }[]> {
+    return this.apollo
+      .query<{ usersByRole: { id: number; name: string; email: string; role: string }[] }>({
+        query: USERS_BY_ROLE,
+        variables: { role },
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.usersByRole) {
+            throw new Error('Failed to fetch users');
+          }
+          return result.data.usersByRole;
+        })
+      );
+  }
+
+  /**
+   * Get users by multiple roles
+   */
+  getUsersByRoles(roles: string[]): Observable<{ id: number; name: string; email: string; role: string }[]> {
+    return this.apollo
+      .query<{ usersByRoles: { id: number; name: string; email: string; role: string }[] }>({
+        query: USERS_BY_ROLES,
+        variables: { roles },
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.usersByRoles) {
+            throw new Error('Failed to fetch users');
+          }
+          return result.data.usersByRoles;
+        })
+      );
+  }
+
+  /**
+   * Get tickets assigned to the current user
+   * Used by DEVELOPER/TECHNICAL to see their work queue
+   */
+  getMyAssignedTickets(): Observable<TicketListItem[]> {
+    return this.apollo
+      .query<{ myTickets: TicketListItem[] }>({
+        query: MY_ASSIGNED_TICKETS,
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.myTickets) {
+            throw new Error('Failed to fetch assigned tickets');
+          }
+          return result.data.myTickets;
         })
       );
   }

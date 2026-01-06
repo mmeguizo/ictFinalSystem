@@ -16,7 +16,8 @@ bootstrapApplication(App, {
         scope: 'openid profile email offline_access'
       },
       useRefreshTokens: true,
-      cacheLocation: 'localstorage'
+      cacheLocation: 'localstorage',
+      // skipRedirectCallback: true,
     }),
   ]
 })

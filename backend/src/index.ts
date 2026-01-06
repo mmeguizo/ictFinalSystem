@@ -8,14 +8,16 @@ import { createContext } from './context';
 import { config } from './config';
 import { logger } from './lib/logger';
 import { formatError } from './lib/errors';
-import { baseTypeDefs } from './common/base-schema';
+import { baseTypeDefs, baseResolvers } from './common/base-schema';
 import { userTypeDefs, userResolvers } from './modules/users';
 import { ticketTypeDefs, ticketResolvers } from './modules/tickets';
+import { notificationTypeDefs } from './modules/notifications/notification.types';
+import { notificationResolvers } from './modules/notifications/notification.resolvers';
 
 async function start() {
   // Combine all type definitions and resolvers
-  const typeDefs = [baseTypeDefs, userTypeDefs, ticketTypeDefs];
-  const resolvers = [userResolvers, ticketResolvers];
+  const typeDefs = [baseTypeDefs, userTypeDefs, ticketTypeDefs, notificationTypeDefs];
+  const resolvers = [baseResolvers, userResolvers, ticketResolvers, notificationResolvers];
 
   const schema = makeExecutableSchema({ typeDefs, resolvers });
   const app = express();

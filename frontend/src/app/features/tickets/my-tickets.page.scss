@@ -1,3 +1,8 @@
+.page-subtitle {
+  color: #666;
+  margin-bottom: 16px;
+}
+
 .filter-bar {
   margin-bottom: 16px;
   display: flex;
@@ -27,9 +32,9 @@
 }
 
 :host ::ng-deep table {
-  table-layout: fixed; /* helps columns respect max-width */
+  table-layout: auto;
   width: 100%;
-  min-width: 800px; /* allow horizontal scroll on small screens */
+  min-width: 1000px;
 }
 
 :host ::ng-deep th,
@@ -37,9 +42,40 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 12px 16px !important;
 }
 
-:host ::ng-deep td:nth-child(3) { /* Title column - allow wrapping if needed */
+/* Title column - allow wrapping */
+.title-cell,
+:host ::ng-deep td:nth-child(3) {
   white-space: normal;
   word-break: break-word;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+/* Action column - more space for buttons */
+.action-cell {
+  min-width: 180px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Form groups in modals */
+.form-group {
+  margin-bottom: 16px;
+
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+}
+
+/* Warning text */
+.warning-text {
+  color: #faad14;
+  font-style: italic;
+  margin-top: 8px;
 }

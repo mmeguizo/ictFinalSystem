@@ -28,7 +28,8 @@ import { AuthService as Auth0Service } from '@auth0/auth0-angular';
 import { firstValueFrom } from 'rxjs';
 import { UserApiService } from '../api/user-api.service';
 import { AuthService } from '../core/services/auth.service';
-
+import { RouterModule } from '@angular/router';
+import { NotificationBellComponent } from '../shared/components/notification-bell.component';
 interface MenuItem {
   icon: string;
   label: string;
@@ -51,6 +52,8 @@ interface MenuItem {
     NzUploadModule,
     NzDropDownModule,
     ReactiveFormsModule,
+    RouterModule,
+    NotificationBellComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './main-layout.html',
@@ -109,37 +112,62 @@ export class MainLayout {
         icon: 'dashboard',
         label: 'Dashboard',
         path: '/dashboard',
-        roles: ['USER', 'ADMIN', 'DEVELOPER', 'OFFICE_HEAD', 'SECRETARY'],
+        roles: ['USER', 'ADMIN', 'DEVELOPER', 'TECHNICAL', 'MIS_HEAD', 'ITS_HEAD', 'SECRETARY', 'DIRECTOR'],
       },
-      // {
-      //   icon: 'inbox',
-      //   label: 'Ticket Queue',
-      //   path: '/queue',
-      //   roles: ['ADMIN', 'ICT_HEAD', 'MIS_HEAD', 'TECHNICIAN_ITS', 'TECHNICIAN_MIS'],
-      // },
-      // {
-      //   icon: 'bar-chart',
-      //   label: 'Reports',
-      //   path: '/reports',
-      //   roles: ['ADMIN', 'ICT_HEAD', 'MIS_HEAD'],
-      // },
       {
         icon: 'setting',
         label: 'Admin Panel',
         path: '/admin',
         roles: ['ADMIN'],
       },
+      // Users and Secretary can create tickets
+      {
+        icon: 'plus-circle',
+        label: 'New Ticket',
+        path: '/tickets/new',
+        roles: ['USER', 'SECRETARY','ADMIN'],
+      },
+      // Regular users see "My Tickets" - tickets they created
       {
         icon: 'file-text',
-        label: 'Tickets',
-        path: '/tickets/new',
-        roles: ['USER', 'ADMIN', 'SECRETARY', 'OFFICE_HEAD'], // admin sees everything; users see their own submit page
+        label: 'My Tickets',
+        path: '/tickets',
+        roles: ['USER'],
       },
+      // Department heads see "Assigned Tickets" - tickets to assign to staff
       {
-        icon: 'home',
-        label: 'Welcome',
-        path: '/welcome',
-        roles: ['USER', 'ADMIN', 'ICT_HEAD', 'MIS_HEAD', 'TECHNICIAN_ITS', 'TECHNICIAN_MIS'],
+        icon: 'team',
+        label: 'Assigned Tickets',
+        path: '/tickets',
+        roles: ['MIS_HEAD', 'ITS_HEAD'],
+      },
+      // Staff see "My Work" - tickets assigned to them
+      {
+        icon: 'tool',
+        label: 'My Work',
+        path: '/tickets',
+        roles: ['DEVELOPER', 'TECHNICAL'],
+      },
+      // Admin sees all tickets
+      {
+        icon: 'file-search',
+        label: 'All Tickets',
+        path: '/tickets',
+        roles: ['ADMIN'],
+      },
+      // Secretary/Director see approval page
+      {
+        icon: 'audit',
+        label: 'Review Queue',
+        path: '/tickets/approvals',
+        roles: ['SECRETARY', 'DIRECTOR'],
+      },
+      // Notifications - available to all authenticated users
+      {
+        icon: 'bell',
+        label: 'Notifications',
+        path: '/notifications',
+        roles: ['USER', 'ADMIN', 'DEVELOPER', 'TECHNICAL', 'MIS_HEAD', 'ITS_HEAD', 'SECRETARY', 'DIRECTOR'],
       },
     ];
 
@@ -436,6 +464,24 @@ export class MainLayout {
     }
     this.cdr.markForCheck();
     return false;
+  }
+
+  /**
+   * Get human-readable role label for display
+   */
+  getUserRoleLabel(): string {
+    const role = this.authService.currentUser()?.role;
+    const roleLabels: Record<string, string> = {
+      ADMIN: 'Admin',
+      MIS_HEAD: 'MIS Head',
+      ITS_HEAD: 'ITS Head',
+      DEVELOPER: 'Developer',
+      TECHNICAL: 'Technical',
+      SECRETARY: 'Secretary',
+      DIRECTOR: 'Director',
+      USER: 'User',
+    };
+    return roleLabels[role || ''] || role || 'Guest';
   }
 
   logout(): void {

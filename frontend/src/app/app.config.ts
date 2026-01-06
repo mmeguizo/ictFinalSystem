@@ -31,6 +31,8 @@ import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
 import { InMemoryCache, ApolloLink } from '@apollo/client/core';
 import { setContext } from '@apollo/client/link/context';
+import { onError } from '@apollo/client/link/error';
+import type { GraphQLError } from 'graphql';
 import { provideAuth0, AuthService } from '@auth0/auth0-angular';
 import { from } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
@@ -40,6 +42,7 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { loadingInterceptor } from './core/interceptors/loading.interceptor';
 import { AuthService as AppAuthService } from './core/services/auth.service';
+import { Router } from '@angular/router';
 
 registerLocaleData(en);
 
@@ -69,11 +72,61 @@ export const appConfig: ApplicationConfig = {
     // Apollo GraphQL client
     provideApollo(() => {
       const httpLink = inject(HttpLink);
+      const router = inject(Router);
 
       // Only use auth on the browser, not during SSR
       if (typeof window !== 'undefined') {
         const auth0Service = inject(AuthService); // Auth0's service
         const appAuthService = inject(AppAuthService); // Our custom service
+
+        // Error link to handle unauthorized errors and auto-logout
+        // Use a flag to prevent multiple logout calls
+        let isLoggingOut = false;
+
+        // Reset the flag when navigation changes (user has logged out and can log in again)
+        router.events.subscribe((event: any) => {
+          if (event.url === '/login') {
+            isLoggingOut = false;
+          }
+        });
+
+        const errorLink = onError((errorResponse: any) => {
+          const graphQLErrors = errorResponse.graphQLErrors as ReadonlyArray<GraphQLError> | undefined;
+          const networkError = errorResponse.networkError as any;
+
+          console.log('[Apollo ErrorLink] Received error response:', { graphQLErrors, networkError });
+
+          if (graphQLErrors && !isLoggingOut) {
+            for (const err of graphQLErrors) {
+              console.log('[Apollo ErrorLink] Checking error:', err.message, 'extensions:', err.extensions);
+              // Check for Unauthorized error
+              if (
+                err.message === 'Unauthorized' ||
+                err.message?.toLowerCase().includes('unauthorized') ||
+                err.message?.toLowerCase().includes('jwt expired') ||
+                err.message?.toLowerCase().includes('invalid token') ||
+                err.extensions?.['code'] === 'UNAUTHENTICATED' ||
+                err.extensions?.['code'] === 'INTERNAL_SERVER_ERROR' && err.message === 'Unauthorized'
+              ) {
+                console.warn('[Apollo] Unauthorized error detected, logging out user');
+                isLoggingOut = true;
+                // Clear auth state and redirect to login
+                appAuthService.logout();
+                return;
+              }
+            }
+          }
+
+          if (networkError && !isLoggingOut) {
+            console.log('[Apollo ErrorLink] Network error:', networkError);
+            // Check for 401 network error
+            if ('status' in networkError && networkError.status === 401) {
+              console.warn('[Apollo] 401 Network error detected, logging out user');
+              isLoggingOut = true;
+              appAuthService.logout();
+            }
+          }
+        });
 
         // Create auth link to add Authorization header
         // Checks local JWT first (email/password login), then falls back to Auth0
@@ -81,7 +134,7 @@ export const appConfig: ApplicationConfig = {
           // 1. Check local JWT token first (email/password login)
           const localToken = appAuthService.getToken();
           if (localToken) {
-            console.log('[Apollo] Using local JWT token');
+            console.log('[Apollo] Using local JWT token:', localToken);
             return {
               headers: {
                 Authorization: `Bearer ${localToken}`,
@@ -101,7 +154,10 @@ export const appConfig: ApplicationConfig = {
               };
             }
           } catch (error) {
-            console.warn('[Apollo] Failed to get Auth0 access token:', error);
+            if(!localToken){
+              console.log('[Apollo] Using local JWT token:', localToken);
+              console.warn('[Apollo] Failed to get Auth0 access token:', error);
+            }
           }
 
           // 3. No token available
@@ -109,8 +165,15 @@ export const appConfig: ApplicationConfig = {
           return { headers: {} };
         });
 
+        // Chain: errorLink -> authLink -> httpLink
+        const link = ApolloLink.from([
+          errorLink,
+          authLink,
+          httpLink.create({ uri: environment.apiUrl })
+        ]);
+
         return {
-          link: authLink.concat(httpLink.create({ uri: environment.apiUrl })),
+          link,
           cache: new InMemoryCache(),
         };
       }

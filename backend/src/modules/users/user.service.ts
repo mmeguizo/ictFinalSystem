@@ -103,6 +103,24 @@ export class UserService {
     return this.userRepo.update(userId, { role });
   }
 
+  /**
+   * Get all users with a specific role
+   * Used for assignment dropdowns (e.g., get all DEVELOPERs)
+   */
+  async getByRole(role: Role): Promise<User[]> {
+    logger.info(`Fetching users with role: ${role}`);
+    return this.userRepo.findByRole(role);
+  }
+
+  /**
+   * Get all users with any of the specified roles
+   * Used for getting staff from multiple categories
+   */
+  async getByRoles(roles: Role[]): Promise<User[]> {
+    logger.info(`Fetching users with roles: ${roles.join(', ')}`);
+    return this.userRepo.findByRoles(roles);
+  }
+
   async login(input: LoginInput): Promise<{ token: string; user: User }> {
     const validation = loginSchema.safeParse(input);
     if (!validation.success) {

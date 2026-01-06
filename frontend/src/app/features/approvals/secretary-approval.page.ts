@@ -12,6 +12,8 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzInputModule } from 'ng-zorro-antd/input';
 import { TicketService, TicketListItem } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -31,6 +33,8 @@ import { AuthService } from '../../core/services/auth.service';
     NzSelectModule,
     NzBadgeModule,
     NzToolTipModule,
+    NzModalModule,
+    NzInputModule,
   ],
   templateUrl: './secretary-approval.page.html',
   styleUrls: ['./secretary-approval.page.scss'],
@@ -45,23 +49,44 @@ export class SecretaryApprovalPage implements OnInit {
   readonly tickets = signal<TicketListItem[]>([]);
   readonly statusFilter = signal<string>('ALL');
 
-  // Check if user is admin/director (can see all tickets with secretary approval status)
+  // Disapprove modal state (for Director)
+  readonly showDisapproveModal = signal(false);
+  readonly selectedTicketId = signal<number | null>(null);
+  readonly disapproveReason = signal('');
+
+  // Review modal state (for Secretary - with optional comment)
+  readonly showReviewModal = signal(false);
+  readonly reviewTicketId = signal<number | null>(null);
+  readonly reviewComment = signal('');
+  readonly reviewAction = signal<'approve' | 'reject'>('approve');
+
+  // Check if user is admin/director (can approve/disapprove)
   readonly isAdminOrDirector = computed(() =>
-    this.authService.isAdmin() || this.authService.isDirector() || this.authService.isOfficeHead()
+    this.authService.isAdmin() || this.authService.isDirector()
+  );
+
+  // Check if user is office head (MIS/ITS head)
+  readonly isOfficeHead = computed(() =>
+    this.authService.isOfficeHead()
   );
 
   readonly isSecretary = computed(() =>
     this.authService.isSecretary()
   );
 
-  // Count tickets NOT approved by secretary yet (no secretaryApprovedAt)
+  // Count tickets NOT reviewed by secretary yet (no secretaryReviewedAt)
   readonly pendingCount = computed(() =>
-    this.tickets().filter(t => !t.secretaryApprovedAt).length
+    this.tickets().filter(t => !t.secretaryReviewedAt).length
   );
 
-  // Count tickets approved by secretary (has secretaryApprovedAt)
-  readonly approvedCount = computed(() =>
-    this.tickets().filter(t => !!t.secretaryApprovedAt).length
+  // Count tickets reviewed by secretary (has secretaryReviewedAt)
+  readonly reviewedCount = computed(() =>
+    this.tickets().filter(t => !!t.secretaryReviewedAt && t.status !== 'CANCELLED').length
+  );
+
+  // Count rejected tickets
+  readonly rejectedCount = computed(() =>
+    this.tickets().filter(t => t.status === 'CANCELLED').length
   );
 
   readonly filteredTickets = computed(() => {
@@ -72,12 +97,15 @@ export class SecretaryApprovalPage implements OnInit {
       return allTickets;
     }
 
-    // Filter based on secretary approval status
-    if (filter === 'PENDING') {
-      return allTickets.filter((t) => !t.secretaryApprovedAt);
+    // Filter based on secretary review status
+    if (filter === 'FOR_REVIEW') {
+      return allTickets.filter((t) => !t.secretaryReviewedAt && t.status !== 'CANCELLED');
     }
-    if (filter === 'APPROVED') {
-      return allTickets.filter((t) => !!t.secretaryApprovedAt);
+    if (filter === 'REVIEWED') {
+      return allTickets.filter((t) => !!t.secretaryReviewedAt && t.status !== 'CANCELLED');
+    }
+    if (filter === 'CANCELLED') {
+      return allTickets.filter((t) => t.status === 'CANCELLED');
     }
 
     return allTickets;
@@ -90,13 +118,9 @@ export class SecretaryApprovalPage implements OnInit {
   loadTicketsForApproval(): void {
     this.loading.set(true);
 
-    // Admin/Director sees all secretary tickets (pending + approved)
-    // Secretary sees only pending tickets
-    const ticketQuery = this.isAdminOrDirector()
-      ? this.ticketService.getAllSecretaryTickets()
-      : this.ticketService.getTicketsPendingSecretaryApproval();
-
-    ticketQuery.subscribe({
+    // Secretary and Admin/Director should see all secretary-related tickets (FOR_REVIEW + REVIEWED)
+    // This ensures tickets don't disappear after review
+    this.ticketService.getAllSecretaryTickets().subscribe({
       next: (tickets) => {
         this.tickets.set(tickets);
         this.loading.set(false);
@@ -109,16 +133,95 @@ export class SecretaryApprovalPage implements OnInit {
     });
   }
 
-  approveTicket(ticketId: number): void {
+  // ========================================
+  // SECRETARY REVIEW METHODS
+  // ========================================
+
+  /**
+   * Open review modal for secretary
+   */
+  openReviewModal(ticketId: number): void {
+    this.reviewTicketId.set(ticketId);
+    this.reviewAction.set('approve'); // Default to approve, user can change via buttons
+    this.reviewComment.set('');
+    this.showReviewModal.set(true);
+  }
+
+  /**
+   * Close review modal
+   */
+  closeReviewModal(): void {
+    this.showReviewModal.set(false);
+    this.reviewTicketId.set(null);
+    this.reviewComment.set('');
+  }
+
+  /**
+   * Confirm secretary review (approve or reject with comment)
+   */
+  confirmReview(): void {
+    const ticketId = this.reviewTicketId();
+    const action = this.reviewAction();
+    const comment = this.reviewComment().trim();
+
+    if (!ticketId) {
+      this.message.error('No ticket selected');
+      return;
+    }
+
+    if (action === 'reject' && !comment) {
+      this.message.warning('Please provide a reason for returning the ticket');
+      return;
+    }
+
     this.loading.set(true);
-    this.ticketService.approveAsSecretary(ticketId).subscribe({
+
+    if (action === 'approve') {
+      // Approve: Mark as reviewed
+      this.ticketService.reviewAsSecretary(ticketId, comment || undefined).subscribe({
+        next: () => {
+          this.message.success('Ticket reviewed and forwarded for director approval!');
+          this.closeReviewModal();
+          this.loadTicketsForApproval();
+        },
+        error: (err) => {
+          console.error('Failed to review ticket:', err);
+          this.message.error('Failed to review ticket');
+          this.loading.set(false);
+        },
+      });
+    } else {
+      // Reject: Return to user with comment
+      console.log('Rejecting ticket:', ticketId, 'with reason:', comment);
+      this.ticketService.rejectAsSecretary(ticketId, comment).subscribe({
+        next: (result) => {
+          console.log('Rejection result:', result);
+          this.message.success('Ticket returned to requester with comments');
+          this.closeReviewModal();
+          this.loadTicketsForApproval();
+        },
+        error: (err) => {
+          console.error('Failed to reject ticket:', err);
+          this.message.error(err?.message || 'Failed to reject ticket');
+          this.loading.set(false);
+        },
+      });
+    }
+  }
+
+  /**
+   * Quick review without modal (just approve)
+   */
+  reviewTicket(ticketId: number): void {
+    this.loading.set(true);
+    this.ticketService.reviewAsSecretary(ticketId).subscribe({
       next: () => {
-        this.message.success('Ticket approved successfully!');
+        this.message.success('Ticket reviewed successfully!');
         this.loadTicketsForApproval(); // Refresh the list
       },
       error: (err) => {
-        console.error('Failed to approve ticket:', err);
-        this.message.error('Failed to approve ticket.');
+        console.error('Failed to review ticket:', err);
+        this.message.error('Failed to review ticket.');
         this.loading.set(false);
       },
     });
@@ -126,8 +229,8 @@ export class SecretaryApprovalPage implements OnInit {
 
   getStatusColor(status: string): string {
     const colorMap: Record<string, string> = {
-      PENDING: 'gold',
-      SECRETARY_APPROVED: 'blue',
+      FOR_REVIEW: 'gold',
+      REVIEWED: 'blue',
       DIRECTOR_APPROVED: 'cyan',
       ASSIGNED: 'purple',
       IN_PROGRESS: 'processing',
@@ -147,5 +250,81 @@ export class SecretaryApprovalPage implements OnInit {
       CRITICAL: 'red',
     };
     return colorMap[priority] || 'default';
+  }
+
+  /**
+   * Approve ticket as director/admin
+   * This will approve the ticket and auto-assign to the appropriate office head
+   */
+  approveAsDirector(ticketId: number): void {
+    this.loading.set(true);
+    this.ticketService.approveAsDirector(ticketId).subscribe({
+      next: () => {
+        this.message.success('Ticket approved and auto-assigned to Office Head!');
+        this.loadTicketsForApproval(); // Refresh the list
+      },
+      error: (err) => {
+        console.error('Failed to approve ticket:', err);
+        this.message.error('Failed to approve ticket.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  /**
+   * Open disapprove modal
+   */
+  openDisapproveModal(ticketId: number): void {
+    this.selectedTicketId.set(ticketId);
+    this.disapproveReason.set('');
+    this.showDisapproveModal.set(true);
+  }
+
+  /**
+   * Close disapprove modal
+   */
+  closeDisapproveModal(): void {
+    this.showDisapproveModal.set(false);
+    this.selectedTicketId.set(null);
+    this.disapproveReason.set('');
+  }
+
+  /**
+   * Confirm disapproval with reason
+   */
+  confirmDisapprove(): void {
+    const ticketId = this.selectedTicketId();
+    const reason = this.disapproveReason().trim();
+
+    if (!ticketId) {
+      this.message.error('No ticket selected');
+      return;
+    }
+
+    if (!reason) {
+      this.message.warning('Please provide a reason for disapproval');
+      return;
+    }
+
+    this.loading.set(true);
+    this.ticketService.disapproveAsDirector(ticketId, reason).subscribe({
+      next: () => {
+        this.message.success('Ticket has been disapproved');
+        this.closeDisapproveModal();
+        this.loadTicketsForApproval();
+      },
+      error: (err) => {
+        console.error('Failed to disapprove ticket:', err);
+        this.message.error('Failed to disapprove ticket');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  /**
+   * Check if ticket can be approved by director (must be reviewed by secretary first)
+   */
+  canApprove(ticket: TicketListItem): boolean {
+    return !!ticket.secretaryReviewedAt && ticket.status === 'REVIEWED';
   }
 }

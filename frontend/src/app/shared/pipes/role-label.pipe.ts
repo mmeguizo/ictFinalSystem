@@ -17,7 +17,11 @@ export class RoleLabelPipe implements PipeTransform {
   private readonly roleLabels: Record<string, string> = {
     ADMIN: 'Administrator',
     DEVELOPER: 'Developer',
-    OFFICE_HEAD: 'Office Head',
+    TECHNICAL: 'Technical Support',
+    MIS_HEAD: 'MIS Head',
+    ITS_HEAD: 'ITS Head',
+    SECRETARY: 'Secretary',
+    DIRECTOR: 'Director',
     USER: 'User',
   };
 

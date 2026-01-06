@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, adminGuard, guestGuard, approverGuard } from './core/guards/auth.guard';
+import { authGuard, adminGuard, guestGuard, approverGuard, secretaryGuard, userTicketGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -47,6 +47,7 @@ export const routes: Routes = [
             path: 'new',
             loadComponent: () =>
               import('./features/tickets/submit-ticket.page').then(m => m.SubmitTicketPage),
+            canActivate: [userTicketGuard], // Only Secretary (and Admin) can create tickets
           },
           {
             path: ':ticketNumber',
@@ -58,6 +59,10 @@ export const routes: Routes = [
       {
         path: 'welcome',
         loadComponent: () => import('./pages/welcome/welcome').then(m => m.Welcome),
+      },
+      {
+        path: 'notifications',
+        loadComponent: () => import('./features/notifications/notifications.page').then(m => m.NotificationsPage),
       },
     ],
   },

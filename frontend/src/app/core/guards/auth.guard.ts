@@ -81,17 +81,40 @@ export function roleGuard(allowedRoles: string[]): CanActivateFn {
 export const adminGuard: CanActivateFn = roleGuard(['ADMIN']);
 
 /**
+ * Secretary Guard
+ * Convenience guard for secretary-only routes (like ticket creation)
+ */
+export const secretaryGuard: CanActivateFn = roleGuard(['ADMIN', 'SECRETARY']);
+
+
+
+/**
+ * userTicketGuard
+ * Allows access to a ticket only if the user is admin, secretary, or the ticket owner
+ *
+ * Usage in routes:
+ * {
+ */
+export const userTicketGuard: CanActivateFn = roleGuard(['ADMIN', 'SECRETARY', 'USER']);
+
+
+/**
  * Developer Guard
  * Convenience guard for admin and developer routes
  */
 export const developerGuard: CanActivateFn = roleGuard(['ADMIN', 'DEVELOPER']);
 
+/**
+ * Department Head Guard
+ * Convenience guard for MIS and ITS heads
+ */
+export const departmentHeadGuard: CanActivateFn = roleGuard(['ADMIN', 'MIS_HEAD', 'ITS_HEAD']);
 
 /**
  * Approver Guard
- * Convenience guard for approver-only routes
+ * Convenience guard for approver-only routes (Secretary, Director, and Department Heads)
  */
-export const approverGuard: CanActivateFn = roleGuard(['ADMIN','SECRETARY','DIRECTOR','OFFICE_HEAD']);
+export const approverGuard: CanActivateFn = roleGuard(['ADMIN','SECRETARY','DIRECTOR','MIS_HEAD','ITS_HEAD']);
 
 /**
  * Guest Guard
