@@ -10,17 +10,20 @@
     <div class="sidebar-logo">
       <img src="assets/chmsu-logo.png" alt="CHMSU Logo" width="40" height="40" />
       @if (!isCollapsed) {
-        <h1>ICT TICKET</h1>
+      <h1>ICT TICKET</h1>
       }
     </div>
     <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="isCollapsed">
       @for (item of menuItems(); track item.path) {
-        <li nz-menu-item nzMatchRouter>
-          <a [routerLink]="item.path">
-            <i nz-icon [nzType]="item.icon" nzTheme="outline"></i>
-            <span>{{ item.label }}</span>
-          </a>
-        </li>
+      <li
+        nz-menu-item
+        [routerLink]="item.path"
+        routerLinkActive="ant-menu-item-selected"
+        [routerLinkActiveOptions]="{ exact: item.path === '/tickets' }"
+      >
+        <span nz-icon [nzType]="item.icon"></span>
+        <span>{{ item.label }}</span>
+      </li>
       }
     </ul>
   </nz-sider>
@@ -35,13 +38,20 @@
           aria-label="Toggle sidebar"
         ></i>
         <div class="header-right">
+          <!-- Notification Bell -->
+          <app-notification-bell></app-notification-bell>
+
           <div
             nz-dropdown
             [nzDropdownMenu]="userMenu"
             nzTrigger="click"
             nzPlacement="bottomRight"
+            class="user-profile-trigger"
           >
-            <a>
+            <a class="user-info">
+              <div class="user-role-badge">
+                <span class="role-label">{{ getUserRoleLabel() }}</span>
+              </div>
               <img
                 [src]="avatarSrc()"
                 (load)="onAvatarLoad()"

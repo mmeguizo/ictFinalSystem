@@ -28,8 +28,11 @@
           <nz-descriptions-item nzTitle="Created At">
             {{ t.createdAt | date }}
           </nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Due Date" [nzSpan]="2">
+          <nz-descriptions-item nzTitle="Due Date" [nzSpan]="1">
             {{ formatDate(t.dueDate) }}
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Control Number" [nzSpan]="1">
+            {{ t.controlNumber || 'N/A' }}
           </nz-descriptions-item>
         </nz-descriptions>
 
@@ -40,41 +43,96 @@
       </nz-card>
 
       <!-- Approval Status Card -->
-      <nz-card nzTitle="Approval Workflow" class="approval-card">
-        @if (isAwaitingSecretaryApproval()) {
+      <nz-card nzTitle="Review & Approval Workflow" class="approval-card">
+        @if (ticket()?.status === 'CANCELLED') {
           <nz-alert
-            nzType="info"
-            nzMessage="Awaiting Secretary Approval"
-            nzDescription="This ticket is pending review by the secretary."
+            nzType="error"
+            nzMessage="Ticket Rejected/Cancelled"
+            [nzDescription]="rejectedDescriptionTpl"
             [nzShowIcon]="true"
           ></nz-alert>
-        }
-        @if (isAwaitingDirectorApproval()) {
+          <ng-template #rejectedDescriptionTpl>
+            <div>
+              <p>This ticket has been rejected or cancelled. Please check the status history for details.</p>
+              @if (canReopenTicket()) {
+                <button
+                  nz-button
+                  nzType="primary"
+                  (click)="openReopenModal()"
+                  style="margin-top: 12px;"
+                >
+                  <i nz-icon nzType="reload"></i>
+                  Reopen & Resubmit Ticket
+                </button>
+              }
+            </div>
+          </ng-template>
+        } @else if (isAwaitingSecretaryReview()) {
+          <nz-alert
+            nzType="info"
+            nzMessage="For Secretary Review"
+            [nzDescription]="secretaryReviewDescTpl"
+            [nzShowIcon]="true"
+          ></nz-alert>
+          <ng-template #secretaryReviewDescTpl>
+            <div>
+              <p>This ticket is awaiting review by the secretary.</p>
+              @if (canReviewAsSecretary()) {
+                <div class="approval-actions" style="margin-top: 12px;">
+                  <button
+                    nz-button
+                    nzType="primary"
+                    (click)="openSecretaryReviewModal()"
+                  >
+                    <i nz-icon nzType="audit"></i>
+                    Review Ticket
+                  </button>
+                </div>
+              }
+            </div>
+          </ng-template>
+        } @else if (isAwaitingDirectorApproval()) {
           <nz-alert
             nzType="info"
             nzMessage="Awaiting Director Approval"
-            nzDescription="Secretary has approved. Waiting for director approval."
+            [nzDescription]="directorApprovalDescTpl"
             [nzShowIcon]="true"
           ></nz-alert>
-        }
-        @if (isFullyApproved()) {
+          <ng-template #directorApprovalDescTpl>
+            <div>
+              <p>Secretary has reviewed. Waiting for director approval.</p>
+              @if (canApproveAsDirector()) {
+                <div class="approval-actions" style="margin-top: 12px;">
+                  <button
+                    nz-button
+                    nzType="primary"
+                    (click)="openDirectorApprovalModal()"
+                  >
+                    <i nz-icon nzType="check-circle"></i>
+                    Review & Approve
+                  </button>
+                </div>
+              }
+            </div>
+          </ng-template>
+        } @else if (isFullyApproved()) {
           <nz-alert
             nzType="success"
             nzMessage="Fully Approved"
-            nzDescription="This ticket has been approved and assigned to the appropriate team."
+            nzDescription="This ticket has been approved and assigned to the office head."
             [nzShowIcon]="true"
           ></nz-alert>
         }
 
         <div class="approval-timeline">
           <nz-descriptions [nzColumn]="1" nzBordered>
-            <nz-descriptions-item nzTitle="Secretary Approval">
-              @if (t.secretaryApprovedAt) {
+            <nz-descriptions-item nzTitle="Secretary Review">
+              @if (t.secretaryReviewedAt) {
                 <span class="approved">
-                  ✓ Approved on {{ formatDate(t.secretaryApprovedAt) }}
+                  ✓ Reviewed on {{ formatDate(t.secretaryReviewedAt) }}
                 </span>
               } @else {
-                <span class="pending">Pending</span>
+                <span class="pending">For Review</span>
               }
             </nz-descriptions-item>
             <nz-descriptions-item nzTitle="Director Approval">
@@ -105,9 +163,96 @@
         }
       </nz-card>
 
+      <!-- Work Actions Card (for assigned staff) -->
+      @if (canUpdateStatus()) {
+        <nz-card nzTitle="Work Actions" class="work-actions-card">
+          <div class="work-actions">
+            <p class="action-hint">
+              @switch (ticket()?.status) {
+                @case ('ASSIGNED') {
+                  This ticket is assigned to you. Click "Start Work" to begin.
+                }
+                @case ('IN_PROGRESS') {
+                  You're working on this ticket. Update status when done or if blocked.
+                }
+                @case ('ON_HOLD') {
+                  This ticket is on hold. Resume work when ready.
+                }
+              }
+            </p>
+
+            <div class="action-buttons">
+              @switch (ticket()?.status) {
+                @case ('ASSIGNED') {
+                  <button
+                    nz-button
+                    nzType="primary"
+                    nzSize="large"
+                    [nzLoading]="updatingStatus()"
+                    (click)="quickStatusUpdate('IN_PROGRESS', 'Started working on this ticket')"
+                  >
+                    <i nz-icon nzType="play-circle" nzTheme="outline"></i>
+                    Start Work
+                  </button>
+                }
+                @case ('IN_PROGRESS') {
+                  <button
+                    nz-button
+                    nzType="primary"
+                    nzSize="large"
+                    [nzLoading]="updatingStatus()"
+                    nz-popconfirm
+                    nzPopconfirmTitle="Mark this ticket as resolved?"
+                    (nzOnConfirm)="quickStatusUpdate('RESOLVED', 'Work completed')"
+                  >
+                    <i nz-icon nzType="check-circle" nzTheme="outline"></i>
+                    Mark Resolved
+                  </button>
+                  <button
+                    nz-button
+                    nzType="default"
+                    nzSize="large"
+                    [nzLoading]="updatingStatus()"
+                    (click)="openStatusModal()"
+                  >
+                    <i nz-icon nzType="pause-circle" nzTheme="outline"></i>
+                    Put On Hold
+                  </button>
+                }
+                @case ('ON_HOLD') {
+                  <button
+                    nz-button
+                    nzType="primary"
+                    nzSize="large"
+                    [nzLoading]="updatingStatus()"
+                    (click)="quickStatusUpdate('IN_PROGRESS', 'Resumed work on this ticket')"
+                  >
+                    <i nz-icon nzType="play-circle" nzTheme="outline"></i>
+                    Resume Work
+                  </button>
+                  <button
+                    nz-button
+                    nzType="default"
+                    nzSize="large"
+                    [nzLoading]="updatingStatus()"
+                    nz-popconfirm
+                    nzPopconfirmTitle="Mark this ticket as resolved?"
+                    (nzOnConfirm)="quickStatusUpdate('RESOLVED', 'Work completed')"
+                  >
+                    <i nz-icon nzType="check-circle" nzTheme="outline"></i>
+                    Mark Resolved
+                  </button>
+                }
+              }
+            </div>
+          </div>
+        </nz-card>
+      }
+
       <!-- Status History Timeline -->
       <nz-card nzTitle="Status History">
         @if (t.statusHistory && t.statusHistory.length > 0) {
+          <div class="status-history-container">
           <nz-timeline>
             @for (history of t.statusHistory; track history.id) {
               <nz-timeline-item>
@@ -125,6 +270,7 @@
               </nz-timeline-item>
             }
           </nz-timeline>
+          </div>
         } @else {
           <nz-empty nzNotFoundContent="No status changes yet"></nz-empty>
         }
@@ -145,9 +291,11 @@
           ></textarea>
 
           <div class="form-actions">
-            <label nz-checkbox [ngModel]="isInternalNote()" (ngModelChange)="isInternalNote.set($event)" [disabled]="submittingNote()">
-              Internal Note (only visible to staff)
-            </label>
+            @if (canAddInternalNotes()) {
+              <label nz-checkbox [ngModel]="isInternalNote()" (ngModelChange)="isInternalNote.set($event)" [disabled]="submittingNote()">
+                Internal Note (only visible to staff)
+              </label>
+            }
 
             <button
               nz-button
@@ -164,9 +312,9 @@
         <nz-divider></nz-divider>
 
         <!-- Notes List -->
-        @if (t.notes && t.notes.length > 0) {
+        @if (visibleNotes().length > 0) {
           <div class="notes-list">
-            @for (note of t.notes; track note.id) {
+            @for (note of visibleNotes(); track note.id) {
               <div class="note-item" [class.internal]="note.isInternal">
                 <div class="note-header">
                   <strong>{{ note.user.name }}</strong>
@@ -201,3 +349,196 @@
     Back to List
   </button>
 </ng-template>
+
+<!-- Status Update Modal (for Staff on Hold action) -->
+<nz-modal
+  [nzVisible]="showStatusModal()"
+  (nzVisibleChange)="showStatusModal.set($event)"
+  nzTitle="Update Ticket Status"
+  [nzOkText]="'Update'"
+  [nzCancelText]="'Cancel'"
+  [nzOkLoading]="updatingStatus()"
+  (nzOnOk)="confirmStatusUpdate()"
+  (nzOnCancel)="closeStatusModal()"
+>
+  <ng-container *nzModalContent>
+    <div class="status-modal-form">
+      <div class="form-group">
+        <label>New Status:</label>
+        <nz-select
+          [ngModel]="selectedStatus()"
+          (ngModelChange)="selectedStatus.set($event)"
+          nzPlaceHolder="Select new status"
+          style="width: 100%"
+        >
+          @for (option of statusOptions; track option.value) {
+            <nz-option [nzValue]="option.value" [nzLabel]="option.label"></nz-option>
+          }
+        </nz-select>
+      </div>
+      <div class="form-group">
+        <label>Reason / Comment:</label>
+        <textarea
+          nz-input
+          [ngModel]="statusComment()"
+          (ngModelChange)="statusComment.set($event)"
+          rows="3"
+          placeholder="Explain why you're changing the status (e.g., waiting for user response, blocked by dependency)..."
+        ></textarea>
+      </div>
+    </div>
+  </ng-container>
+</nz-modal>
+
+<!-- Reopen Ticket Modal -->
+<nz-modal
+  [nzVisible]="showReopenModal()"
+  (nzVisibleChange)="showReopenModal.set($event)"
+  nzTitle="Reopen & Resubmit Ticket"
+  [nzOkText]="'Resubmit for Review'"
+  [nzCancelText]="'Cancel'"
+  [nzOkLoading]="reopening()"
+  [nzWidth]="600"
+  (nzOnOk)="confirmReopenTicket()"
+  (nzOnCancel)="closeReopenModal()"
+>
+  <ng-container *nzModalContent>
+    <nz-alert
+      nzType="info"
+      nzMessage="Reopen Your Ticket"
+      nzDescription="You can update the description below to address the rejection reason, then resubmit for review."
+      [nzShowIcon]="true"
+      style="margin-bottom: 16px;"
+    ></nz-alert>
+
+    <div class="reopen-modal-form">
+      <div class="form-group">
+        <label><strong>Description</strong> (you can edit to address feedback):</label>
+        <textarea
+          nz-input
+          [ngModel]="reopenDescription()"
+          (ngModelChange)="reopenDescription.set($event)"
+          rows="6"
+          placeholder="Update your ticket description..."
+        ></textarea>
+      </div>
+
+      <div class="form-group">
+        <label><strong>Comment</strong> (optional - explain what you changed):</label>
+        <textarea
+          nz-input
+          [ngModel]="reopenComment()"
+          (ngModelChange)="reopenComment.set($event)"
+          rows="3"
+          placeholder="e.g., Updated description to clarify the issue, added more details about the problem..."
+        ></textarea>
+      </div>
+    </div>
+  </ng-container>
+</nz-modal>
+
+<!-- Secretary Review Modal -->
+<nz-modal
+  [nzVisible]="showSecretaryReviewModal()"
+  (nzVisibleChange)="showSecretaryReviewModal.set($event)"
+  nzTitle="Secretary Review"
+  [nzFooter]="secretaryReviewFooter"
+  [nzClosable]="true"
+  [nzWidth]="550"
+  (nzOnCancel)="closeSecretaryReviewModal()"
+>
+  <ng-container *nzModalContent>
+    <p>Please review this ticket. You can:</p>
+    <ul>
+      <li><strong>Approve:</strong> Forward to Director for final approval</li>
+      <li><strong>Return:</strong> Send back to requester with notes for revision</li>
+    </ul>
+
+    <div class="form-group" style="margin-top: 16px;">
+      <label>Notes/Comments: <span class="required" *ngIf="secretaryReviewAction() === 'reject'">*</span></label>
+      <textarea
+        nz-input
+        [ngModel]="secretaryReviewComment()"
+        (ngModelChange)="secretaryReviewComment.set($event)"
+        rows="4"
+        [placeholder]="secretaryReviewAction() === 'reject' ? 'Enter the reason for returning the ticket (required)...' : 'Add any comments about this ticket (optional)...'"
+      ></textarea>
+    </div>
+  </ng-container>
+
+  <ng-template #secretaryReviewFooter>
+    <button nz-button nzType="default" (click)="closeSecretaryReviewModal()">Cancel</button>
+    <button
+      nz-button
+      nzType="default"
+      nzDanger
+      [nzLoading]="processingSecretaryReview()"
+      (click)="secretaryReviewAction.set('reject'); confirmSecretaryReview()"
+    >
+      <i nz-icon nzType="rollback"></i>
+      Return with Notes
+    </button>
+    <button
+      nz-button
+      nzType="primary"
+      [nzLoading]="processingSecretaryReview()"
+      (click)="secretaryReviewAction.set('approve'); confirmSecretaryReview()"
+    >
+      <i nz-icon nzType="check"></i>
+      Approve & Forward
+    </button>
+  </ng-template>
+</nz-modal>
+
+<!-- Director Approval Modal -->
+<nz-modal
+  [nzVisible]="showDirectorApprovalModal()"
+  (nzVisibleChange)="showDirectorApprovalModal.set($event)"
+  nzTitle="Director Approval"
+  [nzFooter]="directorApprovalFooter"
+  [nzClosable]="true"
+  [nzWidth]="550"
+  (nzOnCancel)="closeDirectorApprovalModal()"
+>
+  <ng-container *nzModalContent>
+    <p>This ticket has been reviewed by the secretary. You can:</p>
+    <ul>
+      <li><strong>Approve:</strong> Approve and auto-assign to the appropriate Office Head</li>
+      <li><strong>Disapprove:</strong> Return to requester with notes</li>
+    </ul>
+
+    <div class="form-group" style="margin-top: 16px;">
+      <label>Notes/Comments: <span class="required" *ngIf="directorApprovalAction() === 'disapprove'">*</span></label>
+      <textarea
+        nz-input
+        [ngModel]="directorApprovalComment()"
+        (ngModelChange)="directorApprovalComment.set($event)"
+        rows="4"
+        [placeholder]="directorApprovalAction() === 'disapprove' ? 'Enter the reason for disapproval (required)...' : 'Add any comments about this approval (optional)...'"
+      ></textarea>
+    </div>
+  </ng-container>
+
+  <ng-template #directorApprovalFooter>
+    <button nz-button nzType="default" (click)="closeDirectorApprovalModal()">Cancel</button>
+    <button
+      nz-button
+      nzType="default"
+      nzDanger
+      [nzLoading]="processingDirectorApproval()"
+      (click)="directorApprovalAction.set('disapprove'); confirmDirectorApproval()"
+    >
+      <i nz-icon nzType="close-circle"></i>
+      Disapprove
+    </button>
+    <button
+      nz-button
+      nzType="primary"
+      [nzLoading]="processingDirectorApproval()"
+      (click)="directorApprovalAction.set('approve'); confirmDirectorApproval()"
+    >
+      <i nz-icon nzType="check-circle"></i>
+      Approve & Assign
+    </button>
+  </ng-template>
+</nz-modal>

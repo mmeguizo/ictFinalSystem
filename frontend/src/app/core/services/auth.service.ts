@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { StorageService } from './storage.service';
+import { Apollo } from 'apollo-angular';
 
 /**
  * User model interface
@@ -23,6 +24,20 @@ export interface User {
 export class AuthService {
   private readonly storage = inject(StorageService);
   private readonly router = inject(Router);
+  private apollo: Apollo | null = null;
+
+  // Lazy inject Apollo to avoid circular dependency
+  private getApollo(): Apollo | null {
+    if (!this.apollo) {
+      try {
+        this.apollo = inject(Apollo);
+      } catch (e) {
+        // Apollo might not be available during SSR or early initialization
+        console.warn('[AuthService] Apollo not available:', e);
+      }
+    }
+    return this.apollo;
+  }
 
   // Primary state
   private readonly _currentUser = signal<User | null>(null);
@@ -42,11 +57,23 @@ export class AuthService {
     return role === 'ADMIN' || role === 'DEVELOPER';
   });
 
+  readonly isTechnical = computed(() => {
+    const role = this._currentUser()?.role;
+    return role === 'ADMIN' || role === 'TECHNICAL';
+  });
 
   readonly isSecretary = computed(() => this._currentUser()?.role === 'SECRETARY');
   readonly isDirector = computed(() => this._currentUser()?.role === 'DIRECTOR');
+  readonly isUser = computed(() => this._currentUser()?.role === 'USER');
 
-  readonly isOfficeHead = computed(() => this._currentUser()?.role === 'OFFICE_HEAD');
+  // Department heads
+  readonly isMISHead = computed(() => this._currentUser()?.role === 'MIS_HEAD');
+  readonly isITSHead = computed(() => this._currentUser()?.role === 'ITS_HEAD');
+  readonly isOfficeHead = computed(() => {
+    const role = this._currentUser()?.role;
+    return role === 'MIS_HEAD' || role === 'ITS_HEAD';
+  });
+
   readonly userName = computed(() => this._currentUser()?.name || 'Guest');
   readonly userEmail = computed(() => this._currentUser()?.email || '');
   readonly userAvatar = computed(() => {
@@ -151,9 +178,24 @@ export class AuthService {
    * Clear authentication state and redirect to login
    */
   logout(): void {
+    console.log('[AuthService] Logging out user...');
     this._currentUser.set(null);
     this._token.set(null);
     this.storage.clear();
+
+    // Clear Apollo cache to prevent stale authenticated requests
+    try {
+      const apollo = this.getApollo();
+      if (apollo) {
+        apollo.client.stop(); // Stop all active queries
+        apollo.client.clearStore().catch(err => {
+          console.warn('[AuthService] Error clearing Apollo store:', err);
+        });
+      }
+    } catch (e) {
+      console.warn('[AuthService] Failed to clear Apollo cache:', e);
+    }
+
     // Keep initialized true to prevent flash
     this.router.navigate(['/login']);
   }

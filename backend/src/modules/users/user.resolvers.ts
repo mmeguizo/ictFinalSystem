@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { User, Role } from '@prisma/client';
 import { UserService, userService } from './user.service';
 import { JWTService, jwtService } from '../auth/jwt.service';
 import { UnauthorizedError } from '../../lib/errors';
@@ -24,6 +24,22 @@ export const userResolvers = {
     user: async (_: any, args: { id: number }, ctx: Context): Promise<User | null> => {
       console.log('Fetching user with ID:', args.id);
       return ctx.userService.getById(args.id);
+    },
+    /**
+     * Get users by a single role
+     * Used for getting specific staff (e.g., all DEVELOPERs for assignment)
+     */
+    usersByRole: async (_: any, args: { role: Role }, ctx: Context): Promise<User[]> => {
+      ctx.jwtService.requireAuth(ctx.currentUser);
+      return ctx.userService.getByRole(args.role);
+    },
+    /**
+     * Get users by multiple roles
+     * Used for getting staff from multiple categories
+     */
+    usersByRoles: async (_: any, args: { roles: Role[] }, ctx: Context): Promise<User[]> => {
+      ctx.jwtService.requireAuth(ctx.currentUser);
+      return ctx.userService.getByRoles(args.roles);
     },
   },
   Mutation: {

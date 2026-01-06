@@ -101,6 +101,26 @@ export class UserRepository {
     return { user, created: !existing };
   }
 
+  /**
+   * Find all users with a specific role
+   */
+  async findByRole(role: Role): Promise<User[]> {
+    return prisma.user.findMany({
+      where: { role },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Find all users with any of the specified roles
+   */
+  async findByRoles(roles: Role[]): Promise<User[]> {
+    return prisma.user.findMany({
+      where: { role: { in: roles } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async delete(id: number): Promise<void> {
     await prisma.user.delete({ where: { id } });
   }

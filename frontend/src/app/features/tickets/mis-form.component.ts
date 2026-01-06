@@ -6,6 +6,7 @@ import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzGridModule } from 'ng-zorro-antd/grid';
+import { TicketService } from '../../core/services/ticket.service';
 
 @Component({
   selector: 'app-mis-form',
@@ -49,19 +50,20 @@ import { NzGridModule } from 'ng-zorro-antd/grid';
             </nz-form-control>
           </nz-form-item>
         </div>
-        <div nz-col [nzXs]="24" [nzSm]="12">
+        <!-- <div nz-col [nzXs]="24" [nzSm]="12">
           <nz-form-item>
             <nz-form-label>Control Number</nz-form-label>
             <nz-form-control>
               <input
-                nz-input
+                nz-
+                [disabled]="true"
                 formControlName="controlNumber"
                 placeholder="e.g. 2025-001"
                 aria-label="Control number"
               />
             </nz-form-control>
           </nz-form-item>
-        </div>
+        </div> -->
       </div>
 
       <nz-form-item>
@@ -157,7 +159,7 @@ export class MISFormComponent {
     requesterName: ['', [Validators.required, Validators.maxLength(120)]],
     department: ['', [Validators.required, Validators.maxLength(80)]],
     requestedDate: [this.formatDateForInput(new Date()), Validators.required],
-    controlNumber: ['', [Validators.required, Validators.maxLength(100)]],
+    // controlNumber: ['', [Validators.required, Validators.maxLength(100)]],
     category: ['SOFTWARE' as 'WEBSITE' | 'SOFTWARE'],
     details: [''],
 
@@ -221,13 +223,14 @@ export class MISFormComponent {
     });
   }
 
+
   validate(): { valid: boolean; error?: string } {
     const fg = this.formGroup;
 
     // Check required fields
     const requesterName = fg.get('requesterName')?.value?.trim();
     const department = fg.get('department')?.value?.trim();
-    const controlNumber = fg.get('controlNumber')?.value?.trim();
+    // const controlNumber = fg.get('controlNumber')?.value?.trim();
     const requestedDate = fg.get('requestedDate')?.value;
 
     if (!requesterName) {
@@ -274,7 +277,7 @@ export class MISFormComponent {
       requesterName: values.requesterName,
       department: values.department,
       requestedDate: values.requestedDate,
-      controlNumber: values.controlNumber,
+      // controlNumber: values.controlNumber,
       category: category,
       details: values.details,
       // Only include the relevant category data

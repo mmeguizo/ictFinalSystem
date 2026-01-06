@@ -7,8 +7,8 @@ export const ticketTypeDefs = gql`
   }
 
   enum TicketStatus {
-    PENDING
-    SECRETARY_APPROVED
+    FOR_REVIEW
+    REVIEWED
     DIRECTOR_APPROVED
     ASSIGNED
     IN_PROGRESS
@@ -33,6 +33,7 @@ export const ticketTypeDefs = gql`
   type Ticket {
     id: Int!
     ticketNumber: String!
+    controlNumber: String!
     type: TicketType!
     title: String!
     description: String!
@@ -41,8 +42,8 @@ export const ticketTypeDefs = gql`
     dueDate: String
     estimatedDuration: Int
     actualDuration: Int
-    secretaryApprovedById: Int
-    secretaryApprovedAt: String
+    secretaryReviewedById: Int
+    secretaryReviewedAt: String
     directorApprovedById: Int
     directorApprovedAt: String
     createdBy: User!
@@ -190,6 +191,11 @@ export const ticketTypeDefs = gql`
     isInternal: Boolean
   }
 
+  input ReopenTicketInput {
+    updatedDescription: String
+    comment: String
+  }
+
   input TicketFilterInput {
     status: TicketStatus
     type: TicketType
@@ -208,7 +214,7 @@ export const ticketTypeDefs = gql`
     tickets(filter: TicketFilterInput): [Ticket!]!
     myTickets: [Ticket!]!
     myCreatedTickets: [Ticket!]!
-    ticketsPendingSecretaryApproval: [Ticket!]!
+    ticketsForSecretaryReview: [Ticket!]!
     ticketsPendingDirectorApproval: [Ticket!]!
     allSecretaryTickets: [Ticket!]!
     ticketAnalytics(filter: AnalyticsFilterInput): TicketAnalytics!
@@ -219,10 +225,13 @@ export const ticketTypeDefs = gql`
     createMISTicket(input: CreateMISTicketInput!): Ticket!
     createITSTicket(input: CreateITSTicketInput!): Ticket!
     updateTicketStatus(ticketId: Int!, input: UpdateTicketStatusInput!): Ticket!
-    approveTicketAsSecretary(ticketId: Int!, comment: String): Ticket!
+    reviewTicketAsSecretary(ticketId: Int!, comment: String): Ticket!
+    rejectTicketAsSecretary(ticketId: Int!, reason: String!): Ticket!
     approveTicketAsDirector(ticketId: Int!, comment: String): Ticket!
+    disapproveTicketAsDirector(ticketId: Int!, reason: String!): Ticket!
     assignTicket(ticketId: Int!, userId: Int!): Ticket!
     unassignTicket(ticketId: Int!, userId: Int!): Ticket!
     addTicketNote(ticketId: Int!, input: CreateTicketNoteInput!): TicketNote!
+    reopenTicket(ticketId: Int!, input: ReopenTicketInput): Ticket!
   }
 `;

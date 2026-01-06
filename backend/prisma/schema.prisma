@@ -10,9 +10,11 @@ datasource db {
 enum Role {
   ADMIN
   DEVELOPER
+  TECHNICAL
   SECRETARY
   DIRECTOR
-  OFFICE_HEAD
+  MIS_HEAD
+  ITS_HEAD
   USER
 }
 
@@ -22,8 +24,8 @@ enum TicketType {
 }
 
 enum TicketStatus {
-  PENDING
-  SECRETARY_APPROVED
+  FOR_REVIEW
+  REVIEWED
   DIRECTOR_APPROVED
   ASSIGNED
   IN_PROGRESS
@@ -64,15 +66,19 @@ model User {
   assignedTickets     TicketAssignment[]
   ticketNotes         TicketNote[]
   statusHistoryEntries TicketStatusHistory[]
+  
+  // Notifications
+  notifications       Notification[]
 }
 
 model Ticket {
   id                Int      @id @default(autoincrement())
   ticketNumber      String   @unique
+  controlNumber     String?      @unique  
   type              TicketType
   title             String
   description       String   @db.Text
-  status            TicketStatus @default(PENDING)
+  status            TicketStatus @default(FOR_REVIEW)
   priority          Priority     @default(MEDIUM)
   
   // SLA tracking
@@ -80,9 +86,9 @@ model Ticket {
   estimatedDuration Int?      // in hours
   actualDuration    Int?      // in hours
   
-  // Approval workflow
-  secretaryApprovedById  Int?
-  secretaryApprovedAt    DateTime?
+  // Review/Approval workflow
+  secretaryReviewedById  Int?
+  secretaryReviewedAt    DateTime?
   directorApprovedById   Int?
   directorApprovedAt     DateTime?
   
@@ -99,6 +105,7 @@ model Ticket {
   notes             TicketNote[]
   attachments       TicketAttachment[]
   statusHistory     TicketStatusHistory[]
+  notifications     Notification[]
   
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -212,4 +219,59 @@ model TicketStatusHistory {
   createdAt       DateTime     @default(now())
   
   @@index([ticketId])
+}
+
+
+model TicketCounter {
+  id      Int @id @default(autoincrement())
+  year    Int
+  month   Int
+  counter Int @default(0)
+  
+  @@unique([year, month])
+}
+
+// ========================================
+// NOTIFICATION SYSTEM
+// ========================================
+
+enum NotificationType {
+  TICKET_CREATED
+  TICKET_REVIEWED
+  TICKET_REJECTED
+  TICKET_APPROVED
+  TICKET_DISAPPROVED
+  TICKET_ASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+}
+
+model Notification {
+  id              Int              @id @default(autoincrement())
+  
+  // Who should receive this notification
+  userId          Int
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Related ticket (optional - some notifications may not be ticket-related)
+  ticketId        Int?
+  ticket          Ticket?          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  // Notification content
+  type            NotificationType
+  title           String
+  message         String           @db.Text
+  
+  // Read status
+  isRead          Boolean          @default(false)
+  readAt          DateTime?
+  
+  // Metadata (stores extra info like actor name, old/new status, etc.)
+  metadata        Json?
+  
+  createdAt       DateTime         @default(now())
+  
+  @@index([userId, isRead])
+  @@index([ticketId])
+  @@index([createdAt])
 }

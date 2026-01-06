@@ -153,6 +153,22 @@ export class TicketRepository {
             user: true,
           },
         },
+        notes: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        statusHistory: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -161,7 +177,7 @@ export class TicketRepository {
   }
 
   /**
-   * Find tickets by multiple statuses (e.g., PENDING + SECRETARY_APPROVED)
+   * Find tickets by multiple statuses (e.g., FOR_REVIEW + REVIEWED)
    */
   async findManyByStatuses(statuses: TicketStatus[]) {
     return this.prisma.ticket.findMany({
@@ -177,6 +193,22 @@ export class TicketRepository {
         assignments: {
           include: {
             user: true,
+          },
+        },
+        notes: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        statusHistory: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },
@@ -200,6 +232,12 @@ export class TicketRepository {
       throw new Error('Ticket not found');
     }
 
+    // Prevent updating to the same status (avoid duplicate history entries)
+    if (ticket.status === status) {
+      console.warn(`Ticket ${ticketId} is already in ${status} status, skipping update`);
+      return [ticket];
+    }
+
     const now = new Date();
     const updateData: Prisma.TicketUpdateInput = {
       status,
@@ -211,6 +249,9 @@ export class TicketRepository {
     } else if (status === TicketStatus.CLOSED) {
       updateData.closedAt = now;
     }
+
+    // Generate default comment based on status transition
+    const defaultComment = this.getDefaultStatusComment(ticket.status, status);
 
     // Update ticket and create history entry in a transaction
     return this.prisma.$transaction([
@@ -224,10 +265,29 @@ export class TicketRepository {
           userId,
           fromStatus: ticket.status,
           toStatus: status,
-          comment,
+          comment: comment || defaultComment,
         },
       }),
     ]);
+  }
+
+  /**
+   * Generate default comment for status transitions
+   */
+  private getDefaultStatusComment(fromStatus: TicketStatus, toStatus: TicketStatus): string {
+    const transitions: Record<string, string> = {
+      'FOR_REVIEW->REVIEWED': 'Reviewed by secretary',
+      'REVIEWED->DIRECTOR_APPROVED': 'Approved by director',
+      'DIRECTOR_APPROVED->ASSIGNED': 'Assigned to department',
+      'ASSIGNED->IN_PROGRESS': 'Work started',
+      'IN_PROGRESS->ON_HOLD': 'Work paused',
+      'ON_HOLD->IN_PROGRESS': 'Work resumed',
+      'IN_PROGRESS->RESOLVED': 'Issue resolved',
+      'RESOLVED->CLOSED': 'Ticket closed',
+    };
+    
+    const key = `${fromStatus}->${toStatus}`;
+    return transitions[key] || `Status changed from ${fromStatus} to ${toStatus}`;
   }
 
   async assignUser(ticketId: number, userId: number) {
@@ -375,4 +435,32 @@ export class TicketRepository {
       dueSoon,
     };
   }
+
+  async generateControlNumber(): Promise<string> {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-12
+
+  // Atomic operation: find the row for this month, increment counter, or create new row
+  const row = await this.prisma.ticketCounter.upsert({
+    where: {
+      year_month: { year, month }, // Composite unique key from your schema
+    },
+    update: {
+      counter: { increment: 1 }, // Increment existing counter
+    },
+    create: {
+      year,
+      month,
+      counter: 1, // First ticket of the month starts at 1
+    },
+  });
+
+  // Format: 2025-12-001
+  const monthStr = String(month).padStart(2, '0');
+  const counterStr = String(row.counter).padStart(3, '0');
+  return `${year}-${monthStr}-${counterStr}`;
+}
+
+  
 }

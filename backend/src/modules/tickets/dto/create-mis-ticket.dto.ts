@@ -6,6 +6,9 @@ export class CreateMISTicketDto extends CreateTicketDto {
   @IsEnum(MISCategory)
   category!: MISCategory;
 
+  @IsOptional()
+  controlNumber!: string;
+
   // Website fields
   @IsBoolean()
   @IsOptional()

@@ -1,0 +1,279 @@
+import { PrismaClient, NotificationType, Role } from '@prisma/client';
+import { NotificationRepository } from './notification.repository';
+
+export class NotificationService {
+  private repository: NotificationRepository;
+
+  constructor(private prisma: PrismaClient) {
+    this.repository = new NotificationRepository(prisma);
+  }
+
+  // ========================================
+  // QUERY METHODS
+  // ========================================
+
+  /**
+   * Get notifications for current user
+   */
+  async getMyNotifications(userId: number, unreadOnly = false, limit = 50) {
+    return this.repository.findByUserId(userId, { unreadOnly, limit });
+  }
+
+  /**
+   * Get unread notification count
+   */
+  async getUnreadCount(userId: number): Promise<number> {
+    return this.repository.countUnread(userId);
+  }
+
+  // ========================================
+  // MUTATION METHODS
+  // ========================================
+
+  /**
+   * Mark single notification as read
+   */
+  async markAsRead(notificationId: number, userId: number) {
+    return this.repository.markAsRead(notificationId, userId);
+  }
+
+  /**
+   * Mark all notifications as read
+   */
+  async markAllAsRead(userId: number): Promise<number> {
+    return this.repository.markAllAsRead(userId);
+  }
+
+  // ========================================
+  // NOTIFICATION TRIGGERS
+  // These are called from ticket service when events occur
+  // ========================================
+
+  /**
+   * Notify user when their ticket is rejected by secretary
+   */
+  async notifyTicketRejected(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    ticketCreatorId: number,
+    rejectorName: string,
+    reason: string
+  ) {
+    return this.repository.create({
+      userId: ticketCreatorId,
+      ticketId,
+      type: NotificationType.TICKET_REJECTED,
+      title: 'Ticket Rejected',
+      message: `Your ticket "${ticketTitle}" (${ticketNumber}) was rejected by ${rejectorName}. Reason: ${reason}`,
+      metadata: {
+        rejectorName,
+        reason,
+      },
+    });
+  }
+
+  /**
+   * Notify user when their ticket is disapproved by director
+   */
+  async notifyTicketDisapproved(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    ticketCreatorId: number,
+    directorName: string,
+    reason: string
+  ) {
+    return this.repository.create({
+      userId: ticketCreatorId,
+      ticketId,
+      type: NotificationType.TICKET_DISAPPROVED,
+      title: 'Ticket Disapproved',
+      message: `Your ticket "${ticketTitle}" (${ticketNumber}) was disapproved by ${directorName}. Reason: ${reason}`,
+      metadata: {
+        directorName,
+        reason,
+      },
+    });
+  }
+
+  /**
+   * Notify user when their ticket is reviewed by secretary
+   */
+  async notifyTicketReviewed(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    ticketCreatorId: number,
+    reviewerName: string
+  ) {
+    return this.repository.create({
+      userId: ticketCreatorId,
+      ticketId,
+      type: NotificationType.TICKET_REVIEWED,
+      title: 'Ticket Under Review',
+      message: `Your ticket "${ticketTitle}" (${ticketNumber}) has been reviewed and forwarded for director approval.`,
+      metadata: {
+        reviewerName,
+      },
+    });
+  }
+
+  /**
+   * Notify user when their ticket is approved by director
+   */
+  async notifyTicketApproved(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    ticketCreatorId: number,
+    approverName: string
+  ) {
+    return this.repository.create({
+      userId: ticketCreatorId,
+      ticketId,
+      type: NotificationType.TICKET_APPROVED,
+      title: 'Ticket Approved',
+      message: `Your ticket "${ticketTitle}" (${ticketNumber}) has been approved and will be assigned to the appropriate team.`,
+      metadata: {
+        approverName,
+      },
+    });
+  }
+
+  /**
+   * Notify staff member when ticket is assigned to them
+   */
+  async notifyTicketAssigned(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    assigneeId: number,
+    assignerName: string
+  ) {
+    return this.repository.create({
+      userId: assigneeId,
+      ticketId,
+      type: NotificationType.TICKET_ASSIGNED,
+      title: 'New Ticket Assigned',
+      message: `You have been assigned ticket "${ticketTitle}" (${ticketNumber}) by ${assignerName}.`,
+      metadata: {
+        assignerName,
+      },
+    });
+  }
+
+  /**
+   * Notify ticket creator when status changes
+   */
+  async notifyStatusChanged(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    ticketCreatorId: number,
+    fromStatus: string,
+    toStatus: string,
+    changerName: string
+  ) {
+    return this.repository.create({
+      userId: ticketCreatorId,
+      ticketId,
+      type: NotificationType.STATUS_CHANGED,
+      title: 'Ticket Status Updated',
+      message: `Your ticket "${ticketTitle}" (${ticketNumber}) status changed from ${fromStatus.replace('_', ' ')} to ${toStatus.replace('_', ' ')}.`,
+      metadata: {
+        fromStatus,
+        toStatus,
+        changerName,
+      },
+    });
+  }
+
+  /**
+   * Notify relevant users when a note is added
+   * - If internal note: notify assigned staff
+   * - If public note: notify ticket creator
+   */
+  async notifyNoteAdded(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    recipientId: number,
+    authorName: string,
+    isInternal: boolean
+  ) {
+    return this.repository.create({
+      userId: recipientId,
+      ticketId,
+      type: NotificationType.NOTE_ADDED,
+      title: isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
+      message: `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
+      metadata: {
+        authorName,
+        isInternal,
+      },
+    });
+  }
+
+  /**
+   * Notify secretary when new ticket is created (for review)
+   */
+  async notifyNewTicketForReview(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    creatorName: string
+  ) {
+    // Find all secretaries
+    const secretaries = await this.prisma.user.findMany({
+      where: { role: Role.SECRETARY },
+      select: { id: true },
+    });
+
+    if (secretaries.length === 0) return;
+
+    return this.repository.createMany(
+      secretaries.map((s) => ({
+        userId: s.id,
+        ticketId,
+        type: NotificationType.TICKET_CREATED,
+        title: 'New Ticket for Review',
+        message: `New ticket "${ticketTitle}" (${ticketNumber}) submitted by ${creatorName} requires your review.`,
+        metadata: {
+          creatorName,
+        },
+      }))
+    );
+  }
+
+  /**
+   * Notify director when ticket is ready for approval
+   */
+  async notifyTicketReadyForDirectorApproval(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    reviewerName: string
+  ) {
+    // Find all directors and admins
+    const approvers = await this.prisma.user.findMany({
+      where: { role: { in: [Role.DIRECTOR, Role.ADMIN] } },
+      select: { id: true },
+    });
+
+    if (approvers.length === 0) return;
+
+    return this.repository.createMany(
+      approvers.map((a) => ({
+        userId: a.id,
+        ticketId,
+        type: NotificationType.TICKET_REVIEWED,
+        title: 'Ticket Ready for Approval',
+        message: `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your approval.`,
+        metadata: {
+          reviewerName,
+        },
+      }))
+    );
+  }
+}

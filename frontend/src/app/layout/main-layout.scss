@@ -78,7 +78,27 @@ nz-header {
 }
 
 .header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   padding-right: 16px;
+}
+
+.user-profile-trigger {
+  cursor: pointer;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #f0f0f0;
+  transition: border-color 0.3s;
+}
+
+.user-profile-trigger:hover .user-avatar {
+  border-color: #1890ff;
 }
 
 nz-content {
@@ -122,6 +142,32 @@ nz-layout > nz-content {
 .header-avatar {
   border-radius: 50%;
   object-fit: cover;
+}
+
+// User info section with role badge
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-role-badge {
+  display: flex;
+  align-items: center;
+
+  .role-label {
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    background: rgba(102, 126, 234, 0.12);
+    color: #667eea;
+    white-space: nowrap;
+    text-transform: capitalize;
+    letter-spacing: 0.3px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    line-height: 1.2;
+  }
 }
 
 .modal-avatar {

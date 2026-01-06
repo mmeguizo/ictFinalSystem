@@ -4,9 +4,12 @@ export const userTypeDefs = gql`
   enum Role {
     ADMIN
     DEVELOPER
-    OFFICE_HEAD
+    TECHNICAL
+    MIS_HEAD
+    ITS_HEAD
     USER
     SECRETARY
+    DIRECTOR
   }
 
   type User {
@@ -47,6 +50,8 @@ export const userTypeDefs = gql`
     me: User
     users: [User!]!
     user(id: Int!): User
+    usersByRole(role: Role!): [User!]!
+    usersByRoles(roles: [Role!]!): [User!]!
   }
 
   extend type Mutation {
