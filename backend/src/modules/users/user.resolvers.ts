@@ -22,7 +22,7 @@ export const userResolvers = {
       return ctx.userService.getAll();
     },
     user: async (_: any, args: { id: number }, ctx: Context): Promise<User | null> => {
-      console.log('Fetching user with ID:', args.id);
+      // console.log('Fetching user with ID:', args.id);
       return ctx.userService.getById(args.id);
     },
     /**

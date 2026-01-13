@@ -379,6 +379,94 @@ const REOPEN_TICKET = gql`
   }
 `;
 
+/**
+ * Mutation for heads to schedule a visit
+ * Sets dateToVisit and targetCompletionDate
+ */
+const SCHEDULE_VISIT = gql`
+  mutation ScheduleVisit($ticketId: Int!, $input: ScheduleVisitInput!) {
+    scheduleVisit(ticketId: $ticketId, input: $input) {
+      id
+      ticketNumber
+      status
+      dateToVisit
+      targetCompletionDate
+    }
+  }
+`;
+
+/**
+ * Mutation for admin to acknowledge a schedule
+ */
+const ACKNOWLEDGE_SCHEDULE = gql`
+  mutation AcknowledgeSchedule($ticketId: Int!, $comment: String) {
+    acknowledgeSchedule(ticketId: $ticketId, comment: $comment) {
+      id
+      ticketNumber
+      status
+    }
+  }
+`;
+
+/**
+ * Mutation for admin to reject a schedule
+ */
+const REJECT_SCHEDULE = gql`
+  mutation RejectSchedule($ticketId: Int!, $reason: String!) {
+    rejectSchedule(ticketId: $ticketId, reason: $reason) {
+      id
+      ticketNumber
+      status
+    }
+  }
+`;
+
+/**
+ * Mutation for heads to add monitor notes and recommendations
+ */
+const ADD_MONITOR_AND_RECOMMENDATIONS = gql`
+  mutation AddMonitorAndRecommendations($ticketId: Int!, $input: AddMonitorInput!) {
+    addMonitorAndRecommendations(ticketId: $ticketId, input: $input) {
+      id
+      ticketNumber
+      status
+      monitorNotes
+      recommendations
+    }
+  }
+`;
+
+/**
+ * Query for admin to get tickets pending acknowledgment
+ */
+const TICKETS_PENDING_ACKNOWLEDGMENT = gql`
+  query TicketsPendingAcknowledgment {
+    ticketsPendingAcknowledgment {
+      id
+      ticketNumber
+      type
+      title
+      status
+      priority
+      dateToVisit
+      targetCompletionDate
+      createdAt
+      createdBy {
+        id
+        name
+        email
+      }
+      assignments {
+        user {
+          id
+          name
+          role
+        }
+      }
+    }
+  }
+`;
+
 const TICKET_BY_NUMBER = gql`
   query TicketByNumber($ticketNumber: String!) {
     ticketByNumber(ticketNumber: $ticketNumber) {
@@ -397,6 +485,16 @@ const TICKET_BY_NUMBER = gql`
       secretaryReviewedAt
       directorApprovedById
       directorApprovedAt
+      dateToVisit
+      targetCompletionDate
+      headScheduledById
+      headScheduledAt
+      adminAcknowledgedById
+      adminAcknowledgedAt
+      monitorNotes
+      recommendations
+      monitoredById
+      monitoredAt
       createdAt
       updatedAt
       resolvedAt
@@ -528,6 +626,15 @@ export interface TicketListItem {
   dueDate?: string;
   secretaryReviewedAt?: string;
   directorApprovedAt?: string;
+  // Schedule workflow fields
+  dateToVisit?: string;
+  targetCompletionDate?: string;
+  headScheduledAt?: string;
+  adminAcknowledgedAt?: string;
+  // Monitor fields
+  monitorNotes?: string;
+  recommendations?: string;
+  monitoredAt?: string;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
@@ -553,6 +660,9 @@ export interface TicketDetail extends TicketListItem {
   actualDuration?: number;
   secretaryReviewedById?: number;
   directorApprovedById?: number;
+  headScheduledById?: number;
+  adminAcknowledgedById?: number;
+  monitoredById?: number;
   misTicket?: {
     category: string;
     websiteNewRequest: boolean;
@@ -964,6 +1074,128 @@ export class TicketService {
             throw new Error('Failed to fetch assigned tickets');
           }
           return result.data.myTickets;
+        })
+      );
+  }
+
+  // ========================================
+  // SCHEDULE WORKFLOW METHODS
+  // ========================================
+
+  /**
+   * Get tickets pending acknowledgment (for Admin/Director)
+   */
+  getTicketsPendingAcknowledgment(): Observable<TicketListItem[]> {
+    return this.apollo
+      .query<{ ticketsPendingAcknowledgment: TicketListItem[] }>({
+        query: TICKETS_PENDING_ACKNOWLEDGMENT,
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.ticketsPendingAcknowledgment) {
+            throw new Error('Failed to fetch pending acknowledgment tickets');
+          }
+          return result.data.ticketsPendingAcknowledgment;
+        })
+      );
+  }
+
+  /**
+   * Schedule a visit (for MIS_HEAD/ITS_HEAD)
+   * Sets dateToVisit and targetCompletionDate
+   */
+  scheduleVisit(
+    ticketId: number,
+    dateToVisit: string,
+    targetCompletionDate: string,
+    comment?: string
+  ): Observable<{ id: number; ticketNumber: string; status: string }> {
+    return this.apollo
+      .mutate<{ scheduleVisit: { id: number; ticketNumber: string; status: string } }>({
+        mutation: SCHEDULE_VISIT,
+        variables: {
+          ticketId,
+          input: { dateToVisit, targetCompletionDate, comment },
+        },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.scheduleVisit) {
+            throw new Error('Failed to schedule visit');
+          }
+          return result.data.scheduleVisit;
+        })
+      );
+  }
+
+  /**
+   * Acknowledge schedule (for Admin/Director)
+   */
+  acknowledgeSchedule(
+    ticketId: number,
+    comment?: string
+  ): Observable<{ id: number; ticketNumber: string; status: string }> {
+    return this.apollo
+      .mutate<{ acknowledgeSchedule: { id: number; ticketNumber: string; status: string } }>({
+        mutation: ACKNOWLEDGE_SCHEDULE,
+        variables: { ticketId, comment },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.acknowledgeSchedule) {
+            throw new Error('Failed to acknowledge schedule');
+          }
+          return result.data.acknowledgeSchedule;
+        })
+      );
+  }
+
+  /**
+   * Reject schedule (for Admin/Director)
+   */
+  rejectSchedule(
+    ticketId: number,
+    reason: string
+  ): Observable<{ id: number; ticketNumber: string; status: string }> {
+    return this.apollo
+      .mutate<{ rejectSchedule: { id: number; ticketNumber: string; status: string } }>({
+        mutation: REJECT_SCHEDULE,
+        variables: { ticketId, reason },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.rejectSchedule) {
+            throw new Error('Failed to reject schedule');
+          }
+          return result.data.rejectSchedule;
+        })
+      );
+  }
+
+  /**
+   * Add monitor notes and recommendations (for MIS_HEAD/ITS_HEAD after visit)
+   */
+  addMonitorAndRecommendations(
+    ticketId: number,
+    monitorNotes: string,
+    recommendations: string,
+    comment?: string
+  ): Observable<{ id: number; ticketNumber: string; status: string }> {
+    return this.apollo
+      .mutate<{ addMonitorAndRecommendations: { id: number; ticketNumber: string; status: string } }>({
+        mutation: ADD_MONITOR_AND_RECOMMENDATIONS,
+        variables: {
+          ticketId,
+          input: { monitorNotes, recommendations, comment },
+        },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.addMonitorAndRecommendations) {
+            throw new Error('Failed to add monitor notes');
+          }
+          return result.data.addMonitorAndRecommendations;
         })
       );
   }

@@ -107,23 +107,23 @@ export class AuthService {
    * Initialize auth state from storage (call on app init)
    */
   initFromStorage(): void {
-    console.log('[AUTH] 1️⃣ initFromStorage() called');
+    // console.log('[AUTH] 1️⃣ initFromStorage() called');
     const storedUser = this.storage.get<User>('current_user');
     const storedToken = this.storage.get<string>('token');
-    console.log('[AUTH] 2️⃣ Storage values:', { hasUser: !!storedUser, hasToken: !!storedToken });
+    // console.log('[AUTH] 2️⃣ Storage values:', { hasUser: !!storedUser, hasToken: !!storedToken });
 
     if (storedUser) {
       this._currentUser.set(storedUser);
-      console.log('[AUTH] 3️⃣ User restored:', storedUser.email);
+      // console.log('[AUTH] 3️⃣ User restored:', storedUser.email);
     }
     if (storedToken) {
       this._token.set(storedToken);
-      console.log('[AUTH] 4️⃣ Token restored');
+      // console.log('[AUTH] 4️⃣ Token restored');
     }
 
     // Mark as initialized
     this._initialized.set(true);
-    console.log('[AUTH] 5️⃣ Initialized set to TRUE, isAuthenticated:', this.isAuthenticated());
+    // console.log('[AUTH] 5️⃣ Initialized set to TRUE, isAuthenticated:', this.isAuthenticated());
   }
 
   /**
@@ -178,7 +178,7 @@ export class AuthService {
    * Clear authentication state and redirect to login
    */
   logout(): void {
-    console.log('[AuthService] Logging out user...');
+    // console.log('[AuthService] Logging out user...');
     this._currentUser.set(null);
     this._token.set(null);
     this.storage.clear();

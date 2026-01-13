@@ -192,10 +192,10 @@ export class SecretaryApprovalPage implements OnInit {
       });
     } else {
       // Reject: Return to user with comment
-      console.log('Rejecting ticket:', ticketId, 'with reason:', comment);
+      // console.log('Rejecting ticket:', ticketId, 'with reason:', comment);
       this.ticketService.rejectAsSecretary(ticketId, comment).subscribe({
         next: (result) => {
-          console.log('Rejection result:', result);
+          // console.log('Rejection result:', result);
           this.message.success('Ticket returned to requester with comments');
           this.closeReviewModal();
           this.loadTicketsForApproval();
@@ -260,12 +260,12 @@ export class SecretaryApprovalPage implements OnInit {
     this.loading.set(true);
     this.ticketService.approveAsDirector(ticketId).subscribe({
       next: () => {
-        this.message.success('Ticket approved and auto-assigned to Office Head!');
+        this.message.success('Ticket endorsed and auto-assigned to Office Head!');
         this.loadTicketsForApproval(); // Refresh the list
       },
       error: (err) => {
-        console.error('Failed to approve ticket:', err);
-        this.message.error('Failed to approve ticket.');
+        console.error('Failed to endorse ticket:', err);
+        this.message.error('Failed to endorse ticket.');
         this.loading.set(false);
       },
     });

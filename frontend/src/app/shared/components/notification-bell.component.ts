@@ -1,6 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { interval } from 'rxjs';
+import { switchMap, filter } from 'rxjs/operators';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDropDownModule, NzDropdownMenuComponent } from 'ng-zorro-antd/dropdown';
@@ -89,7 +92,8 @@ import { AuthService } from '../../core/services/auth.service';
                         ></nz-avatar>
                       </nz-list-item-meta-avatar>
                       <nz-list-item-meta-title>
-                        {{ notification.title }}
+                        {{ notification.title}}
+                        <!-- {{ notification.title === 'Ticket Approved' ? 'Ticket Endorsed' : notification.title }} -->
                       </nz-list-item-meta-title>
                       <nz-list-item-meta-description>
                         <div class="notification-message">{{ notification.message }}</div>
@@ -221,13 +225,32 @@ export class NotificationBellComponent implements OnInit {
   readonly notificationService = inject(TicketNotificationService);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   dropdownVisible = false;
 
   ngOnInit(): void {
     // Load notifications on init if logged in
     if (this.authService.isAuthenticated()) {
+      // Initial load of both count and notifications
       this.notificationService.getUnreadCount().subscribe();
+      this.notificationService.getMyNotifications().subscribe();
+// In your component (e.g., in ngOnInit or a method)
+
+
+      // Set up auto-refresh polling every 30 seconds for notifications
+      // This ensures users get timely notification updates
+      interval(30000) // 30000ms = 30 seconds
+        .pipe(
+          filter(() => this.authService.isAuthenticated()),
+          switchMap(() => this.notificationService.getUnreadCount()),
+          takeUntilDestroyed(this.destroyRef)
+        )
+        .subscribe({
+          error: (error) => {
+            console.error('Notification polling failed:', error);
+          },
+        });
     }
   }
 

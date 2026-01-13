@@ -115,6 +115,7 @@ export class TicketNotificationService {
           if (!result.data?.myNotifications) {
             throw new Error('Failed to load notifications');
           }
+          // console.log(result.data.myNotifications);
           return result.data.myNotifications;
         }),
         tap((notifications) => {

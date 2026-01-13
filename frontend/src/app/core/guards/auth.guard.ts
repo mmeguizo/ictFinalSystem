@@ -20,23 +20,23 @@ export const authGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  console.log('[GUARD] 🛡️ authGuard called for:', state.url);
-  console.log('[GUARD] initialized:', authService.initialized(), 'isAuthenticated:', authService.isAuthenticated());
+  // console.log('[GUARD] 🛡️ authGuard called for:', state.url);
+  // console.log('[GUARD] initialized:', authService.initialized(), 'isAuthenticated:', authService.isAuthenticated());
 
   // By the time guards run, APP_INITIALIZER should have completed
   // But just in case, check initialization state
   if (!authService.initialized()) {
-    console.warn('[GUARD] ⚠️ Auth guard ran before initialization completed - redirecting to login');
+    // console.warn('[GUARD] ⚠️ Auth guard ran before initialization completed - redirecting to login');
     return router.createUrlTree(['/login']);
   }
 
   if (authService.isAuthenticated()) {
-    console.log('[GUARD] ✅ User is authenticated - allowing access');
+    // console.log('[GUARD] ✅ User is authenticated - allowing access');
     return true;
   }
 
   // User not authenticated - redirect to login
-  console.log('[GUARD] ❌ User not authenticated - redirecting to login');
+  // console.log('[GUARD] ❌ User not authenticated - redirecting to login');
   return router.createUrlTree(['/login']);
 };
 
@@ -132,22 +132,22 @@ export const guestGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  console.log('[GUARD] 👋 guestGuard called for:', state.url);
-  console.log('[GUARD] initialized:', authService.initialized(), 'isAuthenticated:', authService.isAuthenticated());
+  // console.log('[GUARD] 👋 guestGuard called for:', state.url);
+  // console.log('[GUARD] initialized:', authService.initialized(), 'isAuthenticated:', authService.isAuthenticated());
 
   // If not yet initialized, allow navigation but login page will show loading
   if (!authService.initialized()) {
-    console.log('[GUARD] ⏳ Not initialized yet - allowing access (login will show loading)');
+    // console.log('[GUARD] ⏳ Not initialized yet - allowing access (login will show loading)');
     return true;
   }
 
   // If already authenticated, redirect to dashboard
   if (authService.isAuthenticated()) {
-    console.log('[GUARD] 🔄 Already authenticated - redirecting to dashboard');
+    // console.log('[GUARD] 🔄 Already authenticated - redirecting to dashboard');
     return router.createUrlTree(['/dashboard']);
   }
 
   // Not authenticated - allow access to login page
-  console.log('[GUARD] ✅ Not authenticated - allowing access to login');
+  // console.log('[GUARD] ✅ Not authenticated - allowing access to login');
   return true;
 };

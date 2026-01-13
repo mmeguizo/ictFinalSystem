@@ -62,9 +62,9 @@ export class UserService {
   }
 
   async updateProfile(userId: number, input: UpdateProfileInput): Promise<User> {
-    console.log('UpdateProfile Input:', input);
+    // console.log('UpdateProfile Input:', input);
     const validation = updateProfileSchema.safeParse(input);
-    console.log('Validation Result:', validation);
+    // console.log('Validation Result:', validation);
     if (!validation.success) {
       throw new ValidationError('Invalid profile data', validation.error.format());
     }

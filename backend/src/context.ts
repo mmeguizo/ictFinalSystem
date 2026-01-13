@@ -21,7 +21,7 @@ export async function createContext({ req }: { req: IncomingMessage }): Promise<
   // Try JWT (local login) first
   if (token) {
     const jwtUser = await jwtService.verify(token);
-    console.log('JWT User:', jwtUser);
+    // console.log('JWT User:', jwtUser);
     if (jwtUser) {
       const userId = parseInt(jwtUser.sub, 10);
       if (!isNaN(userId)) {

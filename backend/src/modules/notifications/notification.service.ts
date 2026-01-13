@@ -133,7 +133,7 @@ export class NotificationService {
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_APPROVED,
-      title: 'Ticket Approved',
+      title: 'Ticket Endorsed',
       message: `Your ticket "${ticketTitle}" (${ticketNumber}) has been approved and will be assigned to the appropriate team.`,
       metadata: {
         approverName,
@@ -155,8 +155,8 @@ export class NotificationService {
       userId: assigneeId,
       ticketId,
       type: NotificationType.TICKET_ASSIGNED,
-      title: 'New Ticket Assigned',
-      message: `You have been assigned ticket "${ticketTitle}" (${ticketNumber}) by ${assignerName}.`,
+      title: 'New Ticket Endorsed',
+      message: `You have an endorsed ticket "${ticketTitle}" (${ticketNumber}) by ${assignerName}.`,
       metadata: {
         assignerName,
       },
@@ -191,8 +191,9 @@ export class NotificationService {
 
   /**
    * Notify relevant users when a note is added
-   * - If internal note: notify assigned staff
+   * - If internal note: notify assigned staff, admin, secretary
    * - If public note: notify ticket creator
+   * - Admin and Secretary always get notified for notes on all tickets
    */
   async notifyNoteAdded(
     ticketId: number,
@@ -213,6 +214,44 @@ export class NotificationService {
         isInternal,
       },
     });
+  }
+
+  /**
+   * Notify Admin and Secretary about new notes
+   * This ensures they stay informed about all ticket activity
+   */
+  async notifyAdminAndSecretaryNoteAdded(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    authorId: number,
+    authorName: string,
+    isInternal: boolean
+  ) {
+    // Find all admins and secretaries except the author
+    const adminSecretaries = await this.prisma.user.findMany({
+      where: {
+        role: { in: [Role.ADMIN, Role.SECRETARY] },
+        id: { not: authorId }, // Don't notify the author
+      },
+      select: { id: true },
+    });
+
+    if (adminSecretaries.length === 0) return;
+
+    return this.repository.createMany(
+      adminSecretaries.map((user) => ({
+        userId: user.id,
+        ticketId,
+        type: NotificationType.NOTE_ADDED,
+        title: isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
+        message: `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
+        metadata: {
+          authorName,
+          isInternal,
+        },
+      }))
+    );
   }
 
   /**
@@ -268,12 +307,129 @@ export class NotificationService {
         userId: a.id,
         ticketId,
         type: NotificationType.TICKET_REVIEWED,
-        title: 'Ticket Ready for Approval',
-        message: `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your approval.`,
+        title: 'Ticket Ready for Endorsement',
+        message: `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your endorsement.`,
         metadata: {
           reviewerName,
         },
       }))
     );
+  }
+
+  // ========================================
+  // SCHEDULE WORKFLOW NOTIFICATIONS
+  // ========================================
+
+  /**
+   * Notify admin/director when head has scheduled a visit
+   * Called when MIS_HEAD/ITS_HEAD sets dateToVisit and targetCompletionDate
+   */
+  async notifyAdminScheduleSet(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    headName: string,
+    dateToVisit: Date,
+    targetCompletionDate: Date
+  ) {
+    // Find all admins and directors
+    const admins = await this.prisma.user.findMany({
+      where: { role: { in: [Role.ADMIN, Role.DIRECTOR] } },
+      select: { id: true },
+    });
+
+    if (admins.length === 0) return;
+
+    const visitDateStr = dateToVisit.toLocaleDateString();
+    const completionDateStr = targetCompletionDate.toLocaleDateString();
+
+    return this.repository.createMany(
+      admins.map((a) => ({
+        userId: a.id,
+        ticketId,
+        type: NotificationType.STATUS_CHANGED,
+        title: 'Visit Schedule Requires Acknowledgment',
+        message: `${headName} has scheduled a visit for ticket "${ticketTitle}" (${ticketNumber}). Visit: ${visitDateStr}, Target Completion: ${completionDateStr}. Please acknowledge.`,
+        metadata: {
+          headName,
+          dateToVisit: visitDateStr,
+          targetCompletionDate: completionDateStr,
+        },
+      }))
+    );
+  }
+
+  /**
+   * Notify user when their visit has been scheduled
+   * Called after admin acknowledges the schedule
+   */
+  async notifyUserVisitScheduled(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    userId: number,
+    dateToVisit: Date,
+    targetCompletionDate: Date,
+    officeName: string
+  ) {
+    const visitDateStr = dateToVisit.toLocaleDateString();
+    const completionDateStr = targetCompletionDate.toLocaleDateString();
+
+    return this.repository.create({
+      userId,
+      ticketId,
+      type: NotificationType.STATUS_CHANGED,
+      title: 'Visit Scheduled',
+      message: `Your ticket "${ticketTitle}" (${ticketNumber}) has been scheduled. Please visit the ${officeName} on ${visitDateStr}. Target completion: ${completionDateStr}.`,
+      metadata: {
+        dateToVisit: visitDateStr,
+        targetCompletionDate: completionDateStr,
+        officeName,
+      },
+    });
+  }
+
+  /**
+   * Notify head when admin rejects their schedule
+   */
+  async notifyHeadScheduleRejected(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    headId: number,
+    reason: string
+  ) {
+    return this.repository.create({
+      userId: headId,
+      ticketId,
+      type: NotificationType.STATUS_CHANGED,
+      title: 'Schedule Rejected',
+      message: `Your schedule for ticket "${ticketTitle}" (${ticketNumber}) was rejected. Reason: ${reason}. Please reschedule.`,
+      metadata: {
+        reason,
+      },
+    });
+  }
+
+  /**
+   * Notify user when head adds monitor notes after visit
+   */
+  async notifyUserMonitorUpdate(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    userId: number,
+    headName: string
+  ) {
+    return this.repository.create({
+      userId,
+      ticketId,
+      type: NotificationType.STATUS_CHANGED,
+      title: 'Monitor Notes Added',
+      message: `${headName} has added monitoring notes and recommendations to your ticket "${ticketTitle}" (${ticketNumber}).`,
+      metadata: {
+        headName,
+      },
+    });
   }
 }

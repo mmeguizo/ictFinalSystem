@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { interval } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzListModule } from 'ng-zorro-antd/list';
 import { NzAvatarModule } from 'ng-zorro-antd/avatar';
@@ -304,6 +307,7 @@ type NotificationType =
 export class NotificationsPage implements OnInit {
   readonly notificationService = inject(TicketNotificationService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Search and filters
   searchText = '';
@@ -321,7 +325,7 @@ export class NotificationsPage implements OnInit {
     { value: 'TICKET_CREATED', label: 'Ticket Created' },
     { value: 'TICKET_REVIEWED', label: 'Ticket Reviewed' },
     { value: 'TICKET_REJECTED', label: 'Ticket Rejected' },
-    { value: 'TICKET_APPROVED', label: 'Ticket Approved' },
+    { value: 'TICKET_APPROVED', label: 'Ticket Endorsed' },
     { value: 'TICKET_DISAPPROVED', label: 'Ticket Disapproved' },
     { value: 'TICKET_ASSIGNED', label: 'Ticket Assigned' },
     { value: 'STATUS_CHANGED', label: 'Status Changed' },
@@ -378,6 +382,18 @@ export class NotificationsPage implements OnInit {
   ngOnInit(): void {
     // Load all notifications
     this.notificationService.getMyNotifications(false, 500).subscribe();
+
+    // Set up auto-refresh polling every 30 seconds for notifications
+    interval(30000) // 30000ms = 30 seconds
+      .pipe(
+        switchMap(() => this.notificationService.getMyNotifications(false, 500)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        error: (error) => {
+          console.error('Notification polling failed:', error);
+        },
+      });
   }
 
   onSearchChange(): void {

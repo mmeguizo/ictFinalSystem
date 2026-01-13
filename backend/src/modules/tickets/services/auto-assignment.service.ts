@@ -13,8 +13,9 @@ export class AutoAssignmentService {
   /**
    * Automatically assign ticket based on type and current workload
    * Routes MIS tickets to MIS_HEAD and ITS tickets to ITS_HEAD
+   * Returns the created assignment with userId
    */
-  async assignTicket(ticketId: number, ticketType: TicketType): Promise<void> {
+  async assignTicket(ticketId: number, ticketType: TicketType): Promise<{ userId: number }> {
     // Get the appropriate head role for the ticket type
     const targetRole = this.getHeadRoleForTicketType(ticketType);
 
@@ -44,7 +45,7 @@ export class AutoAssignmentService {
     const selectedUser = this.selectUserByWorkload(eligibleUsers);
 
     // Assign the ticket
-    await this.prisma.ticketAssignment.create({
+    const assignment = await this.prisma.ticketAssignment.create({
       data: {
         ticketId,
         userId: selectedUser.id,
@@ -56,6 +57,8 @@ export class AutoAssignmentService {
       where: { id: ticketId },
       data: { status: 'ASSIGNED' },
     });
+
+    return { userId: assignment.userId };
   }
 
   /**

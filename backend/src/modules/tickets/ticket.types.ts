@@ -11,6 +11,8 @@ export const ticketTypeDefs = gql`
     REVIEWED
     DIRECTOR_APPROVED
     ASSIGNED
+    PENDING_ACKNOWLEDGMENT
+    SCHEDULED
     IN_PROGRESS
     ON_HOLD
     RESOLVED
@@ -46,6 +48,18 @@ export const ticketTypeDefs = gql`
     secretaryReviewedAt: String
     directorApprovedById: Int
     directorApprovedAt: String
+    # Schedule workflow (Head sets dates, Admin acknowledges)
+    dateToVisit: String
+    targetCompletionDate: String
+    headScheduledById: Int
+    headScheduledAt: String
+    adminAcknowledgedById: Int
+    adminAcknowledgedAt: String
+    # Monitoring (Head adds after visit)
+    monitorNotes: String
+    recommendations: String
+    monitoredById: Int
+    monitoredAt: String
     createdBy: User!
     createdById: Int!
     misTicket: MISTicket
@@ -196,6 +210,18 @@ export const ticketTypeDefs = gql`
     comment: String
   }
 
+  input ScheduleVisitInput {
+    dateToVisit: String!
+    targetCompletionDate: String!
+    comment: String
+  }
+
+  input AddMonitorInput {
+    monitorNotes: String!
+    recommendations: String!
+    comment: String
+  }
+
   input TicketFilterInput {
     status: TicketStatus
     type: TicketType
@@ -216,6 +242,7 @@ export const ticketTypeDefs = gql`
     myCreatedTickets: [Ticket!]!
     ticketsForSecretaryReview: [Ticket!]!
     ticketsPendingDirectorApproval: [Ticket!]!
+    ticketsPendingAcknowledgment: [Ticket!]!
     allSecretaryTickets: [Ticket!]!
     ticketAnalytics(filter: AnalyticsFilterInput): TicketAnalytics!
     slaMetrics: SLAMetrics!
@@ -233,5 +260,12 @@ export const ticketTypeDefs = gql`
     unassignTicket(ticketId: Int!, userId: Int!): Ticket!
     addTicketNote(ticketId: Int!, input: CreateTicketNoteInput!): TicketNote!
     reopenTicket(ticketId: Int!, input: ReopenTicketInput): Ticket!
+    # Schedule workflow mutations (for Heads)
+    scheduleVisit(ticketId: Int!, input: ScheduleVisitInput!): Ticket!
+    # Acknowledge schedule (for Admin/Director)
+    acknowledgeSchedule(ticketId: Int!, comment: String): Ticket!
+    rejectSchedule(ticketId: Int!, reason: String!): Ticket!
+    # Monitor workflow (for Heads after visit)
+    addMonitorAndRecommendations(ticketId: Int!, input: AddMonitorInput!): Ticket!
   }
 `;

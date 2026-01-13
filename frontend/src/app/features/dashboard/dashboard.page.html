@@ -1,63 +1,152 @@
 <div class="dashboard-container">
-  <h1>My Dashboard</h1>
+  <h1>Dashboard</h1>
 
-  <div nz-row [nzGutter]="16">
-    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-      <nz-card>
-        <nz-statistic
-          [nzValue]="0"
-          [nzTitle]="'Open Tickets'"
-          [nzPrefix]="prefixTpl"
-        />
-        <ng-template #prefixTpl>
-          <i nz-icon nzType="file-text" nzTheme="outline"></i>
-        </ng-template>
-      </nz-card>
+  <nz-spin [nzSpinning]="loading()">
+    <!-- Main Statistics Row -->
+    <div nz-row [nzGutter]="16" style="margin-bottom: 16px;">
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="totalTickets()"
+            [nzTitle]="'Total Tickets'"
+            [nzPrefix]="totalTpl"
+          />
+          <ng-template #totalTpl>
+            <i nz-icon nzType="inbox" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="ongoingCount()"
+            [nzTitle]="'Ongoing'"
+            [nzPrefix]="ongoingTpl"
+            [nzValueStyle]="{ color: '#1890ff' }"
+          />
+          <ng-template #ongoingTpl>
+            <i nz-icon nzType="sync" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="inProgressCount()"
+            [nzTitle]="'In Progress'"
+            [nzPrefix]="progressTpl"
+            [nzValueStyle]="{ color: '#faad14' }"
+          />
+          <ng-template #progressTpl>
+            <i nz-icon nzType="loading" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="resolvedCount()"
+            [nzTitle]="'Resolved'"
+            [nzPrefix]="resolvedTpl"
+            [nzValueStyle]="{ color: '#52c41a' }"
+          />
+          <ng-template #resolvedTpl>
+            <i nz-icon nzType="check-circle" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
     </div>
 
-    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-      <nz-card>
-        <nz-statistic
-          [nzValue]="0"
-          [nzTitle]="'In Progress'"
-          [nzPrefix]="progressTpl"
-          [nzValueStyle]="{ color: '#1890ff' }"
-        />
-        <ng-template #progressTpl>
-          <i nz-icon nzType="sync" nzTheme="outline"></i>
-        </ng-template>
-      </nz-card>
+    <!-- Detailed Statistics Row -->
+    <div nz-row [nzGutter]="16" style="margin-bottom: 16px;">
+      <div nz-col [nzXs]="12" [nzSm]="8" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="forReviewCount()"
+            [nzTitle]="'For Endorsement'"
+            [nzValueStyle]="{ color: '#faad14' }"
+          />
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="12" [nzSm]="8" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="reviewedCount()"
+            [nzTitle]="'Reviewed'"
+            [nzValueStyle]="{ color: '#1890ff' }"
+          />
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="12" [nzSm]="8" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="assignedCount()"
+            [nzTitle]="'Assigned'"
+            [nzValueStyle]="{ color: '#722ed1' }"
+          />
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="12" [nzSm]="8" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="onHoldCount()"
+            [nzTitle]="'On Hold'"
+            [nzValueStyle]="{ color: '#fa8c16' }"
+          />
+        </nz-card>
+      </div>
     </div>
 
-    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-      <nz-card>
-        <nz-statistic
-          [nzValue]="0"
-          [nzTitle]="'Resolved'"
-          [nzPrefix]="resolvedTpl"
-          [nzValueStyle]="{ color: '#52c41a' }"
-        />
-        <ng-template #resolvedTpl>
-          <i nz-icon nzType="check-circle" nzTheme="outline"></i>
-        </ng-template>
-      </nz-card>
-    </div>
-
-    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
-      <nz-card>
-        <nz-statistic
-          [nzValue]="0"
-          [nzTitle]="'Total Tickets'"
-          [nzPrefix]="totalTpl"
-        />
-        <ng-template #totalTpl>
-          <i nz-icon nzType="inbox" nzTheme="outline"></i>
-        </ng-template>
-      </nz-card>
-    </div>
-  </div>
-
-  <nz-card nzTitle="Recent Tickets" class="recent-tickets-card">
-    <p>No tickets yet. Create your first ticket to get started.</p>
-  </nz-card>
+    <!-- Recent Tickets Card -->
+    <nz-card nzTitle="Recent Tickets" class="recent-tickets-card">
+      @if (recentTickets().length > 0) {
+        <nz-table
+          [nzData]="recentTickets()"
+          [nzShowPagination]="false"
+          [nzSize]="'small'"
+        >
+          <thead>
+            <tr>
+              <th>Ticket #</th>
+              <th>Title</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ticket of recentTickets(); track ticket.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/tickets', ticket.ticketNumber]">
+                    {{ ticket.ticketNumber }}
+                  </a>
+                </td>
+                <td>{{ ticket.title }}</td>
+                <td>
+                  <nz-tag [nzColor]="getStatusColor(ticket.status)">
+                    {{ ticket.status.replace('_', ' ') }}
+                  </nz-tag>
+                </td>
+                <td>
+                  <nz-tag [nzColor]="getPriorityColor(ticket.priority)">
+                    {{ ticket.priority }}
+                  </nz-tag>
+                </td>
+                <td>{{ ticket.createdAt | date:'short' }}</td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      } @else {
+        <p>No tickets yet. Create your first ticket to get started.</p>
+      }
+    </nz-card>
+  </nz-spin>
 </div>

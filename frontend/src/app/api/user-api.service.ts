@@ -88,11 +88,11 @@ export class UserApiService {
     const variables: UpdateMyProfileVariables = {
       input: createUpdateProfileInput(name, avatarDataUrl),
     };
-    console.log('[UserApiService] updateMyProfile variables', {
-      name: variables.input.name,
-      hasAvatar: Boolean(variables.input.avatarDataUrl),
-      avatarBytes: variables.input.avatarDataUrl?.length ?? 0,
-    });
+    // console.log('[UserApiService] updateMyProfile variables', {
+    //   name: variables.input.name,
+    //   hasAvatar: Boolean(variables.input.avatarDataUrl),
+    //   avatarBytes: variables.input.avatarDataUrl?.length ?? 0,
+    // });
 
     const authToken = token || getStoredToken();
     return this.apollo.mutate<UpdateMyProfileData, UpdateMyProfileVariables>({
@@ -103,7 +103,7 @@ export class UserApiService {
   }
 
   setMyPassword(password: string, token?: string) {
-    console.log('[UserApiService] setMyPassword variables', { passwordLength: password?.length ?? 0 });
+    // console.log('[UserApiService] setMyPassword variables', { passwordLength: password?.length ?? 0 });
     const authToken = token || getStoredToken();
     return this.apollo.mutate<SetMyPasswordData, SetMyPasswordVariables>({
       mutation: SET_MY_PASSWORD_MUTATION,
@@ -113,7 +113,7 @@ export class UserApiService {
   }
 
   getMe(token?: string) {
-    console.log('[UserApiService] getMe called');
+    // console.log('[UserApiService] getMe called');
     const authToken = token || getStoredToken();
     return this.apollo.query<MeData, Record<string, never>>({
       query: GET_ME_QUERY,
@@ -153,12 +153,12 @@ function shouldSendAvatar(value: Maybe<string>): value is string | null {
 
 function buildAuthContext(token?: string) {
   if (!token) {
-    console.log('[buildAuthContext] No token provided');
+    // console.log('[buildAuthContext] No token provided');
     return undefined;
   }
   const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
-  console.log('[buildAuthContext] Headers created with token:', token.substring(0, 20) + '...');
-  console.log('[buildAuthContext] Authorization header:', headers.get('Authorization')?.substring(0, 30) + '...');
+  // console.log('[buildAuthContext] Headers created with token:', token.substring(0, 20) + '...');
+  // console.log('[buildAuthContext] Authorization header:', headers.get('Authorization')?.substring(0, 30) + '...');
   return {
     headers,
   };

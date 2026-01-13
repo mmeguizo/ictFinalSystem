@@ -18,6 +18,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { TicketService, TicketDetail } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -44,6 +45,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
     NzModalModule,
     NzPopconfirmModule,
     NzIconModule,
+    NzDatePickerModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ticket-detail.page.html',
@@ -84,6 +86,27 @@ export class TicketDetailPage implements OnInit {
   readonly directorApprovalComment = signal('');
   readonly directorApprovalAction = signal<'approve' | 'disapprove'>('approve');
   readonly processingDirectorApproval = signal(false);
+
+  // Schedule Visit state (for department heads)
+  readonly showScheduleVisitModal = signal(false);
+  readonly scheduleVisitDate = signal<Date | null>(null);
+  readonly scheduleTargetCompletion = signal<Date | null>(null);
+  readonly scheduleComment = signal('');
+  readonly processingSchedule = signal(false);
+
+  // Acknowledge Schedule state (for admin)
+  readonly showAcknowledgeModal = signal(false);
+  readonly acknowledgeComment = signal('');
+  readonly acknowledgeAction = signal<'acknowledge' | 'reject'>('acknowledge');
+  readonly rejectReason = signal('');
+  readonly processingAcknowledge = signal(false);
+
+  // Monitor & Recommendations state (for department heads)
+  readonly showMonitorModal = signal(false);
+  readonly monitorNotes = signal('');
+  readonly recommendations = signal('');
+  readonly monitorComment = signal('');
+  readonly processingMonitor = signal(false);
 
   // ========================================
   // ROLE CHECKS
@@ -138,6 +161,38 @@ export class TicketDetailPage implements OnInit {
     this.authService.isDeveloper() || this.authService.isTechnical()
   );
 
+  /** Check if user is a department head (MIS or ITS) */
+  readonly isDepartmentHead = computed(() => this.authService.isOfficeHead());
+
+  /** Check if user can schedule a visit (department head, after staff is assigned) */
+  readonly canScheduleVisit = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    if (!this.isDepartmentHead()) return false;
+    // Can schedule if ticket is ASSIGNED and has staff assigned but no schedule yet
+    if (t.status !== 'ASSIGNED') return false;
+    const hasStaffAssigned = t.assignments?.some(
+      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
+    );
+    return hasStaffAssigned && !t.dateToVisit;
+  });
+
+  /** Check if user can acknowledge schedule (admin, ticket is PENDING_ACKNOWLEDGMENT) */
+  readonly canAcknowledgeSchedule = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    return this.isAdmin() && t.status === 'PENDING_ACKNOWLEDGMENT';
+  });
+
+  /** Check if user can add monitor notes (department head, ticket is SCHEDULED) */
+  readonly canAddMonitor = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    if (!this.isDepartmentHead()) return false;
+    // Can add monitor notes on SCHEDULED tickets that don't have monitor notes yet
+    return t.status === 'SCHEDULED' && !t.monitorNotes;
+  });
+
   /** Check if current user can view internal notes (staff members only) */
   readonly canViewInternalNotes = computed(() => {
     const role = this.authService.currentUser()?.role;
@@ -190,11 +245,11 @@ export class TicketDetailPage implements OnInit {
     this.loading.set(true);
     this.ticketService.getTicketByNumber(ticketNumber).subscribe({
       next: (ticket) => {
-        console.log('🎫 Ticket data received:', ticket);
-        console.log('� Notes count:', ticket.notes?.length || 0, 'Notes:', ticket.notes);
-        console.log('📊 Status History count:', ticket.statusHistory?.length || 0, 'History:', ticket.statusHistory);
-        console.log('�📅 createdAt:', ticket.createdAt, 'Type:', typeof ticket.createdAt);
-        console.log('📅 dueDate:', ticket.dueDate, 'Type:', typeof ticket.dueDate);
+        // console.log('🎫 Ticket data received:', ticket);
+        // console.log('� Notes count:', ticket.notes?.length || 0, 'Notes:', ticket.notes);
+        // console.log('📊 Status History count:', ticket.statusHistory?.length || 0, 'History:', ticket.statusHistory);
+        // console.log('�📅 createdAt:', ticket.createdAt, 'Type:', typeof ticket.createdAt);
+        // console.log('📅 dueDate:', ticket.dueDate, 'Type:', typeof ticket.dueDate);
         this.ticket.set(ticket);
         this.loading.set(false);
       },
@@ -212,6 +267,8 @@ export class TicketDetailPage implements OnInit {
       REVIEWED: 'blue',
       DIRECTOR_APPROVED: 'cyan',
       ASSIGNED: 'purple',
+      PENDING_ACKNOWLEDGMENT: 'orange',
+      SCHEDULED: 'geekblue',
       IN_PROGRESS: 'processing',
       ON_HOLD: 'warning',
       RESOLVED: 'success',
@@ -258,7 +315,7 @@ export class TicketDetailPage implements OnInit {
 
     // Check if date is valid
     if (isNaN(d.getTime())) {
-      console.warn('⚠️ Invalid date value:', dateString);
+      // console.warn('⚠️ Invalid date value:', dateString);
       return '-';
     }
 
@@ -274,7 +331,7 @@ export class TicketDetailPage implements OnInit {
 
     // Check if date is valid by testing if getTime() returns NaN
     if (isNaN(d.getTime())) {
-      console.warn('⚠️ Invalid date value:', dateString);
+      // console.warn('⚠️ Invalid date value:', dateString);
       return '-';
     }
 
@@ -592,12 +649,12 @@ export class TicketDetailPage implements OnInit {
     if (action === 'approve') {
       this.ticketService.approveAsDirector(t.id, comment || undefined).subscribe({
         next: () => {
-          this.message.success('Ticket approved and auto-assigned to Office Head!');
+          this.message.success('Ticket endorsed and auto-assigned to Office Head!');
           this.closeDirectorApprovalModal();
           this.loadTicket(t.ticketNumber);
         },
         error: (error) => {
-          console.error('Failed to approve ticket:', error);
+          console.error('Failed to endorse ticket:', error);
           this.message.error('Failed to approve ticket');
           this.processingDirectorApproval.set(false);
         },
@@ -622,5 +679,224 @@ export class TicketDetailPage implements OnInit {
         },
       });
     }
+  }
+
+  // ========================================
+  // SCHEDULE VISIT METHODS (for Department Heads)
+  // ========================================
+
+  /**
+   * Open schedule visit modal
+   */
+  openScheduleVisitModal(): void {
+    this.scheduleVisitDate.set(null);
+    this.scheduleTargetCompletion.set(null);
+    this.scheduleComment.set('');
+    this.showScheduleVisitModal.set(true);
+  }
+
+  /**
+   * Close schedule visit modal
+   */
+  closeScheduleVisitModal(): void {
+    this.showScheduleVisitModal.set(false);
+    this.scheduleVisitDate.set(null);
+    this.scheduleTargetCompletion.set(null);
+    this.scheduleComment.set('');
+  }
+
+  /**
+   * Disable past dates in date picker
+   */
+  disablePastDates = (current: Date): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return current < today;
+  };
+
+  /**
+   * Confirm schedule visit
+   */
+  confirmScheduleVisit(): void {
+    const t = this.ticket();
+    if (!t) return;
+
+    const visitDate = this.scheduleVisitDate();
+    const completionDate = this.scheduleTargetCompletion();
+
+    if (!visitDate) {
+      this.message.warning('Please select a date to visit');
+      return;
+    }
+
+    if (!completionDate) {
+      this.message.warning('Please select a target completion date');
+      return;
+    }
+
+    this.processingSchedule.set(true);
+    this.ticketService.scheduleVisit(
+      t.id,
+      visitDate.toISOString(),
+      completionDate.toISOString(),
+      this.scheduleComment() || undefined
+    ).subscribe({
+      next: () => {
+        this.message.success('Visit scheduled! Waiting for admin acknowledgment.');
+        this.closeScheduleVisitModal();
+        this.loadTicket(t.ticketNumber);
+      },
+      error: (error) => {
+        console.error('Failed to schedule visit:', error);
+        this.message.error(error?.message || 'Failed to schedule visit');
+        this.processingSchedule.set(false);
+      },
+      complete: () => {
+        this.processingSchedule.set(false);
+      },
+    });
+  }
+
+  // ========================================
+  // ACKNOWLEDGE SCHEDULE METHODS (for Admin)
+  // ========================================
+
+  /**
+   * Open acknowledge schedule modal
+   */
+  openAcknowledgeModal(): void {
+    this.acknowledgeComment.set('');
+    this.acknowledgeAction.set('acknowledge');
+    this.rejectReason.set('');
+    this.showAcknowledgeModal.set(true);
+  }
+
+  /**
+   * Close acknowledge schedule modal
+   */
+  closeAcknowledgeModal(): void {
+    this.showAcknowledgeModal.set(false);
+    this.acknowledgeComment.set('');
+    this.rejectReason.set('');
+  }
+
+  /**
+   * Confirm acknowledge or reject schedule
+   */
+  confirmAcknowledge(): void {
+    const t = this.ticket();
+    if (!t) return;
+
+    const action = this.acknowledgeAction();
+
+    this.processingAcknowledge.set(true);
+
+    if (action === 'acknowledge') {
+      this.ticketService.acknowledgeSchedule(t.id, this.acknowledgeComment() || undefined).subscribe({
+        next: () => {
+          this.message.success('Schedule acknowledged! The user will be notified.');
+          this.closeAcknowledgeModal();
+          this.loadTicket(t.ticketNumber);
+        },
+        error: (error) => {
+          console.error('Failed to acknowledge schedule:', error);
+          this.message.error(error?.message || 'Failed to acknowledge schedule');
+          this.processingAcknowledge.set(false);
+        },
+        complete: () => {
+          this.processingAcknowledge.set(false);
+        },
+      });
+    } else {
+      const reason = this.rejectReason().trim();
+      if (!reason) {
+        this.message.warning('Please provide a reason for rejecting the schedule');
+        this.processingAcknowledge.set(false);
+        return;
+      }
+
+      this.ticketService.rejectSchedule(t.id, reason).subscribe({
+        next: () => {
+          this.message.success('Schedule rejected. The department head will be notified.');
+          this.closeAcknowledgeModal();
+          this.loadTicket(t.ticketNumber);
+        },
+        error: (error) => {
+          console.error('Failed to reject schedule:', error);
+          this.message.error(error?.message || 'Failed to reject schedule');
+          this.processingAcknowledge.set(false);
+        },
+        complete: () => {
+          this.processingAcknowledge.set(false);
+        },
+      });
+    }
+  }
+
+  // ========================================
+  // MONITOR & RECOMMENDATIONS METHODS (for Department Heads)
+  // ========================================
+
+  /**
+   * Open monitor modal
+   */
+  openMonitorModal(): void {
+    this.monitorNotes.set('');
+    this.recommendations.set('');
+    this.monitorComment.set('');
+    this.showMonitorModal.set(true);
+  }
+
+  /**
+   * Close monitor modal
+   */
+  closeMonitorModal(): void {
+    this.showMonitorModal.set(false);
+    this.monitorNotes.set('');
+    this.recommendations.set('');
+    this.monitorComment.set('');
+  }
+
+  /**
+   * Confirm add monitor notes and recommendations
+   */
+  confirmAddMonitor(): void {
+    const t = this.ticket();
+    if (!t) return;
+
+    const notes = this.monitorNotes().trim();
+    const recs = this.recommendations().trim();
+
+    if (!notes) {
+      this.message.warning('Please enter monitor notes');
+      return;
+    }
+
+    if (!recs) {
+      this.message.warning('Please enter recommendations');
+      return;
+    }
+
+    this.processingMonitor.set(true);
+    this.ticketService.addMonitorAndRecommendations(
+      t.id,
+      notes,
+      recs,
+      this.monitorComment() || undefined
+    ).subscribe({
+      next: () => {
+        this.message.success('Monitor notes and recommendations added!');
+        this.closeMonitorModal();
+        this.loadTicket(t.ticketNumber);
+      },
+      error: (error) => {
+        console.error('Failed to add monitor notes:', error);
+        this.message.error(error?.message || 'Failed to add monitor notes');
+        this.processingMonitor.set(false);
+      },
+      complete: () => {
+        this.processingMonitor.set(false);
+      },
+    });
   }
 }

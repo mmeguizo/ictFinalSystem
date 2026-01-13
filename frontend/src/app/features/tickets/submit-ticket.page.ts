@@ -185,7 +185,7 @@ export class SubmitTicketPage {
     try {
       this.busy.set(true);
 
-      console.log('Submitting ticket payload:', payload);
+      // console.log('Submitting ticket payload:', payload);
 
       let response;
 
