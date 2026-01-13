@@ -369,12 +369,14 @@ export class TicketService {
   /**
    * Get tickets for Office Heads (MIS_HEAD or ITS_HEAD)
    * Returns all tickets of their type that are in work statuses
-   * (DIRECTOR_APPROVED, ASSIGNED, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED)
+   * (DIRECTOR_APPROVED, ASSIGNED, PENDING_ACKNOWLEDGMENT, SCHEDULED, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED)
    */
   async getOfficeHeadTickets(ticketType: TicketType) {
     return this.repository.findManyByTypeAndStatuses(ticketType, [
       TicketStatus.DIRECTOR_APPROVED,
       TicketStatus.ASSIGNED,
+      TicketStatus.PENDING_ACKNOWLEDGMENT,
+      TicketStatus.SCHEDULED,
       TicketStatus.IN_PROGRESS,
       TicketStatus.ON_HOLD,
       TicketStatus.RESOLVED,
@@ -784,6 +786,316 @@ export class TicketService {
       );
     } catch (err) {
       console.error('Failed to send reopen notification:', err);
+    }
+
+    return this.repository.findById(ticketId);
+  }
+
+
+  // ========================================
+  // SCHEDULE WORKFLOW METHODS
+  // ========================================
+
+  /**
+   * Get tickets pending acknowledgment (PENDING_ACKNOWLEDGMENT status)
+   * For admin/director to see tickets that heads have scheduled
+   */
+  async getTicketsPendingAcknowledgment() {
+    return this.repository.findMany({ status: TicketStatus.PENDING_ACKNOWLEDGMENT });
+  }
+
+  /**
+   * Schedule a visit (for MIS_HEAD/ITS_HEAD)
+   * Sets the dateToVisit and targetCompletionDate, changes status to PENDING_ACKNOWLEDGMENT
+   */
+  async scheduleVisit(
+    ticketId: number,
+    headId: number,
+    dateToVisit: Date,
+    targetCompletionDate: Date,
+    comment?: string
+  ) {
+    const ticket = await this.repository.findById(ticketId);
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    // Only ASSIGNED tickets can be scheduled
+    if (ticket.status !== TicketStatus.ASSIGNED) {
+      throw new Error('Ticket must be in ASSIGNED status to schedule a visit');
+    }
+
+    // Get head name for notification
+    const head = await this.prisma.user.findUnique({
+      where: { id: headId },
+      select: { name: true, role: true },
+    });
+
+    // Add status history
+    await this.prisma.ticketStatusHistory.create({
+      data: {
+        ticketId,
+        userId: headId,
+        fromStatus: TicketStatus.ASSIGNED,
+        toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        comment: comment || `Visit scheduled for ${dateToVisit.toLocaleDateString()}`,
+      },
+    });
+
+    // Update ticket with schedule info
+    await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        dateToVisit,
+        targetCompletionDate,
+        headScheduledById: headId,
+        headScheduledAt: new Date(),
+      },
+    });
+
+    // Add a note about the scheduling
+    if (comment && comment.trim().length > 0) {
+      await this.prisma.ticketNote.create({
+        data: {
+          ticketId,
+          userId: headId,
+          content: `Visit scheduled: ${comment.trim()}`,
+          isInternal: true,
+        },
+      });
+    }
+
+    // Notify admin about schedule for acknowledgment
+    try {
+      await this.notificationService.notifyAdminScheduleSet(
+        ticketId,
+        ticket.ticketNumber,
+        ticket.title,
+        head?.name || 'Department Head',
+        dateToVisit,
+        targetCompletionDate
+      );
+    } catch (err) {
+      console.error('Failed to send schedule notification:', err);
+    }
+
+    return this.repository.findById(ticketId);
+  }
+
+  /**
+   * Acknowledge schedule (for Admin/Director)
+   * Confirms the visit dates set by the head, notifies the user
+   */
+  async acknowledgeSchedule(ticketId: number, adminId: number, comment?: string) {
+    const ticket = await this.repository.findById(ticketId);
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    if (ticket.status !== TicketStatus.PENDING_ACKNOWLEDGMENT) {
+      throw new Error('Ticket must be in PENDING_ACKNOWLEDGMENT status to acknowledge');
+    }
+
+    // Get admin name for notification
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { name: true },
+    });
+
+    // Add status history
+    await this.prisma.ticketStatusHistory.create({
+      data: {
+        ticketId,
+        userId: adminId,
+        fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        toStatus: TicketStatus.SCHEDULED,
+        comment: comment || 'Visit schedule acknowledged by admin',
+      },
+    });
+
+    // Update ticket
+    await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: TicketStatus.SCHEDULED,
+        adminAcknowledgedById: adminId,
+        adminAcknowledgedAt: new Date(),
+      },
+    });
+
+    // Add a note if comment provided
+    if (comment && comment.trim().length > 0) {
+      await this.prisma.ticketNote.create({
+        data: {
+          ticketId,
+          userId: adminId,
+          content: `Schedule acknowledged: ${comment.trim()}`,
+          isInternal: true,
+        },
+      });
+    }
+
+    // Notify the ticket creator about the scheduled visit
+    try {
+      await this.notificationService.notifyUserVisitScheduled(
+        ticketId,
+        ticket.ticketNumber,
+        ticket.title,
+        ticket.createdById,
+        ticket.dateToVisit!,
+        ticket.targetCompletionDate!,
+        ticket.type === TicketType.MIS ? 'MIS Office' : 'ITS Office'
+      );
+    } catch (err) {
+      console.error('Failed to send visit scheduled notification:', err);
+    }
+
+    return this.repository.findById(ticketId);
+  }
+
+  /**
+   * Reject schedule (for Admin/Director)
+   * Returns ticket to ASSIGNED status for head to reschedule
+   */
+  async rejectSchedule(ticketId: number, adminId: number, reason: string) {
+    const ticket = await this.repository.findById(ticketId);
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    if (ticket.status !== TicketStatus.PENDING_ACKNOWLEDGMENT) {
+      throw new Error('Ticket must be in PENDING_ACKNOWLEDGMENT status to reject schedule');
+    }
+
+    // Get admin name for notification
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { name: true },
+    });
+
+    // Add status history
+    await this.prisma.ticketStatusHistory.create({
+      data: {
+        ticketId,
+        userId: adminId,
+        fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        toStatus: TicketStatus.ASSIGNED,
+        comment: `Schedule rejected: ${reason}`,
+      },
+    });
+
+    // Update ticket - clear schedule data, return to ASSIGNED
+    await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: TicketStatus.ASSIGNED,
+        dateToVisit: null,
+        targetCompletionDate: null,
+        headScheduledById: null,
+        headScheduledAt: null,
+      },
+    });
+
+    // Add note about rejection
+    await this.prisma.ticketNote.create({
+      data: {
+        ticketId,
+        userId: adminId,
+        content: `Schedule rejected by admin: ${reason}`,
+        isInternal: true,
+      },
+    });
+
+    // Notify head about schedule rejection
+    try {
+      await this.notificationService.notifyHeadScheduleRejected(
+        ticketId,
+        ticket.ticketNumber,
+        ticket.title,
+        ticket.headScheduledById!,
+        reason
+      );
+    } catch (err) {
+      console.error('Failed to send schedule rejection notification:', err);
+    }
+
+    return this.repository.findById(ticketId);
+  }
+
+  /**
+   * Add monitor notes and recommendations (for MIS_HEAD/ITS_HEAD after visit)
+   * Updates the ticket with monitoring information
+   */
+  async addMonitorAndRecommendations(
+    ticketId: number,
+    headId: number,
+    monitorNotes: string,
+    recommendations: string,
+    comment?: string
+  ) {
+    const ticket = await this.repository.findById(ticketId);
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    // Can add monitor notes when ticket is SCHEDULED or IN_PROGRESS
+    if (ticket.status !== TicketStatus.SCHEDULED && ticket.status !== TicketStatus.IN_PROGRESS) {
+      throw new Error('Ticket must be in SCHEDULED or IN_PROGRESS status to add monitor notes');
+    }
+
+    // Get head name for notification
+    const head = await this.prisma.user.findUnique({
+      where: { id: headId },
+      select: { name: true },
+    });
+
+    // Update ticket with monitor data, also set status to IN_PROGRESS
+    await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: TicketStatus.IN_PROGRESS,
+        monitorNotes,
+        recommendations,
+        monitoredById: headId,
+        monitoredAt: new Date(),
+      },
+    });
+
+    // Add status history if status changed
+    if (ticket.status === TicketStatus.SCHEDULED) {
+      await this.prisma.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          userId: headId,
+          fromStatus: TicketStatus.SCHEDULED,
+          toStatus: TicketStatus.IN_PROGRESS,
+          comment: comment || 'Monitor notes added after visit',
+        },
+      });
+    }
+
+    // Add a note with the monitor info
+    await this.prisma.ticketNote.create({
+      data: {
+        ticketId,
+        userId: headId,
+        content: `**Monitor Notes:**\n${monitorNotes}\n\n**Recommendations:**\n${recommendations}${comment ? `\n\n**Additional Comments:** ${comment}` : ''}`,
+        isInternal: false, // Visible to user
+      },
+    });
+
+    // Notify user about monitoring update
+    try {
+      await this.notificationService.notifyUserMonitorUpdate(
+        ticketId,
+        ticket.ticketNumber,
+        ticket.title,
+        ticket.createdById,
+        head?.name || 'Department Head'
+      );
+    } catch (err) {
+      console.error('Failed to send monitor update notification:', err);
     }
 
     return this.repository.findById(ticketId);

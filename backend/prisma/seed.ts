@@ -61,16 +61,16 @@ async function main() {
       await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: user.picture } });
     }
     backfilled = needsAvatar.length;
-    console.log(`Backfilled ${backfilled} avatar(s)`);
+    // console.log(`Backfilled ${backfilled} avatar(s)`);
   } catch (err: any) {
     if (err?.code === 'P2022' && err?.meta?.column === 'avatarUrl') {
-      console.log('avatarUrl column missing, skipping backfill step');
+      // console.log('avatarUrl column missing, skipping backfill step');
     } else {
       throw err;
     }
   }
 
-  console.log(`Seeded users (${seedUsers.length}) and backfilled ${backfilled} avatar(s)`);
+  // console.log(`Seeded users (${seedUsers.length}) and backfilled ${backfilled} avatar(s)`);
 }
 
 main()

@@ -57,20 +57,20 @@ export class AuthCallbackComponent implements OnInit, OnDestroy {
   private subscription?: Subscription;
 
   ngOnInit(): void {
-    console.log('[CALLBACK] 🔄 Auth callback component initialized');
+    // console.log('[CALLBACK] 🔄 Auth callback component initialized');
 
     // Auth0 SDK handles the redirect callback automatically (skipRedirectCallback: false)
     // and navigates to appState.target which is '/callback'
     // Now we wait for Auth0 to finish loading and check authentication
     this.subscription = this.auth.isLoading$.pipe(
       filter(isLoading => {
-        console.log('[CALLBACK] ⏳ Auth0 isLoading:', isLoading);
+        // console.log('[CALLBACK] ⏳ Auth0 isLoading:', isLoading);
         return !isLoading;
       }),
       take(1),
       switchMap(() => this.auth.isAuthenticated$.pipe(take(1)))
     ).subscribe(isAuth => {
-      console.log('[CALLBACK] 🔐 Auth0 finished loading, isAuthenticated:', isAuth);
+      // console.log('[CALLBACK] 🔐 Auth0 finished loading, isAuthenticated:', isAuth);
       if (isAuth) {
         this.loadUserAndRoute();
       } else {
@@ -81,7 +81,7 @@ export class AuthCallbackComponent implements OnInit, OnDestroy {
           console.error('[CALLBACK] ❌ Auth0 error:', error, params.get('error_description'));
           this.message.error(params.get('error_description') || 'Authentication failed.');
         } else {
-          console.log('[CALLBACK] ❌ Not authenticated');
+          // console.log('[CALLBACK] ❌ Not authenticated');
           this.message.error('Authentication failed. Please try again.');
         }
         setTimeout(() => this.router.navigateByUrl('/login'), 1500);
@@ -120,12 +120,12 @@ export class AuthCallbackComponent implements OnInit, OnDestroy {
 
   private fetchUserFromBackend(token: string): void {
     // Call your backend's getMe query to fetch user with role
-    console.log('[CALLBACK] 📡 Fetching user from backend...');
+    // console.log('[CALLBACK] 📡 Fetching user from backend...');
 
     this.userApi.getMe(token).pipe(take(1)).subscribe({
       next: (response: any) => {
         const user = response?.data?.me;
-        console.log('[CALLBACK] 👤 User response:', user);
+        // console.log('[CALLBACK] 👤 User response:', user);
 
         if (user && user.role) {
           // Set BOTH user AND token to ensure isAuthenticated = true
@@ -139,11 +139,11 @@ export class AuthCallbackComponent implements OnInit, OnDestroy {
             },
             token
           );
-          console.log('[CALLBACK] ✅ Auth state set, isAuthenticated:', this.authService.isAuthenticated());
+          // console.log('[CALLBACK] ✅ Auth state set, isAuthenticated:', this.authService.isAuthenticated());
 
           const target = mapRoleToRoute(user.role);
           this.message.success('Login successful!');
-          console.log('[CALLBACK] 🚀 Navigating to:', target);
+          // console.log('[CALLBACK] 🚀 Navigating to:', target);
           // Navigate immediately - no need for setTimeout since state is already set
           this.router.navigateByUrl(target);
         } else {

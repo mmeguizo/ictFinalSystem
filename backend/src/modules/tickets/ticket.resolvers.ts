@@ -49,7 +49,7 @@ export const ticketResolvers = {
     },
 
     myCreatedTickets: async (_: any, __: any, context: any) => {
-      console.log('myCreatedTickets resolver called with context:', context);
+      // console.log('myCreatedTickets resolver called with context:', context);
       if (!context.currentUser) {
         throw new Error('Unauthorized');
       }
@@ -118,6 +118,21 @@ export const ticketResolvers = {
       return ticketService.getTickets();
     },
 
+    /**
+     * Get tickets pending acknowledgment (for Admin/Director)
+     * Tickets that heads have scheduled and are awaiting admin acknowledgment
+     */
+    ticketsPendingAcknowledgment: async (_: any, __: any, context: any) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only admins and directors can view pending acknowledgments
+      if (!['ADMIN', 'DIRECTOR'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Insufficient permissions');
+      }
+      return ticketService.getTicketsPendingAcknowledgment();
+    },
+
     ticketAnalytics: async (_: any, { filter }: { filter?: any }, context: any) => {
       if (!context.currentUser) {
         throw new Error('Unauthorized');
@@ -157,8 +172,8 @@ export const ticketResolvers = {
 
   Mutation: {
     createMISTicket: async (_: any, { input }: { input: CreateMISTicketDto }, context: any) => {
-        console.log('createMISTicket called with input:', input);
-        console.log('createMISTicket called with context:', context);
+        // console.log('createMISTicket called with input:', input);
+        // console.log('createMISTicket called with context:', context);
       if (!context.currentUser) {
         throw new Error('Unauthorized');
       }
@@ -313,6 +328,97 @@ export const ticketResolvers = {
         context.currentUser.id,
         input?.updatedDescription,
         input?.comment
+      );
+    },
+
+    // ========================================
+    // SCHEDULE WORKFLOW MUTATIONS
+    // ========================================
+
+    /**
+     * Schedule a visit (for MIS_HEAD/ITS_HEAD)
+     * Sets dateToVisit and targetCompletionDate, changes status to PENDING_ACKNOWLEDGMENT
+     */
+    scheduleVisit: async (
+      _: any,
+      { ticketId, input }: { ticketId: number; input: { dateToVisit: string; targetCompletionDate: string; comment?: string } },
+      context: any
+    ) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only department heads can schedule visits
+      if (!['MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Only department heads can schedule visits');
+      }
+      return ticketService.scheduleVisit(
+        ticketId,
+        context.currentUser.id,
+        new Date(input.dateToVisit),
+        new Date(input.targetCompletionDate),
+        input.comment
+      );
+    },
+
+    /**
+     * Acknowledge schedule (for Admin/Director)
+     * Confirms the visit dates, notifies the user
+     */
+    acknowledgeSchedule: async (
+      _: any,
+      { ticketId, comment }: { ticketId: number; comment?: string },
+      context: any
+    ) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only admins and directors can acknowledge schedules
+      if (!['ADMIN', 'DIRECTOR'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Only admin/director can acknowledge schedules');
+      }
+      return ticketService.acknowledgeSchedule(ticketId, context.currentUser.id, comment);
+    },
+
+    /**
+     * Reject schedule (for Admin/Director)
+     * Returns ticket to ASSIGNED for head to reschedule
+     */
+    rejectSchedule: async (
+      _: any,
+      { ticketId, reason }: { ticketId: number; reason: string },
+      context: any
+    ) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only admins and directors can reject schedules
+      if (!['ADMIN', 'DIRECTOR'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Only admin/director can reject schedules');
+      }
+      return ticketService.rejectSchedule(ticketId, context.currentUser.id, reason);
+    },
+
+    /**
+     * Add monitor notes and recommendations (for MIS_HEAD/ITS_HEAD after visit)
+     */
+    addMonitorAndRecommendations: async (
+      _: any,
+      { ticketId, input }: { ticketId: number; input: { monitorNotes: string; recommendations: string; comment?: string } },
+      context: any
+    ) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+      // Only department heads can add monitor notes
+      if (!['MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
+        throw new Error('Forbidden: Only department heads can add monitor notes');
+      }
+      return ticketService.addMonitorAndRecommendations(
+        ticketId,
+        context.currentUser.id,
+        input.monitorNotes,
+        input.recommendations,
+        input.comment
       );
     },
   },

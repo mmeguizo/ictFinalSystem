@@ -163,6 +163,156 @@
         }
       </nz-card>
 
+      <!-- Schedule & Monitor Card -->
+      @if (t.dateToVisit || t.status === 'PENDING_ACKNOWLEDGMENT' || t.status === 'SCHEDULED' || canScheduleVisit() || canAcknowledgeSchedule() || canAddMonitor()) {
+        <nz-card nzTitle="Schedule & Monitoring" class="schedule-card">
+          <!-- Schedule Visit Action (for Department Heads) -->
+          @if (canScheduleVisit()) {
+            <nz-alert
+              nzType="info"
+              nzMessage="Schedule Visit Required"
+              [nzDescription]="scheduleVisitDescTpl"
+              [nzShowIcon]="true"
+              style="margin-bottom: 16px"
+            ></nz-alert>
+            <ng-template #scheduleVisitDescTpl>
+              <div>
+                <p>Staff has been assigned. Please set the visit date and target completion date.</p>
+                <button
+                  nz-button
+                  nzType="primary"
+                  (click)="openScheduleVisitModal()"
+                  style="margin-top: 8px"
+                >
+                  <i nz-icon nzType="calendar"></i>
+                  Schedule Visit
+                </button>
+              </div>
+            </ng-template>
+          }
+
+          <!-- Pending Acknowledgment Alert (for Admin) -->
+          @if (canAcknowledgeSchedule()) {
+            <nz-alert
+              nzType="warning"
+              nzMessage="Schedule Pending Acknowledgment"
+              [nzDescription]="acknowledgeDescTpl"
+              [nzShowIcon]="true"
+              style="margin-bottom: 16px"
+            ></nz-alert>
+            <ng-template #acknowledgeDescTpl>
+              <div>
+                <p>The department head has scheduled a visit. Please review and acknowledge.</p>
+                <button
+                  nz-button
+                  nzType="primary"
+                  (click)="openAcknowledgeModal()"
+                  style="margin-top: 8px"
+                >
+                  <i nz-icon nzType="check-circle"></i>
+                  Review Schedule
+                </button>
+              </div>
+            </ng-template>
+          }
+
+          <!-- Add Monitor Notes Action (for Department Heads on SCHEDULED tickets) -->
+          @if (canAddMonitor()) {
+            <nz-alert
+              nzType="info"
+              nzMessage="Add Monitor Report"
+              [nzDescription]="monitorDescTpl"
+              [nzShowIcon]="true"
+              style="margin-bottom: 16px"
+            ></nz-alert>
+            <ng-template #monitorDescTpl>
+              <div>
+                <p>Visit has been scheduled. After the visit, please add monitor notes and recommendations.</p>
+                <button
+                  nz-button
+                  nzType="primary"
+                  (click)="openMonitorModal()"
+                  style="margin-top: 8px"
+                >
+                  <i nz-icon nzType="file-text"></i>
+                  Add Monitor Notes
+                </button>
+              </div>
+            </ng-template>
+          }
+
+          <!-- Schedule Information Display -->
+          @if (t.dateToVisit || t.targetCompletionDate) {
+            <nz-descriptions [nzColumn]="2" nzBordered style="margin-bottom: 16px">
+              <nz-descriptions-item nzTitle="Date to Visit">
+                @if (t.dateToVisit) {
+                  <span class="scheduled-date">
+                    <i nz-icon nzType="calendar"></i>
+                    {{ formatDateShort(t.dateToVisit) }}
+                  </span>
+                } @else {
+                  <span class="pending">Not scheduled</span>
+                }
+              </nz-descriptions-item>
+              <nz-descriptions-item nzTitle="Target Completion">
+                @if (t.targetCompletionDate) {
+                  <span class="scheduled-date">
+                    <i nz-icon nzType="clock-circle"></i>
+                    {{ formatDateShort(t.targetCompletionDate) }}
+                  </span>
+                } @else {
+                  <span class="pending">Not set</span>
+                }
+              </nz-descriptions-item>
+              <nz-descriptions-item nzTitle="Scheduled By">
+                @if (t.headScheduledAt) {
+                  <span class="approved">
+                    ✓ Scheduled on {{ formatDate(t.headScheduledAt) }}
+                  </span>
+                } @else {
+                  <span class="pending">-</span>
+                }
+              </nz-descriptions-item>
+              <nz-descriptions-item nzTitle="Acknowledged By Admin">
+                @if (t.adminAcknowledgedAt) {
+                  <span class="approved">
+                    ✓ Acknowledged on {{ formatDate(t.adminAcknowledgedAt) }}
+                  </span>
+                } @else if (t.status === 'PENDING_ACKNOWLEDGMENT') {
+                  <span class="pending">Pending</span>
+                } @else {
+                  <span class="pending">-</span>
+                }
+              </nz-descriptions-item>
+            </nz-descriptions>
+          }
+
+          <!-- Monitor Notes & Recommendations Display -->
+          @if (t.monitorNotes || t.recommendations) {
+            <nz-divider nzText="Monitor Report"></nz-divider>
+            <div class="monitor-report">
+              @if (t.monitorNotes) {
+                <div class="report-section">
+                  <h5><i nz-icon nzType="file-text"></i> Monitor Notes</h5>
+                  <p style="white-space: pre-wrap">{{ t.monitorNotes }}</p>
+                </div>
+              }
+              @if (t.recommendations) {
+                <div class="report-section">
+                  <h5><i nz-icon nzType="bulb"></i> Recommendations</h5>
+                  <p style="white-space: pre-wrap">{{ t.recommendations }}</p>
+                </div>
+              }
+              @if (t.monitoredAt) {
+                <p class="monitor-timestamp">
+                  <small>Monitored on {{ formatDate(t.monitoredAt) }}</small>
+                </p>
+              }
+            </div>
+          }
+        </nz-card>
+      }
+
       <!-- Work Actions Card (for assigned staff) -->
       @if (canUpdateStatus()) {
         <nz-card nzTitle="Work Actions" class="work-actions-card">
@@ -541,4 +691,179 @@
       Approve & Assign
     </button>
   </ng-template>
+</nz-modal>
+
+<!-- Schedule Visit Modal (for Department Heads) -->
+<nz-modal
+  [nzVisible]="showScheduleVisitModal()"
+  (nzVisibleChange)="showScheduleVisitModal.set($event)"
+  nzTitle="Schedule Visit"
+  [nzOkText]="'Schedule'"
+  [nzCancelText]="'Cancel'"
+  [nzOkLoading]="processingSchedule()"
+  [nzWidth]="500"
+  (nzOnOk)="confirmScheduleVisit()"
+  (nzOnCancel)="closeScheduleVisitModal()"
+>
+  <ng-container *nzModalContent>
+    <p>Set the visit date and target completion date for this ticket:</p>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Date to Visit:</label>
+      <nz-date-picker
+        style="width: 100%"
+        [ngModel]="scheduleVisitDate()"
+        (ngModelChange)="scheduleVisitDate.set($event)"
+        nzPlaceHolder="Select visit date"
+        [nzDisabledDate]="disablePastDates"
+      ></nz-date-picker>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Target Completion Date:</label>
+      <nz-date-picker
+        style="width: 100%"
+        [ngModel]="scheduleTargetCompletion()"
+        (ngModelChange)="scheduleTargetCompletion.set($event)"
+        nzPlaceHolder="Select target completion date"
+        [nzDisabledDate]="disablePastDates"
+      ></nz-date-picker>
+    </div>
+
+    <div class="form-group">
+      <label>Comment (optional):</label>
+      <textarea
+        nz-input
+        [ngModel]="scheduleComment()"
+        (ngModelChange)="scheduleComment.set($event)"
+        rows="3"
+        placeholder="Add any notes about the scheduled visit..."
+      ></textarea>
+    </div>
+
+    <p class="info-text" style="margin-top: 12px; color: #666; font-size: 12px">
+      <i nz-icon nzType="info-circle" nzTheme="outline"></i>
+      The schedule will be sent to the admin for acknowledgment before the user is notified.
+    </p>
+  </ng-container>
+</nz-modal>
+
+<!-- Acknowledge Schedule Modal (for Admin) -->
+<nz-modal
+  [nzVisible]="showAcknowledgeModal()"
+  (nzVisibleChange)="showAcknowledgeModal.set($event)"
+  nzTitle="Acknowledge Schedule"
+  [nzFooter]="acknowledgeModalFooter"
+  [nzClosable]="true"
+  [nzWidth]="550"
+  (nzOnCancel)="closeAcknowledgeModal()"
+>
+  <ng-container *nzModalContent>
+    <p>Review the scheduled visit set by the department head:</p>
+    <ul>
+      <li><strong>Acknowledge:</strong> Approve the schedule and notify the user</li>
+      <li><strong>Reject:</strong> Return to department head for rescheduling</li>
+    </ul>
+
+    @if (acknowledgeAction() === 'acknowledge') {
+      <div class="form-group" style="margin-top: 16px">
+        <label>Comment (optional):</label>
+        <textarea
+          nz-input
+          [ngModel]="acknowledgeComment()"
+          (ngModelChange)="acknowledgeComment.set($event)"
+          rows="3"
+          placeholder="Add any notes about the acknowledgment..."
+        ></textarea>
+      </div>
+    } @else {
+      <div class="form-group" style="margin-top: 16px">
+        <label><span class="required">*</span> Reason for Rejection:</label>
+        <textarea
+          nz-input
+          [ngModel]="rejectReason()"
+          (ngModelChange)="rejectReason.set($event)"
+          rows="3"
+          placeholder="Explain why the schedule needs to be revised..."
+        ></textarea>
+      </div>
+    }
+  </ng-container>
+
+  <ng-template #acknowledgeModalFooter>
+    <button nz-button nzType="default" (click)="closeAcknowledgeModal()">Cancel</button>
+    <button
+      nz-button
+      nzType="default"
+      nzDanger
+      [nzLoading]="processingAcknowledge()"
+      (click)="acknowledgeAction.set('reject'); confirmAcknowledge()"
+    >
+      Reject Schedule
+    </button>
+    <button
+      nz-button
+      nzType="primary"
+      [nzLoading]="processingAcknowledge()"
+      (click)="acknowledgeAction.set('acknowledge'); confirmAcknowledge()"
+    >
+      Acknowledge & Notify User
+    </button>
+  </ng-template>
+</nz-modal>
+
+<!-- Monitor & Recommendations Modal (for Department Heads) -->
+<nz-modal
+  [nzVisible]="showMonitorModal()"
+  (nzVisibleChange)="showMonitorModal.set($event)"
+  nzTitle="Add Monitor Notes & Recommendations"
+  [nzOkText]="'Submit'"
+  [nzCancelText]="'Cancel'"
+  [nzOkLoading]="processingMonitor()"
+  [nzWidth]="600"
+  (nzOnOk)="confirmAddMonitor()"
+  (nzOnCancel)="closeMonitorModal()"
+>
+  <ng-container *nzModalContent>
+    <nz-alert
+      nzType="info"
+      nzMessage="Post-Visit Monitoring"
+      nzDescription="Document your findings and recommendations after the site visit."
+      [nzShowIcon]="true"
+      style="margin-bottom: 16px"
+    ></nz-alert>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Monitor Notes:</label>
+      <textarea
+        nz-input
+        [ngModel]="monitorNotes()"
+        (ngModelChange)="monitorNotes.set($event)"
+        rows="5"
+        placeholder="Document your observations and findings during the visit..."
+      ></textarea>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Recommendations:</label>
+      <textarea
+        nz-input
+        [ngModel]="recommendations()"
+        (ngModelChange)="recommendations.set($event)"
+        rows="5"
+        placeholder="Provide recommendations for the user or for future actions..."
+      ></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Additional Comment (optional):</label>
+      <textarea
+        nz-input
+        [ngModel]="monitorComment()"
+        (ngModelChange)="monitorComment.set($event)"
+        rows="3"
+        placeholder="Any additional notes or comments..."
+      ></textarea>
+    </div>
+  </ng-container>
 </nz-modal>

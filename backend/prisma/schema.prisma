@@ -28,6 +28,8 @@ enum TicketStatus {
   REVIEWED
   DIRECTOR_APPROVED
   ASSIGNED
+  PENDING_ACKNOWLEDGMENT
+  SCHEDULED
   IN_PROGRESS
   ON_HOLD
   RESOLVED
@@ -91,6 +93,20 @@ model Ticket {
   secretaryReviewedAt    DateTime?
   directorApprovedById   Int?
   directorApprovedAt     DateTime?
+  
+  // Schedule workflow (Head sets dates, Admin acknowledges)
+  dateToVisit            DateTime?
+  targetCompletionDate   DateTime?
+  headScheduledById      Int?
+  headScheduledAt        DateTime?
+  adminAcknowledgedById  Int?
+  adminAcknowledgedAt    DateTime?
+  
+  // Monitoring (Head adds after visit)
+  monitorNotes           String?   @db.Text
+  recommendations        String?   @db.Text
+  monitoredById          Int?
+  monitoredAt            DateTime?
   
   // Relationships
   createdById       Int

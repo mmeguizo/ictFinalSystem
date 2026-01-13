@@ -63,8 +63,8 @@ export class LoginPage {
   private readonly appAuthService = inject(AppAuthService);
 
   constructor() {
-    console.log('[LOGIN] 🔐 LoginPage constructor');
-    console.log('[LOGIN] initialized:', this.appAuthService.initialized(), 'isAuthenticated:', this.appAuthService.isAuthenticated());
+    // console.log('[LOGIN] 🔐 LoginPage constructor');
+    // console.log('[LOGIN] initialized:', this.appAuthService.initialized(), 'isAuthenticated:', this.appAuthService.isAuthenticated());
   }
 
   // Show loading spinner while auth is initializing or if already authenticated (redirect pending)
@@ -72,7 +72,7 @@ export class LoginPage {
     const initialized = this.appAuthService.initialized();
     const isAuth = this.appAuthService.isAuthenticated();
     const result = !initialized || isAuth;
-    console.log('[LOGIN] 📋 isCheckingAuth computed:', { initialized, isAuth, showLoading: result });
+    // console.log('[LOGIN] 📋 isCheckingAuth computed:', { initialized, isAuth, showLoading: result });
     return result;
   });
 
@@ -134,16 +134,16 @@ export class LoginPage {
 
         localStorage.setItem('auth_token', token);
         localStorage.setItem('current_user', JSON.stringify(user));
-        console.log('✓ Local login successful:', user.email);
+        // console.log('✓ Local login successful:', user.email);
         this.loggedIn.set(true);
         this.busy.set(false);
 
         // Navigate after a brief delay to ensure state updates
         setTimeout(() => {
           const route = mapRoleToRoute(user.role);
-          console.log(`Navigating to ${route}...`);
+          // console.log(`Navigating to ${route}...`);
           this.router.navigateByUrl(route).then(
-            (success) => console.log('Navigation success:', success),
+            (success) => {}, // console.log('Navigation success:', success),
             (error) => console.error('Navigation error:', error)
           );
         }, 100);

@@ -23,6 +23,7 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { FormsModule } from '@angular/forms';
 import { TicketService, TicketListItem } from '../../core/services/ticket.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -55,6 +56,7 @@ import { AuthService } from '../../core/services/auth.service';
     NzInputModule,
     NzPopconfirmModule,
     NzToolTipModule,
+    NzDatePickerModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './my-tickets.page.html',
@@ -88,6 +90,20 @@ export class MyTicketsPage implements OnInit {
   readonly reviewTicketId = signal<number | null>(null);
   readonly reviewComment = signal<string>('');
   readonly reviewAction = signal<'approve' | 'reject'>('approve');
+
+  // Modal state for schedule visit (for Department Heads)
+  readonly showScheduleModal = signal(false);
+  readonly scheduleTicketId = signal<number | null>(null);
+  readonly dateToVisit = signal<Date | null>(null);
+  readonly targetCompletionDate = signal<Date | null>(null);
+  readonly scheduleComment = signal<string>('');
+
+  // Modal state for acknowledge schedule (for Admin)
+  readonly showAcknowledgeModal = signal(false);
+  readonly acknowledgeTicketId = signal<number | null>(null);
+  readonly acknowledgeComment = signal<string>('');
+  readonly acknowledgeAction = signal<'acknowledge' | 'reject'>('acknowledge');
+  readonly rejectReason = signal<string>('');
 
   // ========================================
   // ROLE CHECKS
@@ -199,6 +215,16 @@ export class MyTicketsPage implements OnInit {
   /** Count of assigned tickets */
   readonly assignedCount = computed(
     () => this.tickets().filter((t) => t.status === 'ASSIGNED').length
+  );
+
+  /** Count of pending acknowledgment tickets */
+  readonly pendingAcknowledgmentCount = computed(
+    () => this.tickets().filter((t) => t.status === 'PENDING_ACKNOWLEDGMENT').length
+  );
+
+  /** Count of scheduled tickets */
+  readonly scheduledCount = computed(
+    () => this.tickets().filter((t) => t.status === 'SCHEDULED').length
   );
 
   /** Count of in progress tickets */
@@ -421,6 +447,8 @@ export class MyTicketsPage implements OnInit {
       REVIEWED: 'blue',
       DIRECTOR_APPROVED: 'cyan',
       ASSIGNED: 'purple',
+      PENDING_ACKNOWLEDGMENT: 'orange',
+      SCHEDULED: 'geekblue',
       IN_PROGRESS: 'processing',
       ON_HOLD: 'warning',
       RESOLVED: 'success',
@@ -439,6 +467,16 @@ export class MyTicketsPage implements OnInit {
     };
     return colorMap[priority] || 'default';
   }
+
+  /**
+   * Disable past dates in date picker
+   */
+  disablePastDates = (current: Date): boolean => {
+    // Can not select days before today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return current < today;
+  };
 
   formatDate(dateString?: string): string {
     if (!dateString) return '-';
@@ -489,6 +527,32 @@ export class MyTicketsPage implements OnInit {
 
   canReviewAdmin(ticket: TicketListItem): boolean {
     return this.isAdmin() && ticket.status === 'REVIEWED' && !ticket.directorApprovedAt;
+  }
+
+  /**
+   * Check if ticket can be scheduled by department head
+   * (After assignment with staff, heads set visit date and target completion date)
+   */
+  canSchedule(ticket: TicketListItem): boolean {
+    if (!this.isDepartmentHead()) return false;
+    // Can schedule if ticket is ASSIGNED and has staff assigned but no schedule set yet
+    if (ticket.status !== 'ASSIGNED') return false;
+
+    // Check if staff is assigned
+    const hasStaffAssigned = ticket.assignments?.some(
+      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
+    );
+
+    // Can schedule if staff is assigned and no visit date set yet
+    return hasStaffAssigned && !ticket.dateToVisit;
+  }
+
+  /**
+   * Check if ticket can be acknowledged by admin
+   * (Admin acknowledges the schedule set by department head)
+   */
+  canAcknowledge(ticket: TicketListItem): boolean {
+    return this.isAdmin() && ticket.status === 'PENDING_ACKNOWLEDGMENT';
   }
 
   // ========================================
@@ -597,6 +661,150 @@ export class MyTicketsPage implements OnInit {
           },
         });
       }
+    }
+  }
+
+  // ========================================
+  // SCHEDULE VISIT METHODS (for Department Heads)
+  // ========================================
+
+  /**
+   * Open schedule visit modal
+   */
+  openScheduleModal(ticketId: number): void {
+    this.scheduleTicketId.set(ticketId);
+    this.dateToVisit.set(null);
+    this.targetCompletionDate.set(null);
+    this.scheduleComment.set('');
+    this.showScheduleModal.set(true);
+  }
+
+  /**
+   * Close schedule visit modal
+   */
+  closeScheduleModal(): void {
+    this.showScheduleModal.set(false);
+    this.scheduleTicketId.set(null);
+    this.dateToVisit.set(null);
+    this.targetCompletionDate.set(null);
+    this.scheduleComment.set('');
+  }
+
+  /**
+   * Confirm schedule visit
+   */
+  confirmSchedule(): void {
+    const ticketId = this.scheduleTicketId();
+    const visitDate = this.dateToVisit();
+    const completionDate = this.targetCompletionDate();
+
+    if (!ticketId) {
+      this.message.error('No ticket selected');
+      return;
+    }
+
+    if (!visitDate) {
+      this.message.warning('Please select a date to visit');
+      return;
+    }
+
+    if (!completionDate) {
+      this.message.warning('Please select a target completion date');
+      return;
+    }
+
+    this.loading.set(true);
+    this.ticketService.scheduleVisit(
+      ticketId,
+      visitDate.toISOString(),
+      completionDate.toISOString(),
+      this.scheduleComment() || undefined
+    ).subscribe({
+      next: () => {
+        this.message.success('Visit scheduled! Waiting for admin acknowledgment.');
+        this.closeScheduleModal();
+        this.loadTickets();
+      },
+      error: (err) => {
+        console.error('Failed to schedule visit:', err);
+        this.message.error(err?.message || 'Failed to schedule visit');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  // ========================================
+  // ACKNOWLEDGE SCHEDULE METHODS (for Admin)
+  // ========================================
+
+  /**
+   * Open acknowledge schedule modal
+   */
+  openAcknowledgeModal(ticketId: number): void {
+    this.acknowledgeTicketId.set(ticketId);
+    this.acknowledgeAction.set('acknowledge');
+    this.acknowledgeComment.set('');
+    this.rejectReason.set('');
+    this.showAcknowledgeModal.set(true);
+  }
+
+  /**
+   * Close acknowledge schedule modal
+   */
+  closeAcknowledgeModal(): void {
+    this.showAcknowledgeModal.set(false);
+    this.acknowledgeTicketId.set(null);
+    this.acknowledgeComment.set('');
+    this.rejectReason.set('');
+  }
+
+  /**
+   * Confirm acknowledge or reject schedule
+   */
+  confirmAcknowledge(): void {
+    const ticketId = this.acknowledgeTicketId();
+    const action = this.acknowledgeAction();
+
+    if (!ticketId) {
+      this.message.error('No ticket selected');
+      return;
+    }
+
+    this.loading.set(true);
+
+    if (action === 'acknowledge') {
+      this.ticketService.acknowledgeSchedule(ticketId, this.acknowledgeComment() || undefined).subscribe({
+        next: () => {
+          this.message.success('Schedule acknowledged! The user will be notified of the visit date.');
+          this.closeAcknowledgeModal();
+          this.loadTickets();
+        },
+        error: (err) => {
+          console.error('Failed to acknowledge schedule:', err);
+          this.message.error(err?.message || 'Failed to acknowledge schedule');
+          this.loading.set(false);
+        },
+      });
+    } else {
+      const reason = this.rejectReason().trim();
+      if (!reason) {
+        this.message.warning('Please provide a reason for rejecting the schedule');
+        this.loading.set(false);
+        return;
+      }
+
+      this.ticketService.rejectSchedule(ticketId, reason).subscribe({
+        next: () => {
+          this.message.success('Schedule rejected. The department head will be notified.');
+          this.closeAcknowledgeModal();
+          this.loadTickets();
+        },
+        error: (err) => {
+          console.error('Failed to reject schedule:', err);
+          this.message.error(err?.message || 'Failed to reject schedule');
+          this.loading.set(false);
+        },
+      });
     }
   }
 }

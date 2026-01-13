@@ -267,7 +267,7 @@ export class MainLayout {
   }
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    console.log('onFileSelected called', { hasFiles: !!input.files?.length });
+    // console.log('onFileSelected called', { hasFiles: !!input.files?.length });
 
     if (!input.files?.length) {
       console.warn('onFileSelected: no files');

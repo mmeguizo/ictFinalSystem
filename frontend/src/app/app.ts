@@ -12,12 +12,12 @@ export class App implements OnInit {
   readonly authService = inject(AuthService);
 
   constructor() {
-    console.log('[APP] 🏠 App component constructor');
-    console.log('[APP] initialized:', this.authService.initialized(), 'isAuthenticated:', this.authService.isAuthenticated());
+    // console.log('[APP] 🏠 App component constructor');
+    // console.log('[APP] initialized:', this.authService.initialized(), 'isAuthenticated:', this.authService.isAuthenticated());
   }
 
   ngOnInit(): void {
-    console.log('[APP] 🏠 App component ngOnInit');
-    console.log('[APP] initialized:', this.authService.initialized(), 'isAuthenticated:', this.authService.isAuthenticated());
+    // console.log('[APP] 🏠 App component ngOnInit');
+    // console.log('[APP] initialized:', this.authService.initialized(), 'isAuthenticated:', this.authService.isAuthenticated());
   }
 }

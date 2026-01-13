@@ -174,14 +174,68 @@ export const appConfig: ApplicationConfig = {
 
         return {
           link,
-          cache: new InMemoryCache(),
+          cache: new InMemoryCache({
+            typePolicies: {
+              Query: {
+                fields: {
+                  tickets: {
+                    merge(_existing, incoming) {
+                      return incoming;
+                    },
+                  },
+                  myTickets: {
+                    merge(_existing, incoming) {
+                      return incoming;
+                    },
+                  },
+                  myCreatedTickets: {
+                    merge(_existing, incoming) {
+                      return incoming;
+                    },
+                  },
+                  myNotifications: {
+                    merge(_existing, incoming) {
+                      return incoming;
+                    },
+                  },
+                },
+              },
+            },
+          }),
         };
       }
 
       // Server-side: no auth
       return {
         link: httpLink.create({ uri: environment.apiUrl }),
-        cache: new InMemoryCache(),
+        cache: new InMemoryCache({
+          typePolicies: {
+            Query: {
+              fields: {
+                tickets: {
+                  merge(_existing, incoming) {
+                    return incoming;
+                  },
+                },
+                myTickets: {
+                  merge(_existing, incoming) {
+                    return incoming;
+                  },
+                },
+                myCreatedTickets: {
+                  merge(_existing, incoming) {
+                    return incoming;
+                  },
+                },
+                myNotifications: {
+                  merge(_existing, incoming) {
+                    return incoming;
+                  },
+                },
+              },
+            },
+          },
+        }),
       };
     }),
     // Auth0 authentication

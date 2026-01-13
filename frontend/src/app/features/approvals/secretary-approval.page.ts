@@ -192,10 +192,10 @@ export class SecretaryApprovalPage implements OnInit {
       });
     } else {
       // Reject: Return to user with comment
-      console.log('Rejecting ticket:', ticketId, 'with reason:', comment);
+      // console.log('Rejecting ticket:', ticketId, 'with reason:', comment);
       this.ticketService.rejectAsSecretary(ticketId, comment).subscribe({
         next: (result) => {
-          console.log('Rejection result:', result);
+          // console.log('Rejection result:', result);
           this.message.success('Ticket returned to requester with comments');
           this.closeReviewModal();
           this.loadTicketsForApproval();

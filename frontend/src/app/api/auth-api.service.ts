@@ -40,7 +40,7 @@ export class AuthApiService {
   private readonly apollo = inject(Apollo);
 
   login(email: string, password: string) {
-    console.log('[AuthApiService] login attempt for:', email);
+    // console.log('[AuthApiService] login attempt for:', email);
     return this.apollo.mutate<LoginData, LoginVariables>({
       mutation: LOGIN_MUTATION,
       variables: { email, password },

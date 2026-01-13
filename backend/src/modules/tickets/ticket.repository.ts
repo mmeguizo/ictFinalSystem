@@ -277,7 +277,7 @@ export class TicketRepository {
 
     // Prevent updating to the same status (avoid duplicate history entries)
     if (ticket.status === status) {
-      console.warn(`Ticket ${ticketId} is already in ${status} status, skipping update`);
+      // console.warn(`Ticket ${ticketId} is already in ${status} status, skipping update`);
       return [ticket];
     }
 
