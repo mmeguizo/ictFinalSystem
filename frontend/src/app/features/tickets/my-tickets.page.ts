@@ -1,6 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { interval } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzTagModule } from 'ng-zorro-antd/tag';
@@ -53,6 +56,7 @@ export class MyTicketsPage implements OnInit {
   private readonly ticketService = inject(TicketService);
   private readonly message = inject(NzMessageService);
   private readonly authService = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(false);
   readonly tickets = signal<TicketListItem[]>([]);
@@ -70,6 +74,12 @@ export class MyTicketsPage implements OnInit {
   readonly showStatusModal = signal(false);
   readonly selectedStatus = signal<string>('');
   readonly statusComment = signal<string>('');
+
+  // Modal state for secretary review (for Admin)
+  readonly showReviewModal = signal(false);
+  readonly reviewTicketId = signal<number | null>(null);
+  readonly reviewComment = signal<string>('');
+  readonly reviewAction = signal<'approve' | 'reject'>('approve');
 
   // ========================================
   // ROLE CHECKS
@@ -91,6 +101,14 @@ export class MyTicketsPage implements OnInit {
 
   /** Check if user is admin */
   readonly isAdmin = computed(() => this.authService.isAdmin());
+
+  /** Check if user is secretary */
+  readonly isSecretary = computed(() => this.authService.isSecretary());
+
+  /** Check if user can review as secretary (admin or secretary) */
+  readonly canReviewAsSecretary = computed(() =>
+    this.authService.isAdmin() || this.authService.isSecretary()
+  );
 
   /** Check if user can view all tickets (admin, heads, secretary) */
   readonly canViewAllTickets = computed(() =>
@@ -145,12 +163,105 @@ export class MyTicketsPage implements OnInit {
     return allTickets.filter((t) => t.status === filter);
   });
 
+  // ========================================
+  // TICKET STATISTICS
+  // ========================================
+
+  /** Total number of tickets */
+  readonly totalTickets = computed(() => this.tickets().length);
+
+  /** Count of tickets for review */
+  readonly forReviewCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'FOR_REVIEW').length
+  );
+
+  /** Count of reviewed tickets */
+  readonly reviewedCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'REVIEWED').length
+  );
+
+  /** Count of director approved tickets */
+  readonly directorApprovedCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'DIRECTOR_APPROVED').length
+  );
+
+  /** Count of assigned tickets */
+  readonly assignedCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'ASSIGNED').length
+  );
+
+  /** Count of in progress tickets */
+  readonly inProgressCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'IN_PROGRESS').length
+  );
+
+  /** Count of on hold tickets */
+  readonly onHoldCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'ON_HOLD').length
+  );
+
+  /** Count of resolved tickets */
+  readonly resolvedCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'RESOLVED').length
+  );
+
+  /** Count of closed tickets */
+  readonly closedCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'CLOSED').length
+  );
+
+  /** Count of cancelled tickets */
+  readonly cancelledCount = computed(() =>
+    this.tickets().filter((t) => t.status === 'CANCELLED').length
+  );
+
+  /** Recent tickets (last 10) sorted by creation date */
+  readonly recentTickets = computed(() =>
+    [...this.tickets()]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10)
+  );
+
   ngOnInit(): void {
     this.loadTickets();
 
     // Load staff list if user is a department head
     if (this.isDepartmentHead()) {
       this.loadStaffList();
+    }
+
+    // Set up auto-refresh polling every 60 seconds (1 minute)
+    // Only poll when user is viewing the page
+    interval(60000) // 60000ms = 1 minute
+      .pipe(
+        switchMap(() => this.getTicketQuery()),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (tickets) => {
+          // Silently update tickets without showing loading spinner
+          this.tickets.set(tickets);
+        },
+        error: (error) => {
+          console.error('Auto-refresh failed:', error);
+          // Don't show error message to avoid interrupting user
+        },
+      });
+  }
+
+  /**
+   * Get ticket query based on user role (extracted for reuse in polling)
+   */
+  private getTicketQuery() {
+    if (this.isAdmin() || this.authService.isSecretary()) {
+      // Admin/Secretary sees all tickets
+      return this.ticketService.getAllTickets();
+    } else if (this.isDepartmentHead() || this.isStaff()) {
+      // Department heads and staff see their assigned tickets
+      return this.ticketService.getMyAssignedTickets();
+    } else {
+      // Regular users see tickets they created
+      return this.ticketService.getMyCreatedTickets();
     }
   }
 
@@ -160,20 +271,7 @@ export class MyTicketsPage implements OnInit {
   loadTickets(): void {
     this.loading.set(true);
 
-    let ticketQuery;
-
-    if (this.isAdmin() || this.authService.isSecretary()) {
-      // Admin/Secretary sees all tickets
-      ticketQuery = this.ticketService.getAllTickets();
-    } else if (this.isDepartmentHead() || this.isStaff()) {
-      // Department heads and staff see their assigned tickets
-      ticketQuery = this.ticketService.getMyAssignedTickets();
-    } else {
-      // Regular users see tickets they created
-      ticketQuery = this.ticketService.getMyCreatedTickets();
-    }
-
-    ticketQuery.subscribe({
+    this.getTicketQuery().subscribe({
       next: (tickets) => {
         this.tickets.set(tickets);
         this.loading.set(false);
@@ -369,5 +467,88 @@ export class MyTicketsPage implements OnInit {
     if (!this.isStaff()) return false;
     const currentUserId = this.authService.currentUser()?.id;
     return ticket.assignments?.some(a => a.user.id === currentUserId) ?? false;
+  }
+
+  /**
+   * Check if ticket can be reviewed by secretary/admin
+   */
+  canReview(ticket: TicketListItem): boolean {
+    return this.canReviewAsSecretary() &&
+           ticket.status === 'FOR_REVIEW' &&
+           !ticket.secretaryReviewedAt;
+  }
+
+  // ========================================
+  // SECRETARY REVIEW METHODS (for Admin)
+  // ========================================
+
+  /**
+   * Open review modal
+   */
+  openReviewModal(ticketId: number): void {
+    this.reviewTicketId.set(ticketId);
+    this.reviewAction.set('approve');
+    this.reviewComment.set('');
+    this.showReviewModal.set(true);
+  }
+
+  /**
+   * Close review modal
+   */
+  closeReviewModal(): void {
+    this.showReviewModal.set(false);
+    this.reviewTicketId.set(null);
+    this.reviewComment.set('');
+  }
+
+  /**
+   * Confirm secretary review (approve or reject with comment)
+   */
+  confirmReview(): void {
+    const ticketId = this.reviewTicketId();
+    const action = this.reviewAction();
+    const comment = this.reviewComment().trim();
+
+    if (!ticketId) {
+      this.message.error('No ticket selected');
+      return;
+    }
+
+    if (action === 'reject' && !comment) {
+      this.message.warning('Please provide a reason for returning the ticket');
+      return;
+    }
+
+    this.loading.set(true);
+
+    if (action === 'approve') {
+      // Approve: Mark as reviewed
+      this.ticketService.reviewAsSecretary(ticketId, comment || undefined).subscribe({
+        next: () => {
+          this.message.success('Ticket reviewed and forwarded for director approval!');
+          this.closeReviewModal();
+          this.loadTickets();
+        },
+        error: (err) => {
+          console.error('Failed to review ticket:', err);
+          this.message.error('Failed to review ticket');
+          this.loading.set(false);
+        },
+      });
+    } else {
+      // Reject: Return to user with comment
+      this.ticketService.rejectAsSecretary(ticketId, comment).subscribe({
+        next: () => {
+          this.message.success('Ticket returned to requester with comments');
+          this.closeReviewModal();
+          this.loadTickets();
+        },
+        error: (err) => {
+          console.error('Failed to reject ticket:', err);
+          this.message.error(err?.message || 'Failed to reject ticket');
+          this.loading.set(false);
+        },
+      });
+    }
   }
 }

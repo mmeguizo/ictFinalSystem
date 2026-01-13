@@ -15,11 +15,7 @@
 
     <!-- Filter bar -->
     <div class="filter-bar">
-      <nz-select
-        [(ngModel)]="statusFilter"
-        nzPlaceHolder="Filter by status"
-        style="width: 200px"
-      >
+      <nz-select [(ngModel)]="statusFilter" nzPlaceHolder="Filter by status" style="width: 200px">
         <nz-option nzValue="ALL" nzLabel="All Statuses"></nz-option>
         <nz-option nzValue="FOR_REVIEW" nzLabel="For Review"></nz-option>
         <nz-option nzValue="REVIEWED" nzLabel="Reviewed"></nz-option>
@@ -50,7 +46,7 @@
             <th>Status</th>
             <th>Priority</th>
             @if (canViewAllTickets()) {
-              <th>Created By</th>
+            <th>Created By</th>
             }
             <th>Assigned To</th>
             <th>Created</th>
@@ -59,73 +55,90 @@
         </thead>
         <tbody>
           @if (filteredTickets().length === 0) {
-            <tr>
-              <td [attr.colspan]="canViewAllTickets() ? 9 : 8">
-                <nz-empty nzNotFoundContent="No tickets found"></nz-empty>
-              </td>
-            </tr>
-          }
-          @for (ticket of ticketTable.data; track ticket.id) {
-            <tr>
-              <td>
-                <a [routerLink]="['/tickets', ticket.ticketNumber]">
-                  {{ ticket.ticketNumber }}
-                </a>
-              </td>
-              <td>
-                <nz-tag [nzColor]="ticket.type === 'MIS' ? 'blue' : 'green'">
-                  {{ ticket.type }}
-                </nz-tag>
-              </td>
-              <td class="title-cell">{{ ticket.title }}</td>
-              <td>
-                <nz-tag [nzColor]="getStatusColor(ticket.status)">
-                  {{ ticket.status.replace('_', ' ') }}
-                </nz-tag>
-              </td>
-              <td>
-                <nz-tag [nzColor]="getPriorityColor(ticket.priority)">
-                  {{ ticket.priority }}
-                </nz-tag>
-              </td>
-              @if (canViewAllTickets()) {
-                <td>{{ ticket.createdBy.name || 'Unknown' }}</td>
+          <tr>
+            <td [attr.colspan]="canViewAllTickets() ? 9 : 8">
+              <nz-empty nzNotFoundContent="No tickets found"></nz-empty>
+            </td>
+          </tr>
+          } @for (ticket of ticketTable.data; track ticket.id) {
+          <tr>
+            <td>
+              <a [routerLink]="['/tickets', ticket.ticketNumber]">
+                {{ ticket.ticketNumber }}
+              </a>
+            </td>
+            <td>
+              <nz-tag [nzColor]="ticket.type === 'MIS' ? 'blue' : 'green'">
+                {{ ticket.type }}
+              </nz-tag>
+            </td>
+            <td class="title-cell">{{ ticket.title }}</td>
+            <td>
+              <nz-tag [nzColor]="getStatusColor(ticket.status)">
+                {{ ticket.status.replace('_', ' ') }}
+              </nz-tag>
+            </td>
+            <td>
+              <nz-tag [nzColor]="getPriorityColor(ticket.priority)">
+                {{ ticket.priority }}
+              </nz-tag>
+            </td>
+            @if (canViewAllTickets()) {
+            <td>{{ ticket.createdBy.name || 'Unknown' }}</td>
+            }
+            <td>{{ getAssignedStaff(ticket) }}</td>
+            <td>{{ ticket.createdAt | date }}</td>
+            <td class="action-cell">
+              <!-- Review button (for Admin/Secretary on FOR_REVIEW tickets) -->
+              @if (canReview(ticket)) {
+              <button
+                nz-button
+                nzType="primary"
+                nzSize="small"
+                nz-tooltip="Review this ticket (approve or reject with notes)"
+                (click)="openReviewModal(ticket.id)"
+              >
+                Endorse
+              </button>
               }
-              <td>{{ getAssignedStaff(ticket) }}</td>
-              <td>{{ ticket.createdAt | date }}</td>
-              <td class="action-cell">
-                <!-- View button (always visible) -->
-                <a nz-button nzType="link" nzSize="small" [routerLink]="['/tickets', ticket.ticketNumber]">
-                  View
-                </a>
 
-                <!-- Assign button (for Department Heads on ASSIGNED tickets) -->
-                @if (canAssign(ticket)) {
-                  <button
-                    nz-button
-                    nzType="primary"
-                    nzSize="small"
-                    nz-tooltip="Assign to staff member"
-                    (click)="openAssignModal(ticket.id)"
-                  >
-                    Assign
-                  </button>
-                }
+              <!-- View button (always visible) -->
+              <a
+                nz-button
+                nzType="link"
+                nzSize="small"
+                [routerLink]="['/tickets', ticket.ticketNumber]"
+              >
+                View
+              </a>
 
-                <!-- Update Status button (for Staff on their assigned tickets) -->
-                @if (canUpdate(ticket)) {
-                  <button
-                    nz-button
-                    nzType="default"
-                    nzSize="small"
-                    nz-tooltip="Update ticket status"
-                    (click)="openStatusModal(ticket.id, ticket.status)"
-                  >
-                    Update
-                  </button>
-                }
-              </td>
-            </tr>
+              <!-- Assign button (for Department Heads on ASSIGNED tickets) -->
+              @if (canAssign(ticket)) {
+              <button
+                nz-button
+                nzType="primary"
+                nzSize="small"
+                nz-tooltip="Assign to staff member"
+                (click)="openAssignModal(ticket.id)"
+              >
+                Assign
+              </button>
+              }
+
+              <!-- Update Status button (for Staff on their assigned tickets) -->
+              @if (canUpdate(ticket)) {
+              <button
+                nz-button
+                nzType="default"
+                nzSize="small"
+                nz-tooltip="Update ticket status"
+                (click)="openStatusModal(ticket.id, ticket.status)"
+              >
+                Update
+              </button>
+              }
+            </td>
+          </tr>
           }
         </tbody>
       </nz-table>
@@ -140,12 +153,12 @@
 
 <!-- Extra template (refresh button) -->
 <ng-template #extraTemplate>
-  <div style="display: flex; gap: 8px;">
+  <div style="display: flex; gap: 8px">
     @if (canCreateTicket()) {
-      <button nz-button nzType="primary" routerLink="/tickets/new">
-        <i nz-icon nzType="plus-circle" nzTheme="outline"></i>
-        Create Ticket
-      </button>
+    <button nz-button nzType="primary" routerLink="/tickets/new">
+      <i nz-icon nzType="plus-circle" nzTheme="outline"></i>
+      Create Ticket
+    </button>
     }
     <button nz-button nzType="default" (click)="loadTickets()">
       <i nz-icon nzType="reload" nzTheme="outline"></i>
@@ -172,11 +185,13 @@
       style="width: 100%"
     >
       @for (staff of staffList(); track staff.id) {
-        <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
+      <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
       }
     </nz-select>
     @if (staffList().length === 0) {
-      <p class="warning-text">No staff members available. Please add developers/technical staff first.</p>
+    <p class="warning-text">
+      No staff members available. Please add developers/technical staff first.
+    </p>
     }
   </ng-container>
 </nz-modal>
@@ -193,13 +208,9 @@
   <ng-container *nzModalContent>
     <div class="form-group">
       <label>New Status:</label>
-      <nz-select
-        [(ngModel)]="selectedStatus"
-        nzPlaceHolder="Select new status"
-        style="width: 100%"
-      >
+      <nz-select [(ngModel)]="selectedStatus" nzPlaceHolder="Select new status" style="width: 100%">
         @for (option of statusOptions; track option.value) {
-          <nz-option [nzValue]="option.value" [nzLabel]="option.label"></nz-option>
+        <nz-option [nzValue]="option.value" [nzLabel]="option.label"></nz-option>
         }
       </nz-select>
     </div>
@@ -213,4 +224,65 @@
       ></textarea>
     </div>
   </ng-container>
+</nz-modal>
+
+<!-- Secretary Review Modal (for Admin/Secretary) -->
+<nz-modal
+  [nzVisible]="showReviewModal()"
+  (nzVisibleChange)="showReviewModal.set($event)"
+  nzTitle="Review Ticket"
+  [nzFooter]="reviewModalFooter"
+  [nzClosable]="true"
+  (nzOnCancel)="closeReviewModal()"
+>
+  <ng-container *nzModalContent>
+    <p>Please review this ticket. You can:</p>
+    <ul>
+      @if (isAdmin()) {
+        <li><strong>Endorse:</strong> Forward to the Office Head for assignment</li>
+      }
+      @if (isSecretary()) {
+        <li><strong>Reviewed:</strong> Forward to the Admin for Endorsement</li>
+      }
+      <li><strong>Reject:</strong> Return to requester with notes</li>
+    </ul>
+
+    <div class="form-group" style="margin-top: 16px">
+      <label
+        >Notes/Comments: <span class="required" *ngIf="reviewAction() === 'reject'">*</span></label
+      >
+      <textarea
+        nz-input
+        [ngModel]="reviewComment()"
+        (ngModelChange)="reviewComment.set($event)"
+        rows="4"
+        [placeholder]="
+          reviewAction() === 'reject'
+            ? 'Enter the reason for rejection (required). This will be visible to the requester...'
+            : 'Add any comments about this ticket (optional)...'
+        "
+      ></textarea>
+    </div>
+  </ng-container>
+
+  <ng-template #reviewModalFooter>
+    <button nz-button nzType="default" (click)="closeReviewModal()">Cancel</button>
+    <button
+      nz-button
+      nzType="default"
+      nzDanger
+      [nzLoading]="loading()"
+      (click)="reviewAction.set('reject'); confirmReview()"
+    >
+      Reject with Notes
+    </button>
+    <button
+      nz-button
+      nzType="primary"
+      [nzLoading]="loading()"
+      (click)="reviewAction.set('approve'); confirmReview()"
+    >
+      Endorsed & Forward
+    </button>
+  </ng-template>
 </nz-modal>

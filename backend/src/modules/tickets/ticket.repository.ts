@@ -218,6 +218,49 @@ export class TicketRepository {
     });
   }
 
+  /**
+   * Find tickets by type and multiple statuses
+   * Used for Office Heads to see all tickets of their type in work statuses
+   */
+  async findManyByTypeAndStatuses(type: TicketType, statuses: TicketStatus[]) {
+    return this.prisma.ticket.findMany({
+      where: {
+        type,
+        status: {
+          in: statuses,
+        },
+      },
+      include: {
+        createdBy: true,
+        misTicket: true,
+        itsTicket: true,
+        assignments: {
+          include: {
+            user: true,
+          },
+        },
+        notes: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        statusHistory: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
   async updateStatus(
     ticketId: number,
     userId: number,

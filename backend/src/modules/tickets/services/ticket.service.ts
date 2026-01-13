@@ -286,6 +286,16 @@ export class TicketService {
 
     // Send notifications
     try {
+      // Always notify Admin and Secretary about notes (they oversee all tickets)
+      await this.notificationService.notifyAdminAndSecretaryNoteAdded(
+        ticketId,
+        ticket.ticketNumber,
+        ticket.title,
+        userId,
+        author?.name || 'Staff',
+        dto.isInternal || false
+      );
+
       if (dto.isInternal) {
         // Internal note: notify other assigned staff (not the author)
         const otherAssignees = ticket.assignments?.filter(a => a.user.id !== userId) || [];
@@ -357,6 +367,22 @@ export class TicketService {
   }
 
   /**
+   * Get tickets for Office Heads (MIS_HEAD or ITS_HEAD)
+   * Returns all tickets of their type that are in work statuses
+   * (DIRECTOR_APPROVED, ASSIGNED, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED)
+   */
+  async getOfficeHeadTickets(ticketType: TicketType) {
+    return this.repository.findManyByTypeAndStatuses(ticketType, [
+      TicketStatus.DIRECTOR_APPROVED,
+      TicketStatus.ASSIGNED,
+      TicketStatus.IN_PROGRESS,
+      TicketStatus.ON_HOLD,
+      TicketStatus.RESOLVED,
+      TicketStatus.CLOSED,
+    ]);
+  }
+
+  /**
    * Get user's created tickets
    */
   async getUserCreatedTickets(userId: number) {
@@ -371,10 +397,26 @@ export class TicketService {
   }
 
   /**
+   * Get tickets for secretary review filtered by type (FOR_REVIEW status)
+   * Used by department heads to see only their department's tickets
+   */
+  async getTicketsForSecretaryReviewByType(type: 'MIS' | 'ITS') {
+    return this.repository.findMany({ status: TicketStatus.FOR_REVIEW, type: type === 'MIS' ? TicketType.MIS : TicketType.ITS });
+  }
+
+  /**
    * Get tickets pending director approval (REVIEWED status)
    */
   async getTicketsPendingDirectorApproval() {
     return this.repository.findMany({ status: TicketStatus.REVIEWED });
+  }
+
+  /**
+   * Get tickets pending director approval filtered by type (REVIEWED status)
+   * Used by department heads to see only their department's tickets
+   */
+  async getTicketsPendingDirectorApprovalByType(type: 'MIS' | 'ITS') {
+    return this.repository.findMany({ status: TicketStatus.REVIEWED, type: type === 'MIS' ? TicketType.MIS : TicketType.ITS });
   }
 
   /**

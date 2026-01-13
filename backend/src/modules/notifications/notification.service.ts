@@ -191,8 +191,9 @@ export class NotificationService {
 
   /**
    * Notify relevant users when a note is added
-   * - If internal note: notify assigned staff
+   * - If internal note: notify assigned staff, admin, secretary
    * - If public note: notify ticket creator
+   * - Admin and Secretary always get notified for notes on all tickets
    */
   async notifyNoteAdded(
     ticketId: number,
@@ -213,6 +214,44 @@ export class NotificationService {
         isInternal,
       },
     });
+  }
+
+  /**
+   * Notify Admin and Secretary about new notes
+   * This ensures they stay informed about all ticket activity
+   */
+  async notifyAdminAndSecretaryNoteAdded(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    authorId: number,
+    authorName: string,
+    isInternal: boolean
+  ) {
+    // Find all admins and secretaries except the author
+    const adminSecretaries = await this.prisma.user.findMany({
+      where: {
+        role: { in: [Role.ADMIN, Role.SECRETARY] },
+        id: { not: authorId }, // Don't notify the author
+      },
+      select: { id: true },
+    });
+
+    if (adminSecretaries.length === 0) return;
+
+    return this.repository.createMany(
+      adminSecretaries.map((user) => ({
+        userId: user.id,
+        ticketId,
+        type: NotificationType.NOTE_ADDED,
+        title: isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
+        message: `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
+        metadata: {
+          authorName,
+          isInternal,
+        },
+      }))
+    );
   }
 
   /**
