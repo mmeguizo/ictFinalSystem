@@ -90,7 +90,19 @@
             <td>{{ ticket.createdAt | date }}</td>
             <td class="action-cell">
               <!-- Review button (for Admin/Secretary on FOR_REVIEW tickets) -->
-              @if (canReview(ticket)) {
+              @if (canReview(ticket) && isSecretary()) {
+              <button
+                nz-button
+                nzType="primary"
+                nzSize="small"
+                nz-tooltip="Review this ticket (approve or reject with notes)"
+                (click)="openReviewModal(ticket.id)"
+              >
+                Review
+              </button>
+              }
+
+              @if (canReviewAdmin(ticket)) {
               <button
                 nz-button
                 nzType="primary"
@@ -101,6 +113,7 @@
                 Endorse
               </button>
               }
+
 
               <!-- View button (always visible) -->
               <a
@@ -239,10 +252,10 @@
     <p>Please review this ticket. You can:</p>
     <ul>
       @if (isAdmin()) {
-        <li><strong>Endorse:</strong> Forward to the Office Head for assignment</li>
+        <li><strong>Endorsed:</strong> Forward to the Office Head for assignment</li>
       }
       @if (isSecretary()) {
-        <li><strong>Reviewed:</strong> Forward to the Admin for Endorsement</li>
+        <li><strong>Reviewed:</strong> Forward to the Director for Endorsement</li>
       }
       <li><strong>Reject:</strong> Return to requester with notes</li>
     </ul>
@@ -282,7 +295,7 @@
       [nzLoading]="loading()"
       (click)="reviewAction.set('approve'); confirmReview()"
     >
-      Endorsed & Forward
+       {{ isAdmin() ? 'Endorsed' : 'Reviewed'}} & Forward
     </button>
   </ng-template>
 </nz-modal>

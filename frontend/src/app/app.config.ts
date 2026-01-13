@@ -59,10 +59,10 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     // Initialize auth state from localStorage before app starts (Angular 19+ API)
     provideAppInitializer(() => {
-      console.log('[APP_INIT] 🚀 provideAppInitializer callback STARTING');
+      // console.log('[APP_INIT] 🚀 provideAppInitializer callback STARTING');
       const authService = inject(AppAuthService);
       authService.initFromStorage();
-      console.log('[APP_INIT] ✅ provideAppInitializer callback COMPLETE');
+      // console.log('[APP_INIT] ✅ provideAppInitializer callback COMPLETE');
     }),
     // HTTP client with interceptors for auth, error handling, and loading
     provideHttpClient(
@@ -94,11 +94,11 @@ export const appConfig: ApplicationConfig = {
           const graphQLErrors = errorResponse.graphQLErrors as ReadonlyArray<GraphQLError> | undefined;
           const networkError = errorResponse.networkError as any;
 
-          console.log('[Apollo ErrorLink] Received error response:', { graphQLErrors, networkError });
+          // console.log('[Apollo ErrorLink] Received error response:', { graphQLErrors, networkError });
 
           if (graphQLErrors && !isLoggingOut) {
             for (const err of graphQLErrors) {
-              console.log('[Apollo ErrorLink] Checking error:', err.message, 'extensions:', err.extensions);
+              // console.log('[Apollo ErrorLink] Checking error:', err.message, 'extensions:', err.extensions);
               // Check for Unauthorized error
               if (
                 err.message === 'Unauthorized' ||
@@ -118,7 +118,7 @@ export const appConfig: ApplicationConfig = {
           }
 
           if (networkError && !isLoggingOut) {
-            console.log('[Apollo ErrorLink] Network error:', networkError);
+            // console.log('[Apollo ErrorLink] Network error:', networkError);
             // Check for 401 network error
             if ('status' in networkError && networkError.status === 401) {
               console.warn('[Apollo] 401 Network error detected, logging out user');
@@ -134,7 +134,7 @@ export const appConfig: ApplicationConfig = {
           // 1. Check local JWT token first (email/password login)
           const localToken = appAuthService.getToken();
           if (localToken) {
-            console.log('[Apollo] Using local JWT token:', localToken);
+            // console.log('[Apollo] Using local JWT token:', localToken);
             return {
               headers: {
                 Authorization: `Bearer ${localToken}`,
@@ -146,7 +146,7 @@ export const appConfig: ApplicationConfig = {
           try {
             const auth0Token = await auth0Service.getAccessTokenSilently().toPromise();
             if (auth0Token) {
-              console.log('[Apollo] Using Auth0 token');
+              // console.log('[Apollo] Using Auth0 token');
               return {
                 headers: {
                   Authorization: `Bearer ${auth0Token}`,
@@ -155,13 +155,13 @@ export const appConfig: ApplicationConfig = {
             }
           } catch (error) {
             if(!localToken){
-              console.log('[Apollo] Using local JWT token:', localToken);
+              // console.log('[Apollo] Using local JWT token:', localToken);
               console.warn('[Apollo] Failed to get Auth0 access token:', error);
             }
           }
 
           // 3. No token available
-          console.log('[Apollo] No auth token available');
+          // console.log('[Apollo] No auth token available');
           return { headers: {} };
         });
 

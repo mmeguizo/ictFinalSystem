@@ -592,12 +592,12 @@ export class TicketDetailPage implements OnInit {
     if (action === 'approve') {
       this.ticketService.approveAsDirector(t.id, comment || undefined).subscribe({
         next: () => {
-          this.message.success('Ticket approved and auto-assigned to Office Head!');
+          this.message.success('Ticket endorsed and auto-assigned to Office Head!');
           this.closeDirectorApprovalModal();
           this.loadTicket(t.ticketNumber);
         },
         error: (error) => {
-          console.error('Failed to approve ticket:', error);
+          console.error('Failed to endorse ticket:', error);
           this.message.error('Failed to approve ticket');
           this.processingDirectorApproval.set(false);
         },

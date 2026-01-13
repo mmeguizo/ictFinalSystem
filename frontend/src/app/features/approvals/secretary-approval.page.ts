@@ -260,12 +260,12 @@ export class SecretaryApprovalPage implements OnInit {
     this.loading.set(true);
     this.ticketService.approveAsDirector(ticketId).subscribe({
       next: () => {
-        this.message.success('Ticket approved and auto-assigned to Office Head!');
+        this.message.success('Ticket endorsed and auto-assigned to Office Head!');
         this.loadTicketsForApproval(); // Refresh the list
       },
       error: (err) => {
-        console.error('Failed to approve ticket:', err);
-        this.message.error('Failed to approve ticket.');
+        console.error('Failed to endorse ticket:', err);
+        this.message.error('Failed to endorse ticket.');
         this.loading.set(false);
       },
     });

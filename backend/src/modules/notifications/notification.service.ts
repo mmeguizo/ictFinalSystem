@@ -133,7 +133,7 @@ export class NotificationService {
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_APPROVED,
-      title: 'Ticket Approved',
+      title: 'Ticket Endorsed',
       message: `Your ticket "${ticketTitle}" (${ticketNumber}) has been approved and will be assigned to the appropriate team.`,
       metadata: {
         approverName,

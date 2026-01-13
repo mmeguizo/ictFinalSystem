@@ -325,7 +325,7 @@ export class NotificationsPage implements OnInit {
     { value: 'TICKET_CREATED', label: 'Ticket Created' },
     { value: 'TICKET_REVIEWED', label: 'Ticket Reviewed' },
     { value: 'TICKET_REJECTED', label: 'Ticket Rejected' },
-    { value: 'TICKET_APPROVED', label: 'Ticket Approved' },
+    { value: 'TICKET_APPROVED', label: 'Ticket Endorsed' },
     { value: 'TICKET_DISAPPROVED', label: 'Ticket Disapproved' },
     { value: 'TICKET_ASSIGNED', label: 'Ticket Assigned' },
     { value: 'STATUS_CHANGED', label: 'Status Changed' },

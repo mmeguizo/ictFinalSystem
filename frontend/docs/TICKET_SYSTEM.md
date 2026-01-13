@@ -469,7 +469,7 @@ formatDate(dateString: string | undefined): string {
     
     <nz-alert *ngIf="isFullyApproved()"
       nzType="success"
-      nzMessage="Fully Approved" />
+      nzMessage="Fully Endorsed" />
   </nz-card>
 
   <!-- Assigned Staff Card -->
@@ -536,7 +536,7 @@ State 3: DIRECTOR_APPROVED
 ┌────────────────────────────┐
 │ ✓ Secretary Approved       │
 │ ✓ Director Approved        │
-│ ✅ Fully Approved          │
+│ ✅ Fully Endorsed          │
 │                            │
 │ Progress: 2/2              │
 │ ▰▰▰▰▰▰▰▰▰▰ 100%           │
@@ -922,7 +922,7 @@ Component → TicketService → Apollo Client → setContext Link
 
 5. **After director approval** (backend):
    - Refresh detail page
-   - Should see "Fully Approved" alert (green)
+   - Should see "Fully Endorsed" alert (green)
    - Progress bar should show 100%
    - Status should be `ASSIGNED` (purple tag)
    - Assigned staff should be populated

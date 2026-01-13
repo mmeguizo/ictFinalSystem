@@ -92,7 +92,8 @@ import { AuthService } from '../../core/services/auth.service';
                         ></nz-avatar>
                       </nz-list-item-meta-avatar>
                       <nz-list-item-meta-title>
-                        {{ notification.title }}
+                        {{ notification.title}}
+                        <!-- {{ notification.title === 'Ticket Approved' ? 'Ticket Endorsed' : notification.title }} -->
                       </nz-list-item-meta-title>
                       <nz-list-item-meta-description>
                         <div class="notification-message">{{ notification.message }}</div>
@@ -234,6 +235,8 @@ export class NotificationBellComponent implements OnInit {
       // Initial load of both count and notifications
       this.notificationService.getUnreadCount().subscribe();
       this.notificationService.getMyNotifications().subscribe();
+// In your component (e.g., in ngOnInit or a method)
+
 
       // Set up auto-refresh polling every 30 seconds for notifications
       // This ensures users get timely notification updates
