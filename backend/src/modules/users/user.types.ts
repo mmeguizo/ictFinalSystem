@@ -22,13 +22,14 @@ export const userTypeDefs = gql`
     picture: String
     avatarUrl: String
     lastLoginAt: String
+    isActive: Boolean!
   }
 
   input CreateUserInput {
     email: String!
     name: String
     password: String
-    role: Role
+    role: Role!
   }
 
   input UpdateProfileInput {

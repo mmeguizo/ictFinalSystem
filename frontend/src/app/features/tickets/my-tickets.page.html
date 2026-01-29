@@ -166,6 +166,19 @@
               </button>
               }
 
+              <!-- Add Monitor Notes button (for Department Heads after visit) -->
+              @if (canAddMonitor(ticket)) {
+              <button
+                nz-button
+                nzType="default"
+                nzSize="small"
+                nz-tooltip="Add monitor notes and recommendations after visit"
+                (click)="openMonitorModal(ticket.id)"
+              >
+                Add Monitor
+              </button>
+              }
+
               <!-- Update Status button (for Staff on their assigned tickets) -->
               @if (canUpdate(ticket)) {
               <button
@@ -443,4 +456,57 @@
       Acknowledge & Notify User
     </button>
   </ng-template>
+</nz-modal>
+
+<!-- Monitor Notes Modal (for Department Heads) -->
+<nz-modal
+  [nzVisible]="showMonitorModal()"
+  (nzVisibleChange)="showMonitorModal.set($event)"
+  nzTitle="Add Monitor Notes & Recommendations"
+  [nzOkText]="'Submit'"
+  [nzCancelText]="'Cancel'"
+  [nzOkLoading]="loading()"
+  [nzWidth]="600"
+  (nzOnOk)="confirmMonitor()"
+  (nzOnCancel)="closeMonitorModal()"
+>
+  <ng-container *nzModalContent>
+    <p class="info-text" style="margin-bottom: 16px; color: #666">
+      <i nz-icon nzType="info-circle" nzTheme="outline"></i>
+      Document your observations and recommendations after the site visit.
+    </p>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Monitor Notes:</label>
+      <textarea
+        nz-input
+        [ngModel]="monitorNotes()"
+        (ngModelChange)="monitorNotes.set($event)"
+        rows="5"
+        placeholder="Document your observations and findings during the visit..."
+      ></textarea>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Recommendations:</label>
+      <textarea
+        nz-input
+        [ngModel]="recommendations()"
+        (ngModelChange)="recommendations.set($event)"
+        rows="5"
+        placeholder="Provide recommendations for the user or for future actions..."
+      ></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Additional Comment (optional):</label>
+      <textarea
+        nz-input
+        [ngModel]="monitorComment()"
+        (ngModelChange)="monitorComment.set($event)"
+        rows="3"
+        placeholder="Any additional notes or comments..."
+      ></textarea>
+    </div>
+  </ng-container>
 </nz-modal>

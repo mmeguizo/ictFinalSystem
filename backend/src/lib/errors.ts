@@ -73,6 +73,25 @@ export function formatError(error: any): any {
     };
   }
 
+  // Check if it's an authentication-related error
+  const errorMessage = error.message || '';
+  const originalMessage = error.originalError?.message || '';
+  
+  if (
+    errorMessage.toLowerCase().includes('unauthorized') ||
+    errorMessage.toLowerCase().includes('authentication required') ||
+    originalMessage.toLowerCase().includes('unauthorized') ||
+    originalMessage.toLowerCase().includes('authentication required')
+  ) {
+    return {
+      message: 'Session expired. Please login again.',
+      extensions: {
+        code: 'UNAUTHENTICATED',
+        statusCode: 401,
+      },
+    };
+  }
+
   // Log unexpected errors
   console.error('Unexpected error:', error);
 

@@ -105,6 +105,13 @@ export class MyTicketsPage implements OnInit {
   readonly acknowledgeAction = signal<'acknowledge' | 'reject'>('acknowledge');
   readonly rejectReason = signal<string>('');
 
+  // Modal state for monitor notes (for Department Heads)
+  readonly showMonitorModal = signal(false);
+  readonly monitorTicketId = signal<number | null>(null);
+  readonly monitorNotes = signal<string>('');
+  readonly recommendations = signal<string>('');
+  readonly monitorComment = signal<string>('');
+
   // ========================================
   // ROLE CHECKS
   // ========================================
@@ -555,6 +562,17 @@ export class MyTicketsPage implements OnInit {
     return this.isAdmin() && ticket.status === 'PENDING_ACKNOWLEDGMENT';
   }
 
+  /**
+   * Check if ticket can have monitor notes added by department head
+   * (After visit - SCHEDULED, IN_PROGRESS, ON_HOLD, RESOLVED statuses)
+   */
+  canAddMonitor(ticket: TicketListItem): boolean {
+    if (!this.isDepartmentHead()) return false;
+    // Can add monitor notes on tickets that are scheduled or later, and don't have notes yet
+    const allowedStatuses = ['SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'];
+    return allowedStatuses.includes(ticket.status) && !ticket.monitorNotes;
+  }
+
   // ========================================
   // SECRETARY REVIEW METHODS (for Admin)
   // ========================================
@@ -806,5 +824,74 @@ export class MyTicketsPage implements OnInit {
         },
       });
     }
+  }
+
+  // ========================================
+  // MONITOR NOTES METHODS (for Department Heads)
+  // ========================================
+
+  /**
+   * Open monitor notes modal
+   */
+  openMonitorModal(ticketId: number): void {
+    this.monitorTicketId.set(ticketId);
+    this.monitorNotes.set('');
+    this.recommendations.set('');
+    this.monitorComment.set('');
+    this.showMonitorModal.set(true);
+  }
+
+  /**
+   * Close monitor notes modal
+   */
+  closeMonitorModal(): void {
+    this.showMonitorModal.set(false);
+    this.monitorTicketId.set(null);
+    this.monitorNotes.set('');
+    this.recommendations.set('');
+    this.monitorComment.set('');
+  }
+
+  /**
+   * Confirm add monitor notes and recommendations
+   */
+  confirmMonitor(): void {
+    const ticketId = this.monitorTicketId();
+    const notes = this.monitorNotes().trim();
+    const recs = this.recommendations().trim();
+
+    if (!ticketId) {
+      this.message.error('No ticket selected');
+      return;
+    }
+
+    if (!notes) {
+      this.message.warning('Please enter monitor notes');
+      return;
+    }
+
+    if (!recs) {
+      this.message.warning('Please enter recommendations');
+      return;
+    }
+
+    this.loading.set(true);
+    this.ticketService.addMonitorAndRecommendations(
+      ticketId,
+      notes,
+      recs,
+      this.monitorComment() || undefined
+    ).subscribe({
+      next: () => {
+        this.message.success('Monitor notes and recommendations added successfully!');
+        this.closeMonitorModal();
+        this.loadTickets();
+      },
+      error: (err) => {
+        console.error('Failed to add monitor notes:', err);
+        this.message.error(err?.message || 'Failed to add monitor notes');
+        this.loading.set(false);
+      },
+    });
   }
 }
