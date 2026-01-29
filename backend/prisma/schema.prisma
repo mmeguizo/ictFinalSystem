@@ -71,6 +71,14 @@ model User {
   
   // Notifications
   notifications       Notification[]
+
+
+  isActive            Boolean   @default(true)
+  deactivatedAt        DateTime?
+  deactivatedById      Int?
+ 
+  @@index([role])
+  @@index([isActive]) 
 }
 
 model Ticket {

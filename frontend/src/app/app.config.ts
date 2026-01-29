@@ -99,16 +99,28 @@ export const appConfig: ApplicationConfig = {
           if (graphQLErrors && !isLoggingOut) {
             for (const err of graphQLErrors) {
               // console.log('[Apollo ErrorLink] Checking error:', err.message, 'extensions:', err.extensions);
-              // Check for Unauthorized error
-              if (
-                err.message === 'Unauthorized' ||
-                err.message?.toLowerCase().includes('unauthorized') ||
-                err.message?.toLowerCase().includes('jwt expired') ||
-                err.message?.toLowerCase().includes('invalid token') ||
-                err.extensions?.['code'] === 'UNAUTHENTICATED' ||
-                err.extensions?.['code'] === 'INTERNAL_SERVER_ERROR' && err.message === 'Unauthorized'
-              ) {
-                console.warn('[Apollo] Unauthorized error detected, logging out user');
+
+              const errorCode = err.extensions?.['code'] as string;
+              const errorMessage = err.message?.toLowerCase() || '';
+
+              // Check for authentication/authorization errors
+              const isAuthError =
+                errorCode === 'UNAUTHENTICATED' ||
+                errorCode === 'UNAUTHORIZED' ||
+                errorMessage.includes('unauthorized') ||
+                errorMessage.includes('jwt expired') ||
+                errorMessage.includes('invalid token') ||
+                errorMessage.includes('session expired') ||
+                errorMessage.includes('authentication required');
+
+              // Check for internal server error that might be caused by auth failure
+              // When JWT expires, backend wraps the error as "Internal server error"
+              const isInternalErrorWithAuth =
+                errorCode === 'INTERNAL_SERVER_ERROR' &&
+                appAuthService.getToken() !== null; // User has a token that might be expired
+
+              if (isAuthError || isInternalErrorWithAuth) {
+                console.warn('[Apollo] Authentication error detected, logging out user. Error:', err.message, 'Code:', errorCode);
                 isLoggingOut = true;
                 // Clear auth state and redirect to login
                 appAuthService.logout();
