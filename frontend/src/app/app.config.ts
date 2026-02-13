@@ -94,12 +94,14 @@ export const appConfig: ApplicationConfig = {
           const graphQLErrors = errorResponse.graphQLErrors as ReadonlyArray<GraphQLError> | undefined;
           const networkError = errorResponse.networkError as any;
 
-          // console.log('[Apollo ErrorLink] Received error response:', { graphQLErrors, networkError });
+          // Debug: Log all errors received
+          console.log('[Apollo ErrorLink] Error received:', {
+            graphQLErrors: graphQLErrors?.map(e => ({ message: e.message, code: e.extensions?.['code'] })),
+            networkError: networkError ? { status: networkError.status, message: networkError.message } : null
+          });
 
           if (graphQLErrors && !isLoggingOut) {
             for (const err of graphQLErrors) {
-              // console.log('[Apollo ErrorLink] Checking error:', err.message, 'extensions:', err.extensions);
-
               const errorCode = err.extensions?.['code'] as string;
               const errorMessage = err.message?.toLowerCase() || '';
 
@@ -107,11 +109,17 @@ export const appConfig: ApplicationConfig = {
               const isAuthError =
                 errorCode === 'UNAUTHENTICATED' ||
                 errorCode === 'UNAUTHORIZED' ||
+                errorCode === 'FORBIDDEN' ||
                 errorMessage.includes('unauthorized') ||
+                errorMessage.includes('forbidden') ||
                 errorMessage.includes('jwt expired') ||
+                errorMessage.includes('jwt malformed') ||
                 errorMessage.includes('invalid token') ||
+                errorMessage.includes('invalid signature') ||
                 errorMessage.includes('session expired') ||
-                errorMessage.includes('authentication required');
+                errorMessage.includes('authentication required') ||
+                errorMessage.includes('token expired') ||
+                errorMessage.includes('no authorization');
 
               // Check for internal server error that might be caused by auth failure
               // When JWT expires, backend wraps the error as "Internal server error"

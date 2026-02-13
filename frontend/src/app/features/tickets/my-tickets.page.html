@@ -52,13 +52,14 @@
             }
             <th>Assigned To</th>
             <th>Created</th>
+            <th>Target Completion</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           @if (filteredTickets().length === 0) {
           <tr>
-            <td [attr.colspan]="canViewAllTickets() ? 9 : 8">
+            <td [attr.colspan]="canViewAllTickets() ? 10 : 9">
               <nz-empty nzNotFoundContent="No tickets found"></nz-empty>
             </td>
           </tr>
@@ -89,7 +90,8 @@
             <td>{{ ticket.createdBy.name || 'Unknown' }}</td>
             }
             <td>{{ getAssignedStaff(ticket) }}</td>
-            <td>{{ ticket.createdAt | date }}</td>
+            <td>{{ formatDate(ticket.createdAt) }}</td>
+            <td>{{ formatDate(ticket.targetCompletionDate) }}</td>
             <td class="action-cell">
               <!-- Review button (for Admin/Secretary on FOR_REVIEW tickets) -->
               @if (canReview(ticket) && isSecretary()) {
@@ -140,19 +142,6 @@
               </button>
               }
 
-              <!-- Schedule Visit button (for Department Heads after staff assignment) -->
-              @if (canSchedule(ticket)) {
-              <button
-                nz-button
-                nzType="primary"
-                nzSize="small"
-                nz-tooltip="Set visit date and target completion date"
-                (click)="openScheduleModal(ticket.id)"
-              >
-                Schedule Visit
-              </button>
-              }
-
               <!-- Acknowledge Schedule button (for Admin on PENDING_ACKNOWLEDGMENT tickets) -->
               @if (canAcknowledge(ticket)) {
               <button
@@ -166,16 +155,16 @@
               </button>
               }
 
-              <!-- Add Monitor Notes button (for Department Heads after visit) -->
+              <!-- Add/Update Monitor Notes button (for Department Heads) -->
               @if (canAddMonitor(ticket)) {
               <button
                 nz-button
                 nzType="default"
                 nzSize="small"
-                nz-tooltip="Add monitor notes and recommendations after visit"
-                (click)="openMonitorModal(ticket.id)"
+                [nz-tooltip]="ticket.monitorNotes ? 'Update monitor notes and recommendations' : 'Add monitor notes and recommendations'"
+                (click)="openMonitorModal(ticket)"
               >
-                Add Monitor
+                {{ ticket.monitorNotes ? 'Update Monitor' : 'Add Monitor' }}
               </button>
               }
 
@@ -186,7 +175,7 @@
                 nzType="default"
                 nzSize="small"
                 nz-tooltip="Update ticket status"
-                (click)="openStatusModal(ticket.id, ticket.status)"
+                (click)="openStatusModal(ticket.id, ticket.status, ticket.targetCompletionDate)"
               >
                 Update
               </button>
@@ -221,32 +210,55 @@
   </div>
 </ng-template>
 
-<!-- Assignment Modal (for Department Heads) -->
+<!-- Assignment Modal (for Department Heads) - assign staff + schedule date to visit -->
 <nz-modal
   [(nzVisible)]="showAssignModal"
   nzTitle="Assign Ticket to Staff"
-  [nzOkText]="'Assign'"
+  [nzOkText]="'Assign & Schedule'"
   [nzCancelText]="'Cancel'"
+  [nzWidth]="550"
+  [nzOkDisabled]="!selectedUserId() || !assignDateToVisit()"
   (nzOnOk)="confirmAssignment()"
   (nzOnCancel)="closeAssignModal()"
 >
   <ng-container *nzModalContent>
-    <p>Select a staff member to assign this ticket:</p>
-    <nz-select
-      [(ngModel)]="selectedUserId"
-      nzPlaceHolder="Select staff member"
-      nzShowSearch
-      style="width: 100%"
-    >
-      @for (staff of staffList(); track staff.id) {
-      <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
+    <!-- Staff member selection (required) -->
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Select Staff Member:</label>
+      <nz-select
+        [(ngModel)]="selectedUserId"
+        nzPlaceHolder="Select staff member"
+        nzShowSearch
+        style="width: 100%"
+      >
+        @for (staff of staffList(); track staff.id) {
+        <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
+        }
+      </nz-select>
+      @if (staffList().length === 0) {
+      <p class="warning-text" style="color: #ff4d4f; margin-top: 8px">
+        No staff members available. Please add developers/technical staff first.
+      </p>
       }
-    </nz-select>
-    @if (staffList().length === 0) {
-    <p class="warning-text">
-      No staff members available. Please add developers/technical staff first.
+    </div>
+
+    <!-- Date to Visit (REQUIRED) -->
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Date to Visit:</label>
+      <nz-date-picker
+        style="width: 100%"
+        [ngModel]="assignDateToVisit()"
+        (ngModelChange)="assignDateToVisit.set($event)"
+        nzPlaceHolder="Select date to visit"
+        [nzDisabledDate]="disablePastDates"
+      ></nz-date-picker>
+    </div>
+
+    <p class="info-text" style="margin-top: 12px; color: #666; font-size: 12px">
+      <i nz-icon nzType="info-circle" nzTheme="outline"></i>
+      After assigning, the ticket will be sent to admin/director for acknowledgment.
+      The developer will set the target completion date when they start working.
     </p>
-    }
   </ng-container>
 </nz-modal>
 
@@ -260,7 +272,7 @@
   (nzOnCancel)="closeStatusModal()"
 >
   <ng-container *nzModalContent>
-    <div class="form-group">
+    <div class="form-group" style="margin-bottom: 16px">
       <label>New Status:</label>
       <nz-select [(ngModel)]="selectedStatus" nzPlaceHolder="Select new status" style="width: 100%">
         @for (option of statusOptions; track option.value) {
@@ -268,6 +280,23 @@
         }
       </nz-select>
     </div>
+
+    <!-- Target Completion Date - Developer sets this -->
+    <div class="form-group" style="margin-bottom: 16px">
+      <label>Target Completion Date:</label>
+      <nz-date-picker
+        style="width: 100%"
+        [ngModel]="statusTargetCompletionDate()"
+        (ngModelChange)="statusTargetCompletionDate.set($event)"
+        nzPlaceHolder="Set target completion date"
+        [nzDisabledDate]="disablePastDates"
+      ></nz-date-picker>
+      <p style="margin-top: 4px; color: #666; font-size: 12px">
+        <i nz-icon nzType="info-circle" nzTheme="outline"></i>
+        Set or update the expected completion date for this ticket.
+      </p>
+    </div>
+
     <div class="form-group">
       <label>Comment (optional):</label>
       <textarea
@@ -341,59 +370,7 @@
   </ng-template>
 </nz-modal>
 
-<!-- Schedule Visit Modal (for Department Heads) -->
-<nz-modal
-  [nzVisible]="showScheduleModal()"
-  (nzVisibleChange)="showScheduleModal.set($event)"
-  nzTitle="Schedule Visit"
-  [nzOkText]="'Schedule'"
-  [nzCancelText]="'Cancel'"
-  [nzOkLoading]="loading()"
-  (nzOnOk)="confirmSchedule()"
-  (nzOnCancel)="closeScheduleModal()"
->
-  <ng-container *nzModalContent>
-    <p>Set the visit date and target completion date for this ticket:</p>
 
-    <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Date to Visit:</label>
-      <nz-date-picker
-        style="width: 100%"
-        [ngModel]="dateToVisit()"
-        (ngModelChange)="dateToVisit.set($event)"
-        nzPlaceHolder="Select visit date"
-        [nzDisabledDate]="disablePastDates"
-      ></nz-date-picker>
-    </div>
-
-    <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Target Completion Date:</label>
-      <nz-date-picker
-        style="width: 100%"
-        [ngModel]="targetCompletionDate()"
-        (ngModelChange)="targetCompletionDate.set($event)"
-        nzPlaceHolder="Select target completion date"
-        [nzDisabledDate]="disablePastDates"
-      ></nz-date-picker>
-    </div>
-
-    <div class="form-group">
-      <label>Comment (optional):</label>
-      <textarea
-        nz-input
-        [ngModel]="scheduleComment()"
-        (ngModelChange)="scheduleComment.set($event)"
-        rows="3"
-        placeholder="Add any notes about the scheduled visit..."
-      ></textarea>
-    </div>
-
-    <p class="info-text" style="margin-top: 12px; color: #666; font-size: 12px">
-      <i nz-icon nzType="info-circle" nzTheme="outline"></i>
-      The schedule will be sent to the admin for acknowledgment before the user is notified.
-    </p>
-  </ng-container>
-</nz-modal>
 
 <!-- Acknowledge Schedule Modal (for Admin) -->
 <nz-modal
@@ -462,7 +439,7 @@
 <nz-modal
   [nzVisible]="showMonitorModal()"
   (nzVisibleChange)="showMonitorModal.set($event)"
-  nzTitle="Add Monitor Notes & Recommendations"
+  nzTitle="Monitor Notes & Recommendations"
   [nzOkText]="'Submit'"
   [nzCancelText]="'Cancel'"
   [nzOkLoading]="loading()"
@@ -473,8 +450,31 @@
   <ng-container *nzModalContent>
     <p class="info-text" style="margin-bottom: 16px; color: #666">
       <i nz-icon nzType="info-circle" nzTheme="outline"></i>
-      Document your observations and recommendations after the site visit.
+      Document your observations and recommendations after the site visit. You can update these at any time.
     </p>
+
+    <!-- Developer's Status Comments (read-only reference) -->
+    @if (devStatusComments().length > 0) {
+      <div style="margin-bottom: 16px; background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 12px;">
+        <h5 style="margin: 0 0 8px 0; color: #24292e;">
+          <i nz-icon nzType="message" nzTheme="outline"></i>
+          Developer Notes / Comments
+        </h5>
+        @for (entry of devStatusComments(); track entry.id) {
+          <div style="padding: 8px; background: #fff; border-radius: 4px; margin-bottom: 6px; border-left: 3px solid #1890ff;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <strong style="font-size: 12px; color: #586069;">{{ entry.user.name }} ({{ entry.fromStatus }} → {{ entry.toStatus }})</strong>
+              <small style="color: #959da5;">{{ formatDate(entry.createdAt) }}</small>
+            </div>
+            <p style="margin: 0; white-space: pre-wrap; font-size: 13px;">{{ entry.comment }}</p>
+          </div>
+        }
+        <p style="margin: 8px 0 0 0; font-size: 11px; color: #959da5;">
+          <i nz-icon nzType="bulb" nzTheme="outline"></i>
+          Use the developer's notes above as reference for your recommendations.
+        </p>
+      </div>
+    }
 
     <div class="form-group" style="margin-bottom: 16px">
       <label><span class="required">*</span> Monitor Notes:</label>

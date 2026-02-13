@@ -87,12 +87,7 @@ export class TicketDetailPage implements OnInit {
   readonly directorApprovalAction = signal<'approve' | 'disapprove'>('approve');
   readonly processingDirectorApproval = signal(false);
 
-  // Schedule Visit state (for department heads)
-  readonly showScheduleVisitModal = signal(false);
-  readonly scheduleVisitDate = signal<Date | null>(null);
-  readonly scheduleTargetCompletion = signal<Date | null>(null);
-  readonly scheduleComment = signal('');
-  readonly processingSchedule = signal(false);
+  // Schedule Visit state removed - scheduling is now part of the assign step
 
   // Acknowledge Schedule state (for admin)
   readonly showAcknowledgeModal = signal(false);
@@ -107,6 +102,37 @@ export class TicketDetailPage implements OnInit {
   readonly recommendations = signal('');
   readonly monitorComment = signal('');
   readonly processingMonitor = signal(false);
+
+  // ========================================
+  // ASSIGN TICKET STATE (for Department Heads)
+  // Used when assigning a staff member from the detail page
+  // ========================================
+  readonly showAssignModal = signal(false);
+  readonly staffList = signal<{ id: number; name: string; email: string; role: string }[]>([]);
+  readonly selectedUserId = signal<number | null>(null);
+  // Optional schedule dates included during assignment (not required)
+  readonly assignDateToVisit = signal<Date | null>(null);
+  readonly assignTargetCompletion = signal<Date | null>(null);
+  readonly assignComment = signal('');
+  readonly processingAssignment = signal(false);
+
+  // ========================================
+  // DEVELOPER STATUS UPDATE WITH DATE (for Staff)
+  // Developer can update targetCompletionDate when changing status
+  // ========================================
+  readonly devTargetCompletionDate = signal<Date | null>(null);
+
+  /**
+   * Get developer's status update comments from the ticket's statusHistory
+   * These are comments from DEVELOPER/TECHNICAL role users during status transitions
+   */
+  readonly devStatusComments = computed(() => {
+    const t = this.ticket();
+    if (!t?.statusHistory) return [];
+    return t.statusHistory.filter(
+      (h: any) => (h.user.role === 'DEVELOPER' || h.user.role === 'TECHNICAL') && h.comment
+    );
+  });
 
   // ========================================
   // ROLE CHECKS
@@ -164,18 +190,8 @@ export class TicketDetailPage implements OnInit {
   /** Check if user is a department head (MIS or ITS) */
   readonly isDepartmentHead = computed(() => this.authService.isOfficeHead());
 
-  /** Check if user can schedule a visit (department head, after staff is assigned) */
-  readonly canScheduleVisit = computed(() => {
-    const t = this.ticket();
-    if (!t) return false;
-    if (!this.isDepartmentHead()) return false;
-    // Can schedule if ticket is ASSIGNED and has staff assigned but no schedule yet
-    if (t.status !== 'ASSIGNED') return false;
-    const hasStaffAssigned = t.assignments?.some(
-      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
-    );
-    return hasStaffAssigned && !t.dateToVisit;
-  });
+  /** Schedule visit is now part of the assign step - this always returns false */
+  readonly canScheduleVisit = computed(() => false);
 
   /** Check if user can acknowledge schedule (admin, ticket is PENDING_ACKNOWLEDGMENT) */
   readonly canAcknowledgeSchedule = computed(() => {
@@ -184,13 +200,31 @@ export class TicketDetailPage implements OnInit {
     return this.isAdmin() && t.status === 'PENDING_ACKNOWLEDGMENT';
   });
 
-  /** Check if user can add monitor notes (department head, ticket is SCHEDULED) */
+  /** Check if user can add/update monitor notes (department head, ticket is SCHEDULED or beyond) */
   readonly canAddMonitor = computed(() => {
     const t = this.ticket();
     if (!t) return false;
     if (!this.isDepartmentHead()) return false;
-    // Can add monitor notes on SCHEDULED tickets that don't have monitor notes yet
-    return t.status === 'SCHEDULED' && !t.monitorNotes;
+    // Can add or update monitor notes on SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED tickets
+    return ['SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED'].includes(t.status);
+  });
+
+  /**
+   * Check if department head can assign a staff member to this ticket
+   * Shows the Assign button on the detail page (same as the table action)
+   * Conditions: user is department head, ticket is ASSIGNED status, no staff assigned yet
+   */
+  readonly canAssignTicket = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    if (!this.isDepartmentHead()) return false;
+    // Only allow assignment when ticket is in ASSIGNED status (from director approval)
+    if (t.status !== 'ASSIGNED' && t.status !== 'DIRECTOR_APPROVED') return false;
+    // Check if there's already a DEVELOPER or TECHNICAL staff assigned
+    const hasStaffAssigned = t.assignments?.some(
+      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
+    );
+    return !hasStaffAssigned;
   });
 
   /** Check if current user can view internal notes (staff members only) */
@@ -239,6 +273,28 @@ export class TicketDetailPage implements OnInit {
       this.loading.set(false);
       this.message.error('Invalid ticket number');
     }
+
+    // Load staff list if user is a department head (for assignment dropdown)
+    if (this.isDepartmentHead()) {
+      this.loadStaffList();
+    }
+  }
+
+  /**
+   * Load available staff members for the assignment dropdown
+   * MIS_HEAD sees DEVELOPERs, ITS_HEAD sees TECHNICAL staff
+   */
+  loadStaffList(): void {
+    const isMISHead = this.authService.isMISHead();
+    const role = isMISHead ? 'DEVELOPER' : 'TECHNICAL';
+
+    this.ticketService.getUsersByRole(role).subscribe({
+      next: (users) => this.staffList.set(users),
+      error: (err) => {
+        console.error('Failed to load staff list:', err);
+        this.message.error('Failed to load staff list');
+      },
+    });
   }
 
   loadTicket(ticketNumber: string): void {
@@ -327,7 +383,18 @@ export class TicketDetailPage implements OnInit {
     if (!dateString) return '-';
 
     // Parse the date - handle ISO strings, timestamps, and Date objects
-    const d = dateString instanceof Date ? dateString : new Date(dateString);
+    let d: Date;
+
+    if (dateString instanceof Date) {
+      d = dateString;
+    } else if (typeof dateString === 'number') {
+      d = new Date(dateString);
+    } else if (typeof dateString === 'string') {
+      // Support numeric timestamp strings
+      d = /^\d+$/.test(dateString) ? new Date(parseInt(dateString, 10)) : new Date(dateString);
+    } else {
+      d = new Date(dateString as any);
+    }
 
     // Check if date is valid by testing if getTime() returns NaN
     if (isNaN(d.getTime())) {
@@ -403,27 +470,107 @@ export class TicketDetailPage implements OnInit {
   }
 
   // ========================================
+  // ASSIGN TICKET METHODS (for Department Heads)
+  // These allow heads to assign staff directly from the detail page
+  // (same as the table action, but available when navigating from notifications)
+  // ========================================
+
+  /**
+   * Open the assignment modal
+   * Resets all fields to default values
+   */
+  openAssignModal(): void {
+    this.selectedUserId.set(null);
+    this.assignDateToVisit.set(null);
+    this.assignTargetCompletion.set(null);
+    this.assignComment.set('');
+    this.showAssignModal.set(true);
+  }
+
+  /**
+   * Close the assignment modal and reset all fields
+   */
+  closeAssignModal(): void {
+    this.showAssignModal.set(false);
+    this.selectedUserId.set(null);
+    this.assignDateToVisit.set(null);
+    this.assignTargetCompletion.set(null);
+    this.assignComment.set('');
+  }
+
+  /**
+   * Confirm assignment of ticket to selected staff member
+   * Date to visit is required - this triggers assign + schedule in one step
+   */
+  confirmAssignment(): void {
+    const t = this.ticket();
+    const userId = this.selectedUserId();
+    const dateToVisit = this.assignDateToVisit();
+
+    if (!t || !userId) {
+      this.message.warning('Please select a staff member');
+      return;
+    }
+
+    if (!dateToVisit) {
+      this.message.warning('Please select a date to visit');
+      return;
+    }
+
+    this.processingAssignment.set(true);
+
+    // Date to visit is required - triggers assign + schedule in one step
+    const options = {
+      dateToVisit: dateToVisit.toISOString(),
+    };
+
+    this.ticketService
+      .assignTicketToUser(t.id, userId, options)
+      .subscribe({
+        next: () => {
+          this.message.success('Ticket assigned and scheduled! Pending admin acknowledgment.');
+          this.closeAssignModal();
+          this.loadTicket(t.ticketNumber); // Reload to show updated data
+        },
+        error: (error) => {
+          console.error('Failed to assign ticket:', error);
+          this.message.error('Failed to assign ticket');
+          this.processingAssignment.set(false);
+        },
+        complete: () => {
+          this.processingAssignment.set(false);
+        },
+      });
+  }
+
+  // ========================================
   // STATUS UPDATE METHODS (for Staff)
   // ========================================
 
   /**
    * Open status update modal
+   * Pre-fills the target completion date from the ticket if it exists
    */
   openStatusModal(): void {
     const t = this.ticket();
     if (!t) return;
     this.selectedStatus.set(t.status);
     this.statusComment.set('');
+    // Pre-fill target completion date if ticket already has one
+    this.devTargetCompletionDate.set(
+      t.targetCompletionDate ? new Date(t.targetCompletionDate) : null
+    );
     this.showStatusModal.set(true);
   }
 
   /**
-   * Close status update modal
+   * Close status update modal and reset all fields
    */
   closeStatusModal(): void {
     this.showStatusModal.set(false);
     this.selectedStatus.set('');
     this.statusComment.set('');
+    this.devTargetCompletionDate.set(null);
   }
 
   /**
@@ -449,6 +596,8 @@ export class TicketDetailPage implements OnInit {
 
   /**
    * Confirm status update from modal
+   * Passes optional targetCompletionDate if developer updated it
+   * Developer's comment is added as a note (carried over to heads via notes)
    */
   confirmStatusUpdate(): void {
     const t = this.ticket();
@@ -460,8 +609,12 @@ export class TicketDetailPage implements OnInit {
       return;
     }
 
+    // Get the developer's target completion date update (optional)
+    const targetDate = this.devTargetCompletionDate();
+    const targetDateStr = targetDate ? targetDate.toISOString() : undefined;
+
     this.updatingStatus.set(true);
-    this.ticketService.updateStatus(t.id, status, comment || undefined).subscribe({
+    this.ticketService.updateStatus(t.id, status, comment || undefined, targetDateStr).subscribe({
       next: () => {
         this.message.success(`Status updated to ${status.replace('_', ' ')}`);
         this.closeStatusModal();
@@ -681,30 +834,6 @@ export class TicketDetailPage implements OnInit {
     }
   }
 
-  // ========================================
-  // SCHEDULE VISIT METHODS (for Department Heads)
-  // ========================================
-
-  /**
-   * Open schedule visit modal
-   */
-  openScheduleVisitModal(): void {
-    this.scheduleVisitDate.set(null);
-    this.scheduleTargetCompletion.set(null);
-    this.scheduleComment.set('');
-    this.showScheduleVisitModal.set(true);
-  }
-
-  /**
-   * Close schedule visit modal
-   */
-  closeScheduleVisitModal(): void {
-    this.showScheduleVisitModal.set(false);
-    this.scheduleVisitDate.set(null);
-    this.scheduleTargetCompletion.set(null);
-    this.scheduleComment.set('');
-  }
-
   /**
    * Disable past dates in date picker
    */
@@ -713,49 +842,6 @@ export class TicketDetailPage implements OnInit {
     today.setHours(0, 0, 0, 0);
     return current < today;
   };
-
-  /**
-   * Confirm schedule visit
-   */
-  confirmScheduleVisit(): void {
-    const t = this.ticket();
-    if (!t) return;
-
-    const visitDate = this.scheduleVisitDate();
-    const completionDate = this.scheduleTargetCompletion();
-
-    if (!visitDate) {
-      this.message.warning('Please select a date to visit');
-      return;
-    }
-
-    if (!completionDate) {
-      this.message.warning('Please select a target completion date');
-      return;
-    }
-
-    this.processingSchedule.set(true);
-    this.ticketService.scheduleVisit(
-      t.id,
-      visitDate.toISOString(),
-      completionDate.toISOString(),
-      this.scheduleComment() || undefined
-    ).subscribe({
-      next: () => {
-        this.message.success('Visit scheduled! Waiting for admin acknowledgment.');
-        this.closeScheduleVisitModal();
-        this.loadTicket(t.ticketNumber);
-      },
-      error: (error) => {
-        console.error('Failed to schedule visit:', error);
-        this.message.error(error?.message || 'Failed to schedule visit');
-        this.processingSchedule.set(false);
-      },
-      complete: () => {
-        this.processingSchedule.set(false);
-      },
-    });
-  }
 
   // ========================================
   // ACKNOWLEDGE SCHEDULE METHODS (for Admin)
@@ -838,11 +924,12 @@ export class TicketDetailPage implements OnInit {
   // ========================================
 
   /**
-   * Open monitor modal
+   * Open monitor modal, pre-populating with existing values if updating
    */
   openMonitorModal(): void {
-    this.monitorNotes.set('');
-    this.recommendations.set('');
+    const t = this.ticket();
+    this.monitorNotes.set(t?.monitorNotes || '');
+    this.recommendations.set(t?.recommendations || '');
     this.monitorComment.set('');
     this.showMonitorModal.set(true);
   }
@@ -858,7 +945,7 @@ export class TicketDetailPage implements OnInit {
   }
 
   /**
-   * Confirm add monitor notes and recommendations
+   * Confirm add/update monitor notes and recommendations
    */
   confirmAddMonitor(): void {
     const t = this.ticket();
@@ -885,13 +972,13 @@ export class TicketDetailPage implements OnInit {
       this.monitorComment() || undefined
     ).subscribe({
       next: () => {
-        this.message.success('Monitor notes and recommendations added!');
+        this.message.success('Monitor notes and recommendations updated!');
         this.closeMonitorModal();
         this.loadTicket(t.ticketNumber);
       },
       error: (error) => {
-        console.error('Failed to add monitor notes:', error);
-        this.message.error(error?.message || 'Failed to add monitor notes');
+        console.error('Failed to update monitor notes:', error);
+        this.message.error(error?.message || 'Failed to update monitor notes');
         this.processingMonitor.set(false);
       },
       complete: () => {

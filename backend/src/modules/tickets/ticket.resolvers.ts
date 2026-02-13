@@ -269,7 +269,7 @@ export const ticketResolvers = {
 
     assignTicket: async (
       _: any,
-      { ticketId, userId }: { ticketId: number; userId: number },
+      { ticketId, userId, input }: { ticketId: number; userId: number; input?: { dateToVisit?: string; targetCompletionDate?: string; comment?: string } },
       context: any
     ) => {
       if (!context.currentUser) {
@@ -280,7 +280,12 @@ export const ticketResolvers = {
         throw new Error('Forbidden: Insufficient permissions');
       }
       // Pass the current user's ID as the assigner for status history tracking
-      await ticketService.assignUser(ticketId, userId, context.currentUser.id);
+      // Also pass optional schedule dates (dateToVisit, targetCompletionDate) if provided
+      await ticketService.assignUser(ticketId, userId, context.currentUser.id, {
+        dateToVisit: input?.dateToVisit ? new Date(input.dateToVisit) : undefined,
+        targetCompletionDate: input?.targetCompletionDate ? new Date(input.targetCompletionDate) : undefined,
+        comment: input?.comment,
+      });
       return ticketService.getTicket(ticketId);
     },
 

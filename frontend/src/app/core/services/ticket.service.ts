@@ -57,13 +57,18 @@ const ADD_TICKET_NOTE = gql`
 /**
  * Mutation to assign a ticket to a staff member
  * Used by MIS_HEAD/ITS_HEAD to assign tickets to DEVELOPER/TECHNICAL staff
+ * Now also supports optional schedule dates (dateToVisit, targetCompletionDate)
  */
 const ASSIGN_TICKET = gql`
-  mutation AssignTicket($ticketId: Int!, $userId: Int!) {
-    assignTicket(ticketId: $ticketId, userId: $userId) {
+  mutation AssignTicket($ticketId: Int!, $userId: Int!, $input: AssignTicketInput) {
+    assignTicket(ticketId: $ticketId, userId: $userId, input: $input) {
       id
       ticketNumber
       status
+      dateToVisit
+      targetCompletionDate
+      headScheduledById
+      headScheduledAt
       assignments {
         user {
           id
@@ -80,6 +85,7 @@ const ASSIGN_TICKET = gql`
 /**
  * Mutation to update ticket status
  * Used by DEVELOPER/TECHNICAL to mark tickets IN_PROGRESS, RESOLVED, etc.
+ * Also supports optional targetCompletionDate update
  */
 const UPDATE_TICKET_STATUS = gql`
   mutation UpdateTicketStatus($ticketId: Int!, $input: UpdateTicketStatusInput!) {
@@ -87,6 +93,7 @@ const UPDATE_TICKET_STATUS = gql`
       id
       ticketNumber
       status
+      targetCompletionDate
     }
   }
 `;
@@ -133,6 +140,13 @@ const MY_ASSIGNED_TICKETS = gql`
       status
       priority
       dueDate
+      dateToVisit
+      targetCompletionDate
+      headScheduledAt
+      adminAcknowledgedAt
+      monitorNotes
+      recommendations
+      monitoredAt
       createdAt
       updatedAt
       createdBy {
@@ -159,6 +173,18 @@ const MY_ASSIGNED_TICKETS = gql`
           role
         }
       }
+      statusHistory {
+        id
+        fromStatus
+        toStatus
+        comment
+        createdAt
+        user {
+          id
+          name
+          role
+        }
+      }
     }
   }
 `;
@@ -174,8 +200,15 @@ const ALL_TICKETS = gql`
       status
       priority
       dueDate
+      dateToVisit
+      targetCompletionDate
       secretaryReviewedAt
       directorApprovedAt
+      headScheduledAt
+      adminAcknowledgedAt
+      monitorNotes
+      recommendations
+      monitoredAt
       createdAt
       updatedAt
       resolvedAt
@@ -193,6 +226,29 @@ const ALL_TICKETS = gql`
           role
         }
         assignedAt
+      }
+      notes {
+        id
+        content
+        isInternal
+        createdAt
+        user {
+          id
+          name
+          role
+        }
+      }
+      statusHistory {
+        id
+        fromStatus
+        toStatus
+        comment
+        createdAt
+        user {
+          id
+          name
+          role
+        }
       }
     }
   }
@@ -209,8 +265,15 @@ const MY_CREATED_TICKETS = gql`
       status
       priority
       dueDate
+      dateToVisit
+      targetCompletionDate
       secretaryReviewedAt
       directorApprovedAt
+      headScheduledAt
+      adminAcknowledgedAt
+      monitorNotes
+      recommendations
+      monitoredAt
       createdAt
       updatedAt
       resolvedAt
@@ -228,6 +291,18 @@ const MY_CREATED_TICKETS = gql`
           role
         }
         assignedAt
+      }
+      statusHistory {
+        id
+        fromStatus
+        toStatus
+        comment
+        createdAt
+        user {
+          id
+          name
+          role
+        }
       }
     }
   }
@@ -266,10 +341,17 @@ const ALL_SECRETARY_TICKETS = gql`
       status
       priority
       dueDate
+      dateToVisit
+      targetCompletionDate
       secretaryReviewedAt
       secretaryReviewedById
       directorApprovedAt
       directorApprovedById
+      headScheduledAt
+      adminAcknowledgedAt
+      monitorNotes
+      recommendations
+      monitoredAt
       createdAt
       updatedAt
       createdBy {
@@ -285,6 +367,18 @@ const ALL_SECRETARY_TICKETS = gql`
           role
         }
         assignedAt
+      }
+      statusHistory {
+        id
+        fromStatus
+        toStatus
+        comment
+        createdAt
+        user {
+          id
+          name
+          role
+        }
       }
     }
   }
@@ -653,6 +747,31 @@ export interface TicketListItem {
     };
     assignedAt: string;
   }>;
+  // Notes from users/staff
+  notes?: Array<{
+    id: number;
+    content: string;
+    isInternal: boolean;
+    createdAt: string;
+    user: {
+      id: number;
+      name: string;
+      role: string;
+    };
+  }>;
+  // Status change history with comments
+  statusHistory?: Array<{
+    id: number;
+    fromStatus?: string;
+    toStatus: string;
+    comment?: string;
+    createdAt: string;
+    user: {
+      id: number;
+      name: string;
+      role: string;
+    };
+  }>;
 }
 
 export interface TicketDetail extends TicketListItem {
@@ -980,12 +1099,27 @@ export class TicketService {
   /**
    * Assign a ticket to a staff member
    * Used by MIS_HEAD to assign to DEVELOPER, ITS_HEAD to assign to TECHNICAL
+   * @param ticketId - The ticket to assign
+   * @param userId - The staff member to assign to
+   * @param options - Optional: dateToVisit, targetCompletionDate, comment (not required)
    */
-  assignTicketToUser(ticketId: number, userId: number): Observable<TicketListItem> {
+  assignTicketToUser(
+    ticketId: number,
+    userId: number,
+    options?: { dateToVisit?: string; targetCompletionDate?: string; comment?: string }
+  ): Observable<TicketListItem> {
+    // Build the input object only if options are provided (dateToVisit, targetCompletionDate, comment)
+    // Note: userId is passed as a separate parameter, not inside input
+    const input = options ? {
+      dateToVisit: options.dateToVisit || undefined,
+      targetCompletionDate: options.targetCompletionDate || undefined,
+      comment: options.comment || undefined,
+    } : undefined;
+
     return this.apollo
       .mutate<{ assignTicket: TicketListItem }>({
         mutation: ASSIGN_TICKET,
-        variables: { ticketId, userId },
+        variables: { ticketId, userId, input },
       })
       .pipe(
         map((result) => {
@@ -1000,12 +1134,27 @@ export class TicketService {
   /**
    * Update ticket status
    * Used by DEVELOPER/TECHNICAL to mark IN_PROGRESS, ON_HOLD, RESOLVED
+   * @param ticketId - The ticket to update
+   * @param status - The new status
+   * @param comment - Optional comment about the status change
+   * @param targetCompletionDate - Optional: developer can update the target completion date
    */
-  updateStatus(ticketId: number, status: string, comment?: string): Observable<{ id: number; status: string }> {
+  updateStatus(
+    ticketId: number,
+    status: string,
+    comment?: string,
+    targetCompletionDate?: string
+  ): Observable<{ id: number; status: string }> {
+    // Build input - only include targetCompletionDate if provided
+    const input: any = { status, comment };
+    if (targetCompletionDate) {
+      input.targetCompletionDate = targetCompletionDate;
+    }
+
     return this.apollo
       .mutate<{ updateTicketStatus: { id: number; ticketNumber: string; status: string } }>({
         mutation: UPDATE_TICKET_STATUS,
-        variables: { ticketId, input: { status, comment } },
+        variables: { ticketId, input },
       })
       .pipe(
         map((result) => {

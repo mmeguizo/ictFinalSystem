@@ -198,6 +198,15 @@ export const ticketTypeDefs = gql`
   input UpdateTicketStatusInput {
     status: TicketStatus!
     comment: String
+    targetCompletionDate: String
+  }
+
+  # Input for assigning a ticket with optional schedule dates
+  # Note: userId is passed as a separate parameter, not in this input
+  input AssignTicketInput {
+    dateToVisit: String
+    targetCompletionDate: String
+    comment: String
   }
 
   input CreateTicketNoteInput {
@@ -256,7 +265,7 @@ export const ticketTypeDefs = gql`
     rejectTicketAsSecretary(ticketId: Int!, reason: String!): Ticket!
     approveTicketAsDirector(ticketId: Int!, comment: String): Ticket!
     disapproveTicketAsDirector(ticketId: Int!, reason: String!): Ticket!
-    assignTicket(ticketId: Int!, userId: Int!): Ticket!
+    assignTicket(ticketId: Int!, userId: Int!, input: AssignTicketInput): Ticket!
     unassignTicket(ticketId: Int!, userId: Int!): Ticket!
     addTicketNote(ticketId: Int!, input: CreateTicketNoteInput!): TicketNote!
     reopenTicket(ticketId: Int!, input: ReopenTicketInput): Ticket!

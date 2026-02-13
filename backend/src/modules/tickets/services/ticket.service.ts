@@ -182,6 +182,7 @@ export class TicketService {
   /**
    * Update ticket status
    * Notifies ticket creator when status changes (e.g., developer starts/resolves)
+   * Optionally updates targetCompletionDate if provided (developers can update this)
    */
   async updateStatus(ticketId: number, userId: number, dto: UpdateTicketStatusDto) {
     // Get ticket and user info before update for notification
@@ -197,6 +198,14 @@ export class TicketService {
 
     const fromStatus = ticket.status;
     const result = await this.repository.updateStatus(ticketId, userId, dto.status, dto.comment);
+
+    // If developer provided a new targetCompletionDate, update it on the ticket
+    if ((dto as any).targetCompletionDate) {
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: { targetCompletionDate: new Date((dto as any).targetCompletionDate) },
+      });
+    }
 
     // Notify ticket creator about status change (if not updating their own ticket)
     if (ticket.createdById !== userId) {
@@ -223,9 +232,16 @@ export class TicketService {
    * @param ticketId - The ticket to assign
    * @param userId - The user being assigned to the ticket
    * @param assignedById - The user performing the assignment (e.g., MIS_HEAD)
+   * @param options - Optional schedule dates (dateToVisit, targetCompletionDate) and comment
    * Notifies the assigned user about the new assignment
+   * If dateToVisit is provided, also transitions ticket to PENDING_ACKNOWLEDGMENT
    */
-  async assignUser(ticketId: number, userId: number, assignedById?: number) {
+  async assignUser(
+    ticketId: number,
+    userId: number,
+    assignedById?: number,
+    options?: { dateToVisit?: Date; targetCompletionDate?: Date; comment?: string }
+  ) {
     // Get ticket and assigner info for notification
     const ticket = await this.repository.findById(ticketId);
     const assigner = assignedById
@@ -240,6 +256,50 @@ export class TicketService {
     }
 
     const result = await this.autoAssignment.manualAssign(ticketId, userId, assignedById);
+
+    // If dateToVisit is provided, combine assign + schedule into one step:
+    // Set the schedule dates AND transition status to PENDING_ACKNOWLEDGMENT
+    if (options?.dateToVisit) {
+      const updateData: any = {
+        dateToVisit: options.dateToVisit,
+        headScheduledById: assignedById,
+        headScheduledAt: new Date(),
+        status: TicketStatus.PENDING_ACKNOWLEDGMENT,
+      };
+      if (options.targetCompletionDate) {
+        updateData.targetCompletionDate = options.targetCompletionDate;
+      }
+
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: updateData,
+      });
+
+      // Add status history for the transition ASSIGNED → PENDING_ACKNOWLEDGMENT
+      await this.prisma.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          userId: assignedById || userId,
+          fromStatus: TicketStatus.ASSIGNED,
+          toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+          comment: `Staff assigned and visit scheduled for ${options.dateToVisit.toLocaleDateString()}`,
+        },
+      });
+
+      // Notify admin about schedule for acknowledgment
+      try {
+        await this.notificationService.notifyAdminScheduleSet(
+          ticketId,
+          ticket.ticketNumber,
+          ticket.title,
+          assigner?.name || 'Department Head',
+          options.dateToVisit,
+          options.targetCompletionDate || options.dateToVisit
+        );
+      } catch (err) {
+        console.error('Failed to send schedule notification:', err);
+      }
+    }
 
     // Notify the assigned user
     try {
@@ -1039,9 +1099,10 @@ export class TicketService {
       throw new Error('Ticket not found');
     }
 
-    // Can add monitor notes when ticket is SCHEDULED or IN_PROGRESS
-    if (ticket.status !== TicketStatus.SCHEDULED && ticket.status !== TicketStatus.IN_PROGRESS) {
-      throw new Error('Ticket must be in SCHEDULED or IN_PROGRESS status to add monitor notes');
+    // Allow monitor notes on tickets that are SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED
+    const allowedStatuses = [TicketStatus.SCHEDULED, TicketStatus.IN_PROGRESS, TicketStatus.ON_HOLD, TicketStatus.RESOLVED];
+    if (!allowedStatuses.includes(ticket.status as TicketStatus)) {
+      throw new Error('Ticket must be in SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED status to update monitor notes');
     }
 
     // Get head name for notification
@@ -1050,16 +1111,22 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Update ticket with monitor data, also set status to IN_PROGRESS
+    // Update ticket with monitor data
+    // If ticket is SCHEDULED, transition to IN_PROGRESS; otherwise keep current status
+    const updateData: any = {
+      monitorNotes,
+      recommendations,
+      monitoredById: headId,
+      monitoredAt: new Date(),
+    };
+
+    if (ticket.status === TicketStatus.SCHEDULED) {
+      updateData.status = TicketStatus.IN_PROGRESS;
+    }
+
     await this.prisma.ticket.update({
       where: { id: ticketId },
-      data: {
-        status: TicketStatus.IN_PROGRESS,
-        monitorNotes,
-        recommendations,
-        monitoredById: headId,
-        monitoredAt: new Date(),
-      },
+      data: updateData,
     });
 
     // Add status history if status changed
