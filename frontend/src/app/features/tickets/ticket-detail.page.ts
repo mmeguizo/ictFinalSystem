@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +19,10 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { TicketService, TicketDetail } from '../../core/services/ticket.service';
+import { NzUploadModule } from 'ng-zorro-antd/upload';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzProgressModule } from 'ng-zorro-antd/progress';
+import { TicketService, TicketDetail, TicketAttachment } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
 
@@ -46,6 +49,9 @@ import { NzMessageService } from 'ng-zorro-antd/message';
     NzPopconfirmModule,
     NzIconModule,
     NzDatePickerModule,
+    NzUploadModule,
+    NzToolTipModule,
+    NzProgressModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ticket-detail.page.html',
@@ -102,6 +108,17 @@ export class TicketDetailPage implements OnInit {
   readonly recommendations = signal('');
   readonly monitorComment = signal('');
   readonly processingMonitor = signal(false);
+
+  // ========================================
+  // FILE ATTACHMENT STATE
+  // ========================================
+  readonly uploadingFiles = signal(false);
+  readonly uploadProgress = signal(0);
+  readonly selectedFiles = signal<File[]>([]);
+  readonly deletingAttachmentId = signal<number | null>(null);
+
+  /** Hidden file input reference */
+  readonly fileInputRef = viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
   // ========================================
   // ASSIGN TICKET STATE (for Department Heads)
@@ -248,6 +265,19 @@ export class TicketDetailPage implements OnInit {
 
   /** Check if user can add internal notes (staff only) */
   readonly canAddInternalNotes = computed(() => this.canViewInternalNotes());
+
+  /** Check if user can upload attachments (creator, assigned staff, heads, admin) */
+  readonly canUploadAttachments = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    // Anyone associated with the ticket can upload
+    return this.isMyTicket() || this.isAssignedToMe() || this.isDepartmentHead() || this.isAdmin();
+  });
+
+  /** Check if user can delete a specific attachment */
+  canDeleteAttachment(_attachment: TicketAttachment): boolean {
+    return this.isMyTicket() || this.isAssignedToMe() || this.isDepartmentHead() || this.isAdmin();
+  }
 
   /** Check if user can update ticket status */
   readonly canUpdateStatus = computed(() => {
@@ -985,5 +1015,134 @@ export class TicketDetailPage implements OnInit {
         this.processingMonitor.set(false);
       },
     });
+  }
+
+  // ========================================
+  // FILE ATTACHMENT METHODS
+  // ========================================
+
+  /**
+   * Trigger the hidden file input
+   */
+  triggerFileInput(): void {
+    const input = this.fileInputRef()?.nativeElement;
+    if (input) {
+      input.click();
+    }
+  }
+
+  /**
+   * Handle file selection from the file input
+   */
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+
+    const files = Array.from(input.files);
+    const maxSize = 50 * 1024 * 1024; // 50MB
+
+    // Validate file sizes
+    const oversized = files.filter(f => f.size > maxSize);
+    if (oversized.length > 0) {
+      this.message.error(`File(s) too large (max 50MB): ${oversized.map(f => f.name).join(', ')}`);
+      input.value = ''; // Reset input
+      return;
+    }
+
+    if (files.length > 5) {
+      this.message.warning('Maximum 5 files per upload');
+      input.value = '';
+      return;
+    }
+
+    this.uploadFiles(files);
+    input.value = ''; // Reset input for next selection
+  }
+
+  /**
+   * Upload selected files to the ticket
+   */
+  private uploadFiles(files: File[]): void {
+    const t = this.ticket();
+    if (!t) return;
+
+    this.uploadingFiles.set(true);
+    this.uploadProgress.set(0);
+
+    this.ticketService.uploadAttachments(
+      t.id,
+      files,
+      // Progress callback — updates the progress bar in real time
+      (percent) => this.uploadProgress.set(percent)
+    ).subscribe({
+      next: (result) => {
+        this.message.success(
+          `${result.attachments.length} file(s) uploaded successfully!`
+        );
+        this.uploadingFiles.set(false);
+        this.uploadProgress.set(100);
+        // Reload ticket to show new attachments
+        this.loadTicket(t.ticketNumber);
+      },
+      error: (error) => {
+        console.error('Failed to upload files:', error);
+        const errorMsg = error?.error?.error || error?.message || 'Failed to upload files';
+        this.message.error(errorMsg);
+        this.uploadingFiles.set(false);
+        this.uploadProgress.set(0);
+      },
+    });
+  }
+
+  /**
+   * Delete a ticket attachment
+   */
+  deleteAttachment(attachment: TicketAttachment): void {
+    const t = this.ticket();
+    if (!t) return;
+
+    this.deletingAttachmentId.set(attachment.id);
+    this.ticketService.deleteAttachment(attachment.id).subscribe({
+      next: () => {
+        this.message.success(`"${attachment.originalName}" deleted`);
+        this.deletingAttachmentId.set(null);
+        this.loadTicket(t.ticketNumber);
+      },
+      error: (error) => {
+        console.error('Failed to delete attachment:', error);
+        this.message.error('Failed to delete attachment');
+        this.deletingAttachmentId.set(null);
+      },
+    });
+  }
+
+  /**
+   * Get a human-readable file size string
+   */
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  /**
+   * Get an icon type for the file based on MIME type
+   */
+  getFileIcon(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return 'file-image';
+    if (mimeType === 'application/pdf') return 'file-pdf';
+    if (mimeType.includes('word') || mimeType.includes('document')) return 'file-word';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'file-excel';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'file-ppt';
+    if (mimeType.startsWith('text/')) return 'file-text';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) return 'file-zip';
+    return 'file';
+  }
+
+  /**
+   * Check if attachment is previewable (image)
+   */
+  isImageAttachment(mimeType: string): boolean {
+    return mimeType.startsWith('image/') && !mimeType.includes('svg');
   }
 }

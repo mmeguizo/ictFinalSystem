@@ -4,6 +4,7 @@ import { CreateMISTicketDto } from './dto/create-mis-ticket.dto';
 import { CreateITSTicketDto } from './dto/create-its-ticket.dto';
 import { UpdateTicketStatusDto } from './dto/update-ticket-status.dto';
 import { CreateTicketNoteDto } from './dto/create-ticket-note.dto';
+import { deleteAttachmentFile } from '../storage/upload.middleware';
 
 const prisma = new PrismaClient();
 const ticketService = new TicketService(prisma);
@@ -425,6 +426,71 @@ export const ticketResolvers = {
         input.recommendations,
         input.comment
       );
+    },
+
+    /**
+     * Soft-delete a ticket attachment
+     * Marks as deleted instead of removing — keeps a record of who deleted and when
+     * Only the ticket creator, assigned staff, department heads, or admin can delete
+     */
+    deleteTicketAttachment: async (
+      _: any,
+      { attachmentId }: { attachmentId: number },
+      context: any
+    ) => {
+      if (!context.currentUser) {
+        throw new Error('Unauthorized');
+      }
+
+      // Find the attachment with its ticket
+      const attachment = await prisma.ticketAttachment.findUnique({
+        where: { id: attachmentId },
+        include: {
+          ticket: {
+            include: {
+              assignments: true,
+            },
+          },
+        },
+      });
+
+      if (!attachment) {
+        throw new Error('Attachment not found');
+      }
+
+      if (attachment.isDeleted) {
+        throw new Error('Attachment is already deleted');
+      }
+
+      // Check permissions: creator, assigned user, department head, or admin
+      const userId = context.currentUser.id;
+      const userRole = context.currentUser.role;
+      const isCreator = attachment.ticket.createdById === userId;
+      const isAssigned = attachment.ticket.assignments.some((a: any) => a.userId === userId);
+      const isPrivileged = ['ADMIN', 'MIS_HEAD', 'ITS_HEAD'].includes(userRole);
+
+      if (!isCreator && !isAssigned && !isPrivileged) {
+        throw new Error('Forbidden: You do not have permission to delete this attachment');
+      }
+
+      // Soft delete: mark as deleted, keep the record
+      await prisma.ticketAttachment.update({
+        where: { id: attachmentId },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedById: userId,
+        },
+      });
+
+      // Delete the actual file from disk to save space
+      try {
+        deleteAttachmentFile(attachment.filename);
+      } catch (e) {
+        // File might already be deleted, that's fine
+      }
+
+      return true;
     },
   },
 };

@@ -427,6 +427,143 @@
         </nz-card>
       }
 
+      <!-- Attachments Section -->
+      <nz-card nzTitle="Attachments & Supporting Documents">
+        <!-- Upload Area -->
+        @if (canUploadAttachments()) {
+          <div class="upload-section">
+            <input
+              #fileInput
+              type="file"
+              multiple
+              style="display: none"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z"
+              (change)="onFilesSelected($event)"
+            />
+            <div class="upload-area" (click)="triggerFileInput()">
+              <i nz-icon nzType="upload" nzTheme="outline" class="upload-icon"></i>
+              <p class="upload-text">Click or drag files here to upload</p>
+              <p class="upload-hint">
+                Supports images, PDF, Word, Excel, PowerPoint, text files, and archives.
+                Max 50MB per file, up to 5 files at once.
+              </p>
+            </div>
+            @if (uploadingFiles()) {
+              <div style="margin-top: 12px;">
+                <nz-progress
+                  [nzPercent]="uploadProgress()"
+                  [nzStatus]="uploadProgress() === 100 ? 'success' : 'active'"
+                  nzStrokeLinecap="round"
+                ></nz-progress>
+                <p style="text-align: center; color: #8c8c8c; margin-top: 4px; font-size: 12px;">
+                  @if (uploadProgress() < 100) {
+                    Uploading... {{ uploadProgress() }}%
+                  } @else {
+                    Upload complete! Processing...
+                  }
+                </p>
+              </div>
+            }
+          </div>
+          <nz-divider></nz-divider>
+        }
+
+        <!-- Attachment List -->
+        @if (t.attachments && t.attachments.length > 0) {
+          <div class="attachments-list">
+            @for (attachment of t.attachments; track attachment.id) {
+              <div class="attachment-item" [class.deleted]="attachment.isDeleted">
+
+                <!-- File preview / icon -->
+                <div class="attachment-preview">
+                  @if (attachment.isDeleted) {
+                    <div class="attachment-icon deleted-icon">
+                      <i nz-icon nzType="delete" nzTheme="outline"></i>
+                    </div>
+                  } @else if (isImageAttachment(attachment.mimeType)) {
+                    <img
+                      [src]="attachment.url"
+                      [alt]="attachment.originalName"
+                      class="attachment-thumbnail"
+                      loading="lazy"
+                    />
+                  } @else {
+                    <div class="attachment-icon">
+                      <i nz-icon [nzType]="getFileIcon(attachment.mimeType)" nzTheme="outline"></i>
+                    </div>
+                  }
+                </div>
+
+                <!-- File info -->
+                <div class="attachment-info">
+                  @if (attachment.isDeleted) {
+                    <span class="attachment-name deleted-name">{{ attachment.originalName }}</span>
+                    <nz-tag nzColor="red" style="margin-left: 6px; vertical-align: middle;">Deleted</nz-tag>
+                  } @else {
+                    <a
+                      [href]="attachment.url"
+                      target="_blank"
+                      class="attachment-name"
+                      [nz-tooltip]="attachment.originalName"
+                    >
+                      {{ attachment.originalName }}
+                    </a>
+                  }
+                  <div class="attachment-meta">
+                    {{ formatFileSize(attachment.size) }} &middot;
+                    Uploaded {{ formatDate(attachment.createdAt) }}
+                    @if (attachment.uploadedBy) {
+                      by <strong>{{ attachment.uploadedBy.name }}</strong>
+                    }
+                  </div>
+                  @if (attachment.isDeleted && attachment.deletedBy) {
+                    <div class="attachment-meta deleted-meta">
+                      <i nz-icon nzType="delete" nzTheme="outline" style="margin-right: 4px;"></i>
+                      Deleted {{ formatDate(attachment.deletedAt!) }}
+                      by <strong>{{ attachment.deletedBy.name }}</strong>
+                    </div>
+                  }
+                </div>
+
+                <!-- Actions -->
+                <div class="attachment-actions">
+                  @if (!attachment.isDeleted) {
+                    <a
+                      nz-button
+                      nzType="link"
+                      nzSize="small"
+                      [href]="attachment.url"
+                      target="_blank"
+                      download
+                      nz-tooltip="Download"
+                    >
+                      <i nz-icon nzType="download" nzTheme="outline"></i>
+                    </a>
+                    @if (canDeleteAttachment(attachment)) {
+                      <button
+                        nz-button
+                        nzType="link"
+                        nzDanger
+                        nzSize="small"
+                        nz-popconfirm
+                        nzPopconfirmTitle="Delete this attachment?"
+                        (nzOnConfirm)="deleteAttachment(attachment)"
+                        [nzLoading]="deletingAttachmentId() === attachment.id"
+                        nz-tooltip="Delete"
+                      >
+                        <i nz-icon nzType="delete" nzTheme="outline"></i>
+                      </button>
+                    }
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <nz-empty nzNotFoundContent="No attachments yet"></nz-empty>
+        }
+      </nz-card>
+
       <!-- Status History Timeline -->
       <nz-card nzTitle="Status History">
         @if (t.statusHistory && t.statusHistory.length > 0) {

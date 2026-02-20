@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpEventType } from '@angular/common/http';
 import { Apollo, gql } from 'apollo-angular';
-import { map, Observable } from 'rxjs';
+import { map, Observable, filter } from 'rxjs';
+import { AuthService } from './auth.service';
 
 // GraphQL Mutations
 const CREATE_MIS_TICKET = gql`
@@ -647,10 +649,37 @@ const TICKET_BY_NUMBER = gql`
           role
         }
       }
+      attachments {
+        id
+        ticketId
+        filename
+        originalName
+        mimeType
+        size
+        url
+        uploadedBy {
+          id
+          name
+          role
+        }
+        isDeleted
+        deletedAt
+        deletedBy {
+          id
+          name
+          role
+        }
+        createdAt
+      }
     }
   }
 `;
 
+const DELETE_TICKET_ATTACHMENT = gql`
+  mutation DeleteTicketAttachment($attachmentId: Int!) {
+    deleteTicketAttachment(attachmentId: $attachmentId)
+  }
+`;
 
 
 
@@ -705,6 +734,29 @@ export interface TicketResponse {
   type: string;
   priority: string;
   status: string;
+  createdAt: string;
+}
+
+export interface TicketAttachment {
+  id: number;
+  ticketId: number;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  uploadedBy?: {
+    id: number;
+    name: string;
+    role: string;
+  };
+  isDeleted: boolean;
+  deletedAt?: string;
+  deletedBy?: {
+    id: number;
+    name: string;
+    role: string;
+  };
   createdAt: string;
 }
 
@@ -809,6 +861,7 @@ export interface TicketDetail extends TicketListItem {
       role: string;
     };
   }>;
+  attachments: TicketAttachment[];
   statusHistory: Array<{
     id: number;
     fromStatus?: string;
@@ -828,6 +881,15 @@ export interface TicketDetail extends TicketListItem {
 })
 export class TicketService {
   private readonly apollo = inject(Apollo);
+  private readonly http = inject(HttpClient);
+  private readonly authService = inject(AuthService);
+
+  /** Base URL for REST API (derived from GraphQL URL) */
+  private get apiBaseUrl(): string {
+    // GraphQL URL is like http://localhost:4000/graphql, we need http://localhost:4000
+    const graphqlUrl = 'http://localhost:4000'; // same origin as backend
+    return graphqlUrl;
+  }
 
   createMISTicket(input: CreateMISTicketInput): Observable<TicketResponse> {
     return this.apollo
@@ -1345,6 +1407,75 @@ export class TicketService {
             throw new Error('Failed to add monitor notes');
           }
           return result.data.addMonitorAndRecommendations;
+        })
+      );
+  }
+
+  // ========================================
+  // ATTACHMENT METHODS
+  // ========================================
+
+  /**
+   * Upload files as attachments to a ticket
+   * Uses REST endpoint since GraphQL doesn't handle multipart uploads well
+   * @param ticketId - ID of the ticket to attach files to
+   * @param files - FileList or File array to upload
+   * @param onProgress - Optional callback for upload progress (0-100)
+   * @returns Observable with the created attachment records
+   */
+  uploadAttachments(
+    ticketId: number,
+    files: File[],
+    onProgress?: (percent: number) => void
+  ): Observable<{ success: boolean; attachments: TicketAttachment[] }> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+
+    const token = this.authService.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return this.http.post<{ success: boolean; attachments: TicketAttachment[] }>(
+      `${this.apiBaseUrl}/upload/ticket-attachments?ticketId=${ticketId}`,
+      formData,
+      { headers, reportProgress: true, observe: 'events' }
+    ).pipe(
+      map((event) => {
+        if (event.type === HttpEventType.UploadProgress && event.total) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          if (onProgress) onProgress(percent);
+          // Return null for progress events (will be filtered out)
+          return null as any;
+        }
+        if (event.type === HttpEventType.Response) {
+          if (onProgress) onProgress(100);
+          return event.body as { success: boolean; attachments: TicketAttachment[] };
+        }
+        return null as any;
+      }),
+      // Filter out null progress events, only emit the final response
+      filter((result): result is { success: boolean; attachments: TicketAttachment[] } => result !== null)
+    );
+  }
+
+  /**
+   * Delete a ticket attachment
+   * @param attachmentId - ID of the attachment to delete
+   */
+  deleteAttachment(attachmentId: number): Observable<boolean> {
+    return this.apollo
+      .mutate<{ deleteTicketAttachment: boolean }>({
+        mutation: DELETE_TICKET_ATTACHMENT,
+        variables: { attachmentId },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.deleteTicketAttachment) {
+            throw new Error('Failed to delete attachment');
+          }
+          return result.data.deleteTicketAttachment;
         })
       );
   }

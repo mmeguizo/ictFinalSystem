@@ -127,6 +127,10 @@ export const ticketTypeDefs = gql`
     mimeType: String!
     size: Int!
     url: String!
+    uploadedBy: User
+    isDeleted: Boolean!
+    deletedAt: String
+    deletedBy: User
     createdAt: String!
   }
 
@@ -276,5 +280,7 @@ export const ticketTypeDefs = gql`
     rejectSchedule(ticketId: Int!, reason: String!): Ticket!
     # Monitor workflow (for Heads after visit)
     addMonitorAndRecommendations(ticketId: Int!, input: AddMonitorInput!): Ticket!
+    # Attachment management
+    deleteTicketAttachment(attachmentId: Int!): Boolean!
   }
 `;

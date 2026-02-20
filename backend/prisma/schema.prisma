@@ -71,6 +71,10 @@ model User {
   
   // Notifications
   notifications       Notification[]
+  
+  // Attachments
+  uploadedAttachments  TicketAttachment[] @relation("AttachmentUploader")
+  deletedAttachments   TicketAttachment[] @relation("AttachmentDeleter")
 
 
   isActive            Boolean   @default(true)
@@ -223,9 +227,20 @@ model TicketAttachment {
   size            Int
   url             String
   
+  // Who uploaded this file
+  uploadedById    Int?
+  uploadedBy      User?    @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  
+  // Soft delete tracking
+  isDeleted       Boolean  @default(false)
+  deletedAt       DateTime?
+  deletedById     Int?
+  deletedBy       User?    @relation("AttachmentDeleter", fields: [deletedById], references: [id])
+  
   createdAt       DateTime @default(now())
   
   @@index([ticketId])
+  @@index([uploadedById])
 }
 
 model TicketStatusHistory {

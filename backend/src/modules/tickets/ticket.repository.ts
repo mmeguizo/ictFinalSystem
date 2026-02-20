@@ -69,7 +69,15 @@ export class TicketRepository {
             createdAt: 'desc',
           },
         },
-        attachments: true,
+        attachments: {
+          include: {
+            uploadedBy: true,
+            deletedBy: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
         statusHistory: {
           include: {
             user: true,
@@ -97,6 +105,15 @@ export class TicketRepository {
         notes: {
           include: {
             user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        attachments: {
+          include: {
+            uploadedBy: true,
+            deletedBy: true,
           },
           orderBy: {
             createdAt: 'desc',

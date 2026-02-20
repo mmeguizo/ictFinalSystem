@@ -255,3 +255,177 @@
     vertical-align: top;
   }
 }
+
+// ========================================
+// ATTACHMENTS SECTION
+// ========================================
+
+.upload-section {
+  margin-bottom: 16px;
+}
+
+.upload-area {
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #fafafa;
+
+  &:hover {
+    border-color: #1890ff;
+    background: #e6f7ff;
+  }
+
+  .upload-icon {
+    font-size: 32px;
+    color: #1890ff;
+    margin-bottom: 8px;
+  }
+
+  .upload-text {
+    font-size: 14px;
+    color: #262626;
+    margin-bottom: 4px;
+  }
+
+  .upload-hint {
+    font-size: 12px;
+    color: #8c8c8c;
+    margin: 0;
+  }
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+
+  // Custom scrollbar styling
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 3px;
+
+    &:hover {
+      background: #bfbfbf;
+    }
+  }
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fafafa;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #d9d9d9;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  .attachment-preview {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+
+    .attachment-thumbnail {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid #f0f0f0;
+    }
+
+    .attachment-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #e6f7ff;
+      border-radius: 4px;
+      font-size: 22px;
+      color: #1890ff;
+    }
+  }
+
+  .attachment-info {
+    flex: 1;
+    min-width: 0;
+
+    .attachment-name {
+      display: block;
+      font-size: 14px;
+      color: #1890ff;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      max-width: 100%;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    .attachment-meta {
+      font-size: 12px;
+      color: #8c8c8c;
+    }
+  }
+
+  .attachment-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+  }
+
+  // Deleted attachment styling
+  &.deleted {
+    opacity: 0.6;
+    background: #fff1f0;
+    border-color: #ffccc7;
+
+    .deleted-icon {
+      background: #fff1f0;
+      color: #ff4d4f;
+    }
+
+    .deleted-name {
+      display: block;
+      font-size: 14px;
+      color: #8c8c8c;
+      text-decoration: line-through;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+
+    .deleted-meta {
+      color: #ff4d4f;
+      font-size: 12px;
+    }
+  }
+}
