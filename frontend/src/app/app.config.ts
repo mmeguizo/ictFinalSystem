@@ -1,4 +1,4 @@
-import { ApplicationConfig, inject, provideBrowserGlobalErrorListeners, provideZoneChangeDetection, provideAppInitializer } from '@angular/core';
+import { ApplicationConfig, inject, NgZone, provideBrowserGlobalErrorListeners, provideZoneChangeDetection, provideAppInitializer } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 
@@ -73,6 +73,7 @@ export const appConfig: ApplicationConfig = {
     provideApollo(() => {
       const httpLink = inject(HttpLink);
       const router = inject(Router);
+      const ngZone = inject(NgZone);
 
       // Only use auth on the browser, not during SSR
       if (typeof window !== 'undefined') {
@@ -131,7 +132,16 @@ export const appConfig: ApplicationConfig = {
                 console.warn('[Apollo] Authentication error detected, logging out user. Error:', err.message, 'Code:', errorCode);
                 isLoggingOut = true;
                 // Clear auth state and redirect to login
-                appAuthService.logout();
+                // Must run inside NgZone so Angular Router navigation works
+                ngZone.run(() => {
+                  appAuthService.logout();
+                });
+                // Fallback: force redirect if router navigation didn't work
+                setTimeout(() => {
+                  if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                  }
+                }, 500);
                 return;
               }
             }
@@ -143,7 +153,15 @@ export const appConfig: ApplicationConfig = {
             if ('status' in networkError && networkError.status === 401) {
               console.warn('[Apollo] 401 Network error detected, logging out user');
               isLoggingOut = true;
-              appAuthService.logout();
+              ngZone.run(() => {
+                appAuthService.logout();
+              });
+              // Fallback: force redirect if router navigation didn't work
+              setTimeout(() => {
+                if (window.location.pathname !== '/login') {
+                  window.location.href = '/login';
+                }
+              }, 500);
             }
           }
         });
