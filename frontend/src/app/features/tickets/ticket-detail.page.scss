@@ -429,3 +429,167 @@
     }
   }
 }
+
+// ========================================
+// SLA Processing Time Tracker
+// ========================================
+.sla-card {
+  .sla-overall {
+    margin-bottom: 24px;
+
+    .sla-overall-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .sla-overall-label {
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .sla-overall-time {
+      font-size: 13px;
+      color: #666;
+    }
+  }
+
+  .sla-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sla-step {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    transition: all 0.2s;
+
+    &--active {
+      background: #e6f7ff;
+      border-color: #91d5ff;
+    }
+
+    &--overdue {
+      background: #fff2f0;
+      border-color: #ffccc7;
+    }
+
+    &--completed {
+      background: #f6ffed;
+      border-color: #b7eb8f;
+    }
+
+    &--skipped {
+      opacity: 0.5;
+    }
+
+    &--waiting {
+      opacity: 0.7;
+    }
+  }
+
+  .sla-step-indicator {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #d9d9d9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+  }
+
+  .sla-step-icon {
+    font-size: 18px;
+  }
+
+  .sla-step-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sla-step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .sla-step-name {
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .sla-step-expected {
+    font-size: 12px;
+    color: #999;
+  }
+
+  .sla-step-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .sla-step-time {
+    font-size: 14px;
+    font-weight: 600;
+
+    &.sla-time--ok {
+      color: #52c41a;
+    }
+
+    &.sla-time--late {
+      color: #ff4d4f;
+    }
+
+    &.sla-time--progress {
+      color: #1890ff;
+    }
+
+    &.sla-time--waiting {
+      color: #999;
+      font-weight: normal;
+    }
+
+    &.sla-time--skipped {
+      color: #bfbfbf;
+      font-weight: normal;
+    }
+  }
+
+  .sla-step-timestamps {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    small {
+      color: #999;
+      font-size: 11px;
+    }
+  }
+
+  .sla-summary {
+    .sla-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 13px;
+
+      span {
+        color: #666;
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   OnInit,
   signal,
@@ -29,6 +30,7 @@ import { FormsModule } from '@angular/forms';
 import { TicketService, TicketListItem } from '../../core/services/ticket.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { AuthService } from '../../core/services/auth.service';
+import { RealtimeService } from '../../core/services/realtime.service';
 
 /**
  * My Tickets Page
@@ -69,6 +71,31 @@ export class MyTicketsPage implements OnInit {
   private readonly message = inject(NzMessageService);
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly realtimeService = inject(RealtimeService);
+
+  constructor() {
+    // Real-time: auto-refresh table when WebSocket events arrive
+    effect(() => {
+      const created = this.realtimeService.lastTicketCreated();
+      if (created) {
+        this.silentRefresh();
+      }
+    });
+
+    effect(() => {
+      const changed = this.realtimeService.lastStatusChange();
+      if (changed) {
+        this.silentRefresh();
+      }
+    });
+
+    effect(() => {
+      const notif = this.realtimeService.lastNotification();
+      if (notif) {
+        this.silentRefresh();
+      }
+    });
+  }
 
   readonly loading = signal(false);
   readonly tickets = signal<TicketListItem[]>([]);
@@ -285,23 +312,28 @@ export class MyTicketsPage implements OnInit {
       this.loadStaffList();
     }
 
-    // Set up auto-refresh polling every 60 seconds (1 minute)
-    // Only poll when user is viewing the page
-    interval(60000) // 60000ms = 1 minute
+    // Set up auto-refresh polling every 60 seconds (fallback for missed WS events)
+    interval(60000)
       .pipe(
         switchMap(() => this.getTicketQuery()),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (tickets) => {
-          // Silently update tickets without showing loading spinner
           this.tickets.set(tickets);
         },
         error: (error) => {
           console.error('Auto-refresh failed:', error);
-          // Don't show error message to avoid interrupting user
         },
       });
+  }
+
+  /** Silently refresh the ticket list without showing loading spinner */
+  private silentRefresh(): void {
+    this.getTicketQuery().subscribe({
+      next: (tickets) => this.tickets.set(tickets),
+      error: (err) => console.error('Silent refresh failed:', err),
+    });
   }
 
   /**

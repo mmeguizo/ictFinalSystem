@@ -564,6 +564,117 @@
         }
       </nz-card>
 
+      <!-- SLA Processing Time Tracker -->
+      @if (slaTimeline(); as sla) {
+        <nz-card nzTitle="Processing Time Tracker" class="sla-card"
+          [nzExtra]="slaHeaderExtra">
+          <ng-template #slaHeaderExtra>
+            @if (sla.isOverdue) {
+              <nz-tag nzColor="error">⚠️ Overdue</nz-tag>
+            } @else if (sla.completedSteps === sla.totalSteps) {
+              <nz-tag nzColor="success">✅ All Steps Completed</nz-tag>
+            } @else {
+              <nz-tag nzColor="processing">🔄 In Progress</nz-tag>
+            }
+          </ng-template>
+
+          <!-- Overall Progress Bar -->
+          <div class="sla-overall">
+            <div class="sla-overall-info">
+              <span class="sla-overall-label">Overall Progress</span>
+              <span class="sla-overall-time">
+                {{ formatDuration(sla.totalActualMinutes) }} / {{ formatDuration(sla.totalExpectedMinutes) }}
+              </span>
+            </div>
+            <nz-progress
+              [nzPercent]="(sla.completedSteps / sla.totalSteps) * 100"
+              [nzStatus]="sla.isOverdue ? 'exception' : (sla.completedSteps === sla.totalSteps ? 'success' : 'active')"
+              [nzShowInfo]="true"
+              [nzFormat]="slaProgressFormat">
+            </nz-progress>
+            <ng-template #slaProgressFormat let-percent>
+              {{ sla.completedSteps }}/{{ sla.totalSteps }}
+            </ng-template>
+          </div>
+
+          <!-- SLA Steps -->
+          <div class="sla-steps">
+            @for (step of sla.steps; track step.stepNumber) {
+              <div class="sla-step" [class.sla-step--active]="step.status === 'IN_PROGRESS' || step.status === 'IN_PROGRESS_OVERDUE'"
+                   [class.sla-step--overdue]="step.status === 'COMPLETED_LATE' || step.status === 'IN_PROGRESS_OVERDUE'"
+                   [class.sla-step--completed]="step.status === 'COMPLETED_ON_TIME'"
+                   [class.sla-step--skipped]="step.status === 'SKIPPED'"
+                   [class.sla-step--waiting]="step.status === 'NOT_STARTED'">
+                <div class="sla-step-indicator" [style.border-color]="getSLAStepColor(step.status)">
+                  <span class="sla-step-icon">{{ getSLAStepIcon(step.status) }}</span>
+                </div>
+                <div class="sla-step-content">
+                  <div class="sla-step-header">
+                    <span class="sla-step-name">Step {{ step.stepNumber }}: {{ step.name }}</span>
+                    <span class="sla-step-expected">Expected: {{ step.expectedMinutes }} min</span>
+                  </div>
+                  <div class="sla-step-details">
+                    @switch (step.status) {
+                      @case ('COMPLETED_ON_TIME') {
+                        <span class="sla-step-time sla-time--ok">{{ formatDuration(step.actualMinutes) }}</span>
+                        <nz-tag nzColor="success">On Time</nz-tag>
+                      }
+                      @case ('COMPLETED_LATE') {
+                        <span class="sla-step-time sla-time--late">{{ formatDuration(step.actualMinutes) }}</span>
+                        <nz-tag nzColor="error">Overdue by {{ formatDuration((step.actualMinutes || 0) - step.expectedMinutes) }}</nz-tag>
+                      }
+                      @case ('IN_PROGRESS') {
+                        <span class="sla-step-time sla-time--progress">{{ formatDuration(step.actualMinutes) }}</span>
+                        <nz-tag nzColor="processing">In Progress</nz-tag>
+                      }
+                      @case ('IN_PROGRESS_OVERDUE') {
+                        <span class="sla-step-time sla-time--late">{{ formatDuration(step.actualMinutes) }}</span>
+                        <nz-tag nzColor="error">Overdue by {{ formatDuration((step.actualMinutes || 0) - step.expectedMinutes) }}</nz-tag>
+                      }
+                      @case ('NOT_STARTED') {
+                        <span class="sla-step-time sla-time--waiting">Waiting</span>
+                        <nz-tag>Pending</nz-tag>
+                      }
+                      @case ('SKIPPED') {
+                        <span class="sla-step-time sla-time--skipped">-</span>
+                        <nz-tag>Skipped</nz-tag>
+                      }
+                    }
+                  </div>
+                  @if (step.startedAt && step.status !== 'NOT_STARTED' && step.status !== 'SKIPPED') {
+                    <div class="sla-step-timestamps">
+                      <small>Started: {{ formatDate(step.startedAt) }}</small>
+                      @if (step.completedAt) {
+                        <small>Completed: {{ formatDate(step.completedAt) }}</small>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- SLA Summary -->
+          <div class="sla-summary">
+            <nz-divider></nz-divider>
+            <div class="sla-summary-row">
+              <span>Submitted:</span>
+              <strong>{{ formatDate(sla.submittedAt) }}</strong>
+            </div>
+            <div class="sla-summary-row">
+              <span>Total Expected Processing Time:</span>
+              <strong>{{ sla.totalExpectedMinutes }} minutes</strong>
+            </div>
+            @if (sla.totalActualMinutes > 0) {
+              <div class="sla-summary-row">
+                <span>Total Actual Time (completed steps):</span>
+                <strong [style.color]="sla.isOverdue ? '#ff4d4f' : '#52c41a'">{{ formatDuration(sla.totalActualMinutes) }}</strong>
+              </div>
+            }
+          </div>
+        </nz-card>
+      }
+
       <!-- Status History Timeline -->
       <nz-card nzTitle="Status History">
         @if (t.statusHistory && t.statusHistory.length > 0) {

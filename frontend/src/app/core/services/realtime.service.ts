@@ -130,8 +130,21 @@ export class RealtimeService {
   readonly lastTicketCreated = signal<TicketCreatedEvent | null>(null);
   readonly lastAssignment = signal<TicketAssignedEvent | null>(null);
 
+  // Signal to force-refresh a specific ticket (triggered by notification click)
+  readonly forceTicketRefresh = signal<string | null>(null);
+
   // Connection state
   readonly connected = signal(false);
+
+  /**
+   * Trigger a forced refresh of a ticket by its ticketNumber.
+   * Used when clicking a notification to ensure the ticket detail page reloads.
+   */
+  triggerTicketRefresh(ticketNumber: string): void {
+    // Set to null first, then set the value to ensure the signal always fires
+    this.forceTicketRefresh.set(null);
+    this.forceTicketRefresh.set(ticketNumber);
+  }
 
   /**
    * Start all real-time subscriptions for the current user.

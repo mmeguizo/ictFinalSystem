@@ -289,6 +289,8 @@ export class NotificationBellComponent implements OnInit {
 
     // Navigate to ticket if available
     if (notification.ticket?.ticketNumber) {
+      // Force refresh the ticket detail page (handles same-page navigation)
+      this.realtimeService.triggerTicketRefresh(notification.ticket.ticketNumber);
       this.router.navigate(['/tickets', notification.ticket.ticketNumber]);
     }
   }

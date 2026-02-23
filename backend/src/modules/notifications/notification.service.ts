@@ -18,21 +18,35 @@ export class NotificationService {
     });
   }
 
-  private publishNotificationsForUsers(userIds: number[], ticketId: number, type: NotificationType, title: string, message: string, metadata?: Record<string, any>) {
-    // For bulk-created notifications, publish individual events per user
-    for (const userId of userIds) {
-      pubsub.publish(EVENTS.NOTIFICATION_CREATED, {
-        notificationCreated: {
-          userId,
-          ticketId,
-          type,
-          title,
-          message,
-          isRead: false,
-          metadata,
-          createdAt: new Date().toISOString(),
-        },
-      });
+  /**
+   * Create individual notifications for multiple users and publish each one.
+   * Unlike createMany (which returns only a count), this creates each notification
+   * individually so we get the full record (with id, ticket relation) for WebSocket publishing.
+   */
+  private async createAndPublishForUsers(
+    users: { id: number }[],
+    data: {
+      ticketId: number;
+      type: NotificationType;
+      title: string;
+      message: string;
+      metadata?: Record<string, any>;
+    }
+  ) {
+    for (const user of users) {
+      try {
+        const notification = await this.repository.create({
+          userId: user.id,
+          ticketId: data.ticketId,
+          type: data.type,
+          title: data.title,
+          message: data.message,
+          metadata: data.metadata,
+        });
+        this.publishNotification(notification);
+      } catch (err) {
+        console.error(`Failed to create/publish notification for user ${user.id}:`, err);
+      }
     }
   }
 
@@ -274,37 +288,20 @@ export class NotificationService {
     const adminSecretaries = await this.prisma.user.findMany({
       where: {
         role: { in: [Role.ADMIN, Role.SECRETARY] },
-        id: { not: authorId }, // Don't notify the author
+        id: { not: authorId },
       },
       select: { id: true },
     });
 
     if (adminSecretaries.length === 0) return;
 
-    const result = await this.repository.createMany(
-      adminSecretaries.map((user) => ({
-        userId: user.id,
-        ticketId,
-        type: NotificationType.NOTE_ADDED,
-        title: isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
-        message: `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
-        metadata: {
-          authorName,
-          isInternal,
-        },
-      }))
-    );
-
-    this.publishNotificationsForUsers(
-      adminSecretaries.map(u => u.id),
+    await this.createAndPublishForUsers(adminSecretaries, {
       ticketId,
-      NotificationType.NOTE_ADDED,
-      isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
-      `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
-      { authorName, isInternal }
-    );
-
-    return result;
+      type: NotificationType.NOTE_ADDED,
+      title: isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
+      message: `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
+      metadata: { authorName, isInternal },
+    });
   }
 
   /**
@@ -324,29 +321,13 @@ export class NotificationService {
 
     if (secretaries.length === 0) return;
 
-    const result = await this.repository.createMany(
-      secretaries.map((s) => ({
-        userId: s.id,
-        ticketId,
-        type: NotificationType.TICKET_CREATED,
-        title: 'New Ticket for Review',
-        message: `New ticket "${ticketTitle}" (${ticketNumber}) submitted by ${creatorName} requires your review.`,
-        metadata: {
-          creatorName,
-        },
-      }))
-    );
-
-    this.publishNotificationsForUsers(
-      secretaries.map(s => s.id),
+    await this.createAndPublishForUsers(secretaries, {
       ticketId,
-      NotificationType.TICKET_CREATED,
-      'New Ticket for Review',
-      `New ticket "${ticketTitle}" (${ticketNumber}) submitted by ${creatorName} requires your review.`,
-      { creatorName }
-    );
-
-    return result;
+      type: NotificationType.TICKET_CREATED,
+      title: 'New Ticket for Review',
+      message: `New ticket "${ticketTitle}" (${ticketNumber}) submitted by ${creatorName} requires your review.`,
+      metadata: { creatorName },
+    });
   }
 
   /**
@@ -366,29 +347,13 @@ export class NotificationService {
 
     if (approvers.length === 0) return;
 
-    const result = await this.repository.createMany(
-      approvers.map((a) => ({
-        userId: a.id,
-        ticketId,
-        type: NotificationType.TICKET_REVIEWED,
-        title: 'Ticket Ready for Endorsement',
-        message: `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your endorsement.`,
-        metadata: {
-          reviewerName,
-        },
-      }))
-    );
-
-    this.publishNotificationsForUsers(
-      approvers.map(a => a.id),
+    await this.createAndPublishForUsers(approvers, {
       ticketId,
-      NotificationType.TICKET_REVIEWED,
-      'Ticket Ready for Endorsement',
-      `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your endorsement.`,
-      { reviewerName }
-    );
-
-    return result;
+      type: NotificationType.TICKET_REVIEWED,
+      title: 'Ticket Ready for Endorsement',
+      message: `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your endorsement.`,
+      metadata: { reviewerName },
+    });
   }
 
   // ========================================
@@ -418,31 +383,13 @@ export class NotificationService {
     const visitDateStr = dateToVisit.toLocaleDateString();
     const completionDateStr = targetCompletionDate.toLocaleDateString();
 
-    const result = await this.repository.createMany(
-      admins.map((a) => ({
-        userId: a.id,
-        ticketId,
-        type: NotificationType.STATUS_CHANGED,
-        title: 'Visit Schedule Requires Acknowledgment',
-        message: `${headName} has scheduled a visit for ticket "${ticketTitle}" (${ticketNumber}). Visit: ${visitDateStr}, Target Completion: ${completionDateStr}. Please acknowledge.`,
-        metadata: {
-          headName,
-          dateToVisit: visitDateStr,
-          targetCompletionDate: completionDateStr,
-        },
-      }))
-    );
-
-    this.publishNotificationsForUsers(
-      admins.map(a => a.id),
+    await this.createAndPublishForUsers(admins, {
       ticketId,
-      NotificationType.STATUS_CHANGED,
-      'Visit Schedule Requires Acknowledgment',
-      `${headName} has scheduled a visit for ticket "${ticketTitle}" (${ticketNumber}). Visit: ${visitDateStr}, Target Completion: ${completionDateStr}. Please acknowledge.`,
-      { headName, dateToVisit: visitDateStr, targetCompletionDate: completionDateStr }
-    );
-
-    return result;
+      type: NotificationType.STATUS_CHANGED,
+      title: 'Visit Schedule Requires Acknowledgment',
+      message: `${headName} has scheduled a visit for ticket "${ticketTitle}" (${ticketNumber}). Visit: ${visitDateStr}, Target Completion: ${completionDateStr}. Please acknowledge.`,
+      metadata: { headName, dateToVisit: visitDateStr, targetCompletionDate: completionDateStr },
+    });
   }
 
   /**

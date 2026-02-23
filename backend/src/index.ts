@@ -214,7 +214,21 @@ async function start() {
   });
 
   // Attach graphql-ws to handle subscription protocol
-  useServer({ schema }, wsServer);
+  useServer(
+    {
+      schema,
+      onConnect: (ctx: any) => {
+        logger.info(`🔌 WebSocket client connected (params: ${JSON.stringify(ctx.connectionParams || {})})`);
+      },
+      onDisconnect: () => {
+        logger.info('🔌 WebSocket client disconnected');
+      },
+      onSubscribe: (_ctx: any, msg: any) => {
+        logger.info(`📡 Subscription started: ${msg.payload?.operationName || msg.id}`);
+      },
+    },
+    wsServer
+  );
 
   httpServer.listen(config.port, () => {
     const base = `${config.publicBaseUrl}`;

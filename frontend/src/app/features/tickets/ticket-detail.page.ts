@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -25,6 +25,20 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { TicketService, TicketDetail, TicketAttachment } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { RealtimeService } from '../../core/services/realtime.service';
+
+// SLA Step types
+type SLAStepStatus = 'COMPLETED_ON_TIME' | 'COMPLETED_LATE' | 'IN_PROGRESS' | 'IN_PROGRESS_OVERDUE' | 'NOT_STARTED' | 'SKIPPED';
+
+interface SLAStep {
+  stepNumber: number;
+  name: string;
+  expectedMinutes: number;
+  actualMinutes: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  status: SLAStepStatus;
+}
 
 @Component({
   selector: 'app-ticket-detail',
@@ -62,6 +76,37 @@ export class TicketDetailPage implements OnInit {
   private readonly ticketService = inject(TicketService);
   private readonly message = inject(NzMessageService);
   private readonly authService = inject(AuthService);
+  private readonly realtimeService = inject(RealtimeService);
+
+  /** The current ticket number displayed on this page */
+  private currentTicketNumber = '';
+
+  constructor() {
+    // Real-time: auto-refresh ticket detail when WebSocket events arrive
+    effect(() => {
+      const changed = this.realtimeService.lastStatusChange();
+      if (changed && this.currentTicketNumber) {
+        this.silentReloadTicket();
+      }
+    });
+
+    effect(() => {
+      const notif = this.realtimeService.lastNotification();
+      if (notif && this.currentTicketNumber) {
+        // Refresh the current ticket when any notification arrives
+        // (could be a note, attachment, status change, etc.)
+        this.silentReloadTicket();
+      }
+    });
+
+    // Handle forced refresh from notification click (same-page navigation)
+    effect(() => {
+      const ticketNum = this.realtimeService.forceTicketRefresh();
+      if (ticketNum && ticketNum === this.currentTicketNumber) {
+        this.silentReloadTicket();
+      }
+    });
+  }
 
   readonly loading = signal(true);
   readonly ticket = signal<TicketDetail | null>(null);
@@ -266,6 +311,163 @@ export class TicketDetailPage implements OnInit {
   /** Check if user can add internal notes (staff only) */
   readonly canAddInternalNotes = computed(() => this.canViewInternalNotes());
 
+  // ========================================
+  // SLA TIME TRACKING
+  // Based on ICT Support Services processing times:
+  // Step 1: Secretary Review (FOR_REVIEW → REVIEWED) — 5 min
+  // Step 2: Director Endorsement (REVIEWED → DIRECTOR_APPROVED) — 5 min
+  // Step 3: Assignment (DIRECTOR_APPROVED → ASSIGNED) — 5 min
+  // Step 4: Schedule Visit (ASSIGNED → PENDING_ACKNOWLEDGMENT) — 5 min
+  // Step 5: Acknowledgment (PENDING_ACKNOWLEDGMENT → SCHEDULED) — 5 min
+  // Total SLA: 25 minutes
+  // ========================================
+
+  /** SLA step definitions mapping status transitions to expected processing times */
+  private readonly SLA_STEPS = [
+    { stepNumber: 1, name: 'Secretary Review', fromStatus: 'FOR_REVIEW', toStatus: 'REVIEWED', expectedMinutes: 5 },
+    { stepNumber: 2, name: 'Director Endorsement', fromStatus: 'REVIEWED', toStatus: 'DIRECTOR_APPROVED', expectedMinutes: 5 },
+    { stepNumber: 3, name: 'Assignment', fromStatus: 'DIRECTOR_APPROVED', toStatus: 'ASSIGNED', expectedMinutes: 5 },
+    { stepNumber: 4, name: 'Schedule Visit', fromStatus: 'ASSIGNED', toStatus: 'PENDING_ACKNOWLEDGMENT', expectedMinutes: 5 },
+    { stepNumber: 5, name: 'Acknowledgment', fromStatus: 'PENDING_ACKNOWLEDGMENT', toStatus: 'SCHEDULED', expectedMinutes: 5 },
+  ];
+
+  /** Computed SLA timeline from ticket status history */
+  readonly slaTimeline = computed(() => {
+    const t = this.ticket();
+    if (!t) return null;
+
+    const history = [...(t.statusHistory || [])].sort(
+      (a, b) => this.parseDate(a.createdAt).getTime() - this.parseDate(b.createdAt).getTime()
+    );
+
+    const steps: SLAStep[] = [];
+    let totalActualMinutes = 0;
+    let hasOverdue = false;
+    const currentStatus = t.status;
+
+    for (const slaDef of this.SLA_STEPS) {
+      // Find when this step started (entry into fromStatus)
+      const startEntry = this.findStatusEntry(history, slaDef.fromStatus, t.createdAt);
+      // Find when this step completed (transition to toStatus)
+      const completionEntry = history.find(
+        h => h.fromStatus === slaDef.fromStatus && h.toStatus === slaDef.toStatus
+      );
+
+      let status: SLAStepStatus;
+      let actualMinutes: number | null = null;
+      let startedAt: string | null = startEntry;
+      let completedAt: string | null = null;
+
+      if (completionEntry) {
+        // Step is completed
+        completedAt = completionEntry.createdAt;
+        const startTime = this.parseDate(startEntry).getTime();
+        const endTime = this.parseDate(completionEntry.createdAt).getTime();
+        actualMinutes = Math.round(((endTime - startTime) / 60000) * 100) / 100;
+        totalActualMinutes += actualMinutes;
+
+        status = actualMinutes <= slaDef.expectedMinutes ? 'COMPLETED_ON_TIME' : 'COMPLETED_LATE';
+        if (status === 'COMPLETED_LATE') hasOverdue = true;
+      } else if (currentStatus === slaDef.fromStatus) {
+        // Currently in this step
+        const startTime = this.parseDate(startEntry).getTime();
+        const now = Date.now();
+        actualMinutes = Math.round(((now - startTime) / 60000) * 100) / 100;
+
+        status = actualMinutes <= slaDef.expectedMinutes ? 'IN_PROGRESS' : 'IN_PROGRESS_OVERDUE';
+        if (status === 'IN_PROGRESS_OVERDUE') hasOverdue = true;
+      } else if (currentStatus === 'CANCELLED' || currentStatus === 'CLOSED') {
+        // Ticket was cancelled or closed before reaching this step
+        status = 'SKIPPED';
+      } else {
+        // Step hasn't been reached yet
+        const statusOrder = ['FOR_REVIEW', 'REVIEWED', 'DIRECTOR_APPROVED', 'ASSIGNED', 'PENDING_ACKNOWLEDGMENT', 'SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'];
+        const currentIdx = statusOrder.indexOf(currentStatus);
+        const stepIdx = statusOrder.indexOf(slaDef.fromStatus);
+        status = currentIdx >= stepIdx ? 'SKIPPED' : 'NOT_STARTED';
+        startedAt = null;
+      }
+
+      steps.push({
+        stepNumber: slaDef.stepNumber,
+        name: slaDef.name,
+        expectedMinutes: slaDef.expectedMinutes,
+        actualMinutes,
+        startedAt,
+        completedAt,
+        status,
+      });
+    }
+
+    const completedSteps = steps.filter(s => s.status === 'COMPLETED_ON_TIME' || s.status === 'COMPLETED_LATE');
+    const totalExpected = 25; // Total SLA in minutes
+
+    return {
+      steps,
+      totalExpectedMinutes: totalExpected,
+      totalActualMinutes: Math.round(totalActualMinutes * 100) / 100,
+      completedSteps: completedSteps.length,
+      totalSteps: this.SLA_STEPS.length,
+      isOverdue: hasOverdue,
+      submittedAt: t.createdAt,
+      currentStatus,
+    };
+  });
+
+  /** Find when a status was first entered */
+  private findStatusEntry(history: Array<{fromStatus?: string; toStatus: string; createdAt: string}>, status: string, ticketCreatedAt: string): string {
+    if (status === 'FOR_REVIEW') {
+      return ticketCreatedAt; // Ticket starts as FOR_REVIEW upon creation
+    }
+    const entry = history.find(h => h.toStatus === status);
+    return entry ? entry.createdAt : ticketCreatedAt;
+  }
+
+  /** Parse date string to Date object (handles timestamps and ISO strings) */
+  private parseDate(dateString: string): Date {
+    if (/^\d+$/.test(dateString)) {
+      return new Date(parseInt(dateString, 10));
+    }
+    return new Date(dateString);
+  }
+
+  /** Format minutes into human-readable duration */
+  formatDuration(minutes: number | null): string {
+    if (minutes === null || minutes === undefined) return '-';
+    if (minutes < 1) return `${Math.round(minutes * 60)}s`;
+    if (minutes < 60) return `${Math.round(minutes * 10) / 10} min`;
+    const hrs = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    if (hrs < 24) return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+    const days = Math.floor(hrs / 24);
+    const remHrs = hrs % 24;
+    return remHrs > 0 ? `${days}d ${remHrs}h` : `${days}d`;
+  }
+
+  /** Get SLA step icon */
+  getSLAStepIcon(status: SLAStepStatus): string {
+    switch (status) {
+      case 'COMPLETED_ON_TIME': return '✅';
+      case 'COMPLETED_LATE': return '⚠️';
+      case 'IN_PROGRESS': return '🔄';
+      case 'IN_PROGRESS_OVERDUE': return '🔴';
+      case 'NOT_STARTED': return '⏳';
+      case 'SKIPPED': return '⏭️';
+    }
+  }
+
+  /** Get SLA step color class */
+  getSLAStepColor(status: SLAStepStatus): string {
+    switch (status) {
+      case 'COMPLETED_ON_TIME': return '#52c41a';
+      case 'COMPLETED_LATE': return '#faad14';
+      case 'IN_PROGRESS': return '#1890ff';
+      case 'IN_PROGRESS_OVERDUE': return '#ff4d4f';
+      case 'NOT_STARTED': return '#d9d9d9';
+      case 'SKIPPED': return '#bfbfbf';
+    }
+  }
+
   /** Check if user can upload attachments (creator, assigned staff, heads, admin) */
   readonly canUploadAttachments = computed(() => {
     const t = this.ticket();
@@ -296,18 +498,31 @@ export class TicketDetailPage implements OnInit {
   ];
 
   ngOnInit(): void {
-    const ticketNumber = this.route.snapshot.paramMap.get('ticketNumber');
-    if (ticketNumber) {
-      this.loadTicket(ticketNumber);
-    } else {
-      this.loading.set(false);
-      this.message.error('Invalid ticket number');
-    }
+    // Subscribe to route param changes so navigating from one ticket to another reloads
+    this.route.paramMap.subscribe((params) => {
+      const ticketNumber = params.get('ticketNumber');
+      if (ticketNumber) {
+        this.currentTicketNumber = ticketNumber;
+        this.loadTicket(ticketNumber);
+      } else {
+        this.loading.set(false);
+        this.message.error('Invalid ticket number');
+      }
+    });
 
     // Load staff list if user is a department head (for assignment dropdown)
     if (this.isDepartmentHead()) {
       this.loadStaffList();
     }
+  }
+
+  /** Silently reload the current ticket without showing loading spinner */
+  private silentReloadTicket(): void {
+    if (!this.currentTicketNumber) return;
+    this.ticketService.getTicketByNumber(this.currentTicketNumber).subscribe({
+      next: (ticket) => this.ticket.set(ticket),
+      error: (err) => console.error('Silent ticket refresh failed:', err),
+    });
   }
 
   /**
