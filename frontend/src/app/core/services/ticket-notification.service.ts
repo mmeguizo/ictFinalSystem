@@ -60,7 +60,8 @@ export type NotificationType =
   | 'TICKET_DISAPPROVED'
   | 'TICKET_ASSIGNED'
   | 'STATUS_CHANGED'
-  | 'NOTE_ADDED';
+  | 'NOTE_ADDED'
+  | 'ATTACHMENT_ADDED';
 
 export interface NotificationTicket {
   id: number;
@@ -223,6 +224,8 @@ export class TicketNotificationService {
         return 'sync';
       case 'NOTE_ADDED':
         return 'message';
+      case 'ATTACHMENT_ADDED':
+        return 'paper-clip';
       default:
         return 'bell';
     }
@@ -242,6 +245,8 @@ export class TicketNotificationService {
         return '#1890ff'; // blue
       case 'STATUS_CHANGED':
         return '#722ed1'; // purple
+      case 'ATTACHMENT_ADDED':
+        return '#13c2c2'; // cyan
       default:
         return '#faad14'; // gold
     }

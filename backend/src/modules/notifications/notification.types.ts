@@ -10,6 +10,7 @@ export const notificationTypeDefs = gql`
     TICKET_ASSIGNED
     STATUS_CHANGED
     NOTE_ADDED
+    ATTACHMENT_ADDED
   }
 
   type NotificationTicket {
@@ -40,6 +41,41 @@ export const notificationTypeDefs = gql`
     count: Int!
   }
 
+  # ─── Real-time subscription payloads ──────────────────────
+
+  """Fired when a ticket's status changes (e.g. FOR_REVIEW → ASSIGNED)"""
+  type TicketStatusChangedPayload {
+    ticketId: Int!
+    ticketNumber: String!
+    title: String!
+    oldStatus: TicketStatus!
+    newStatus: TicketStatus!
+    changedBy: String!
+    timestamp: String!
+  }
+
+  """Fired when a brand-new ticket is created"""
+  type TicketCreatedPayload {
+    ticketId: Int!
+    ticketNumber: String!
+    title: String!
+    type: TicketType!
+    priority: Priority!
+    createdBy: String!
+    timestamp: String!
+  }
+
+  """Fired when a ticket is assigned to someone"""
+  type TicketAssignedPayload {
+    ticketId: Int!
+    ticketNumber: String!
+    title: String!
+    assignedToUserId: Int!
+    assignedToName: String!
+    assignedBy: String!
+    timestamp: String!
+  }
+
   extend type Query {
     myNotifications(unreadOnly: Boolean, limit: Int): [Notification!]!
     unreadNotificationCount: NotificationCount!
@@ -48,5 +84,19 @@ export const notificationTypeDefs = gql`
   extend type Mutation {
     markNotificationAsRead(id: Int!): Notification!
     markAllNotificationsAsRead: MarkAllReadResult!
+  }
+
+  extend type Subscription {
+    """Listen for any ticket status change (optionally filter by ticketId)"""
+    ticketStatusChanged(ticketId: Int): TicketStatusChangedPayload!
+
+    """Listen for newly created tickets (useful for secretary/dashboard)"""
+    ticketCreated: TicketCreatedPayload!
+
+    """Listen for ticket assignments to a specific user"""
+    ticketAssigned(userId: Int!): TicketAssignedPayload!
+
+    """Listen for new notifications for the current user"""
+    notificationCreated(userId: Int!): Notification!
   }
 `;

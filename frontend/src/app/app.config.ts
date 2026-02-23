@@ -29,9 +29,12 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
-import { InMemoryCache, ApolloLink } from '@apollo/client/core';
+import { InMemoryCache, ApolloLink, split } from '@apollo/client/core';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
+import { getMainDefinition } from '@apollo/client/utilities';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { createClient } from 'graphql-ws';
 import type { GraphQLError } from 'graphql';
 import { provideAuth0, AuthService } from '@auth0/auth0-angular';
 import { from } from 'rxjs';
@@ -204,11 +207,38 @@ export const appConfig: ApplicationConfig = {
         });
 
         // Chain: errorLink -> authLink -> httpLink
-        const link = ApolloLink.from([
+        const httpChain = ApolloLink.from([
           errorLink,
           authLink,
           httpLink.create({ uri: environment.apiUrl })
         ]);
+
+        // WebSocket link for subscriptions (real-time updates)
+        const wsLink = new GraphQLWsLink(
+          createClient({
+            url: environment.wsUrl,
+            connectionParams: () => {
+              const token = appAuthService.getToken();
+              return token ? { authorization: `Bearer ${token}` } : {};
+            },
+            // Auto-reconnect on connection loss
+            retryAttempts: Infinity,
+            shouldRetry: () => true,
+          })
+        );
+
+        // Split: subscriptions go through WebSocket, everything else through HTTP
+        const link = split(
+          ({ query }) => {
+            const definition = getMainDefinition(query);
+            return (
+              definition.kind === 'OperationDefinition' &&
+              definition.operation === 'subscription'
+            );
+          },
+          wsLink,
+          httpChain
+        );
 
         return {
           link,

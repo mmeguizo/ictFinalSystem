@@ -1,11 +1,39 @@
 import { PrismaClient, NotificationType, Role } from '@prisma/client';
 import { NotificationRepository } from './notification.repository';
+import { pubsub, EVENTS } from '../../lib/pubsub';
 
 export class NotificationService {
   private repository: NotificationRepository;
 
   constructor(private prisma: PrismaClient) {
     this.repository = new NotificationRepository(prisma);
+  }
+
+  // ========================================
+  // HELPER: publish notification via WebSocket
+  // ========================================
+  private publishNotification(notification: any) {
+    pubsub.publish(EVENTS.NOTIFICATION_CREATED, {
+      notificationCreated: notification,
+    });
+  }
+
+  private publishNotificationsForUsers(userIds: number[], ticketId: number, type: NotificationType, title: string, message: string, metadata?: Record<string, any>) {
+    // For bulk-created notifications, publish individual events per user
+    for (const userId of userIds) {
+      pubsub.publish(EVENTS.NOTIFICATION_CREATED, {
+        notificationCreated: {
+          userId,
+          ticketId,
+          type,
+          title,
+          message,
+          isRead: false,
+          metadata,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
   }
 
   // ========================================
@@ -60,7 +88,7 @@ export class NotificationService {
     rejectorName: string,
     reason: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_REJECTED,
@@ -71,6 +99,8 @@ export class NotificationService {
         reason,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -84,7 +114,7 @@ export class NotificationService {
     directorName: string,
     reason: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_DISAPPROVED,
@@ -95,6 +125,8 @@ export class NotificationService {
         reason,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -107,7 +139,7 @@ export class NotificationService {
     ticketCreatorId: number,
     reviewerName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_REVIEWED,
@@ -117,6 +149,8 @@ export class NotificationService {
         reviewerName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -129,7 +163,7 @@ export class NotificationService {
     ticketCreatorId: number,
     approverName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_APPROVED,
@@ -139,6 +173,8 @@ export class NotificationService {
         approverName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -151,7 +187,7 @@ export class NotificationService {
     assigneeId: number,
     assignerName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: assigneeId,
       ticketId,
       type: NotificationType.TICKET_ASSIGNED,
@@ -161,6 +197,8 @@ export class NotificationService {
         assignerName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -175,7 +213,7 @@ export class NotificationService {
     toStatus: string,
     changerName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -187,6 +225,8 @@ export class NotificationService {
         changerName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -203,7 +243,7 @@ export class NotificationService {
     authorName: string,
     isInternal: boolean
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: recipientId,
       ticketId,
       type: NotificationType.NOTE_ADDED,
@@ -214,6 +254,8 @@ export class NotificationService {
         isInternal,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -239,7 +281,7 @@ export class NotificationService {
 
     if (adminSecretaries.length === 0) return;
 
-    return this.repository.createMany(
+    const result = await this.repository.createMany(
       adminSecretaries.map((user) => ({
         userId: user.id,
         ticketId,
@@ -252,6 +294,17 @@ export class NotificationService {
         },
       }))
     );
+
+    this.publishNotificationsForUsers(
+      adminSecretaries.map(u => u.id),
+      ticketId,
+      NotificationType.NOTE_ADDED,
+      isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
+      `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
+      { authorName, isInternal }
+    );
+
+    return result;
   }
 
   /**
@@ -271,7 +324,7 @@ export class NotificationService {
 
     if (secretaries.length === 0) return;
 
-    return this.repository.createMany(
+    const result = await this.repository.createMany(
       secretaries.map((s) => ({
         userId: s.id,
         ticketId,
@@ -283,6 +336,17 @@ export class NotificationService {
         },
       }))
     );
+
+    this.publishNotificationsForUsers(
+      secretaries.map(s => s.id),
+      ticketId,
+      NotificationType.TICKET_CREATED,
+      'New Ticket for Review',
+      `New ticket "${ticketTitle}" (${ticketNumber}) submitted by ${creatorName} requires your review.`,
+      { creatorName }
+    );
+
+    return result;
   }
 
   /**
@@ -302,7 +366,7 @@ export class NotificationService {
 
     if (approvers.length === 0) return;
 
-    return this.repository.createMany(
+    const result = await this.repository.createMany(
       approvers.map((a) => ({
         userId: a.id,
         ticketId,
@@ -314,6 +378,17 @@ export class NotificationService {
         },
       }))
     );
+
+    this.publishNotificationsForUsers(
+      approvers.map(a => a.id),
+      ticketId,
+      NotificationType.TICKET_REVIEWED,
+      'Ticket Ready for Endorsement',
+      `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your endorsement.`,
+      { reviewerName }
+    );
+
+    return result;
   }
 
   // ========================================
@@ -343,7 +418,7 @@ export class NotificationService {
     const visitDateStr = dateToVisit.toLocaleDateString();
     const completionDateStr = targetCompletionDate.toLocaleDateString();
 
-    return this.repository.createMany(
+    const result = await this.repository.createMany(
       admins.map((a) => ({
         userId: a.id,
         ticketId,
@@ -357,6 +432,17 @@ export class NotificationService {
         },
       }))
     );
+
+    this.publishNotificationsForUsers(
+      admins.map(a => a.id),
+      ticketId,
+      NotificationType.STATUS_CHANGED,
+      'Visit Schedule Requires Acknowledgment',
+      `${headName} has scheduled a visit for ticket "${ticketTitle}" (${ticketNumber}). Visit: ${visitDateStr}, Target Completion: ${completionDateStr}. Please acknowledge.`,
+      { headName, dateToVisit: visitDateStr, targetCompletionDate: completionDateStr }
+    );
+
+    return result;
   }
 
   /**
@@ -375,7 +461,7 @@ export class NotificationService {
     const visitDateStr = dateToVisit.toLocaleDateString();
     const completionDateStr = targetCompletionDate.toLocaleDateString();
 
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -387,6 +473,8 @@ export class NotificationService {
         officeName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -399,7 +487,7 @@ export class NotificationService {
     headId: number,
     reason: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: headId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -409,6 +497,8 @@ export class NotificationService {
         reason,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -421,7 +511,7 @@ export class NotificationService {
     userId: number,
     headName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -431,5 +521,82 @@ export class NotificationService {
         headName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
+  }
+
+  // ========================================
+  // ATTACHMENT NOTIFICATIONS
+  // ========================================
+
+  /**
+   * Notify relevant users when a file is uploaded to a ticket
+   * - Notify ticket creator (if uploader is not the creator)
+   * - Notify assigned staff (if uploader is not the assignee)
+   * - Notify Admin and Secretary
+   */
+  async notifyAttachmentUploaded(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    uploaderId: number,
+    uploaderName: string,
+    fileCount: number
+  ) {
+    const fileText = fileCount === 1 ? '1 file' : `${fileCount} files`;
+
+    // Find ticket to get creator and assignments
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: {
+        assignments: { select: { userId: true } },
+      },
+    });
+
+    if (!ticket) return;
+
+    const recipientIds = new Set<number>();
+
+    // Notify ticket creator (if not the uploader)
+    if (ticket.createdById !== uploaderId) {
+      recipientIds.add(ticket.createdById);
+    }
+
+    // Notify assigned staff (if not the uploader)
+    for (const a of ticket.assignments || []) {
+      if (a.userId !== uploaderId) {
+        recipientIds.add(a.userId);
+      }
+    }
+
+    // Notify Admin and Secretary
+    const adminSecretaries = await this.prisma.user.findMany({
+      where: {
+        role: { in: [Role.ADMIN, Role.SECRETARY] },
+        id: { not: uploaderId },
+      },
+      select: { id: true },
+    });
+    for (const u of adminSecretaries) {
+      recipientIds.add(u.id);
+    }
+
+    if (recipientIds.size === 0) return;
+
+    // Create individual notifications so each gets a real-time push
+    for (const userId of recipientIds) {
+      const notification = await this.repository.create({
+        userId,
+        ticketId,
+        type: NotificationType.ATTACHMENT_ADDED,
+        title: 'File Attached',
+        message: `${uploaderName} uploaded ${fileText} to ticket "${ticketTitle}" (${ticketNumber}).`,
+        metadata: {
+          uploaderName,
+          fileCount,
+        },
+      });
+      this.publishNotification(notification);
+    }
   }
 }

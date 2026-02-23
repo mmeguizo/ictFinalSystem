@@ -283,6 +283,7 @@ enum NotificationType {
   TICKET_ASSIGNED
   STATUS_CHANGED
   NOTE_ADDED
+  ATTACHMENT_ADDED
 }
 
 model Notification {

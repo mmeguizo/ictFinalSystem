@@ -1,7 +1,7 @@
 import { gql } from 'apollo-server-express';
 import { JSONResolver } from 'graphql-scalars';
 
-// Base schema with Query and Mutation types
+// Base schema with Query, Mutation, and Subscription types
 export const baseTypeDefs = gql`
   # Custom scalar for JSON data
   scalar JSON
@@ -11,6 +11,10 @@ export const baseTypeDefs = gql`
   }
 
   type Mutation {
+    _empty: String
+  }
+
+  type Subscription {
     _empty: String
   }
 `;

@@ -6,6 +6,7 @@
 export interface Environment {
   production: boolean;
   apiUrl: string;
+  wsUrl: string;
   auth0: {
     domain: string;
     clientId: string;
@@ -16,6 +17,7 @@ export interface Environment {
 export const environment: Environment = {
   production: false,
   apiUrl: 'http://localhost:4000/graphql',
+  wsUrl: 'ws://localhost:4000/graphql',
   auth0: {
     domain: 'dev-r7i2pqcybdndjxwt.us.auth0.com',
     clientId: 'WkpoCJqPf7qphHyBAvNF3PWPuVIb8xfl',

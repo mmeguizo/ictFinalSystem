@@ -7,6 +7,7 @@ import { UpdateTicketStatusDto } from '../dto/update-ticket-status.dto';
 import { CreateTicketNoteDto } from '../dto/create-ticket-note.dto';
 import { calculateDueDate, calculateEstimatedDuration } from '../utils/sla.utils';
 import { NotificationService } from '../../notifications/notification.service';
+import { pubsub, EVENTS } from '../../../lib/pubsub';
 
 export class TicketService {
   private readonly repository: TicketRepository;
@@ -79,6 +80,19 @@ export class TicketService {
       console.error('Failed to send new ticket notification:', err);
     }
 
+    // Publish real-time event for new MIS ticket
+    pubsub.publish(EVENTS.TICKET_CREATED, {
+      ticketCreated: {
+        ticketId: ticket.id,
+        ticketNumber,
+        title: dto.title,
+        type: 'MIS',
+        priority,
+        createdBy: creator?.name || 'Unknown User',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     // Ticket starts in FOR_REVIEW status for secretary review
     // Auto-assignment happens after director approval (in approveAsDirector)
     return this.repository.findById(ticket.id);
@@ -139,6 +153,19 @@ export class TicketService {
     } catch (err) {
       console.error('Failed to send new ticket notification:', err);
     }
+
+    // Publish real-time event for new ITS ticket
+    pubsub.publish(EVENTS.TICKET_CREATED, {
+      ticketCreated: {
+        ticketId: ticket.id,
+        ticketNumber,
+        title: dto.title,
+        type: 'ITS',
+        priority,
+        createdBy: creator?.name || 'Unknown User',
+        timestamp: new Date().toISOString(),
+      },
+    });
 
     // Ticket starts in FOR_REVIEW status for secretary review
     // Auto-assignment happens after director approval (in approveAsDirector)
@@ -223,6 +250,19 @@ export class TicketService {
         console.error('Failed to send status change notification:', err);
       }
     }
+
+    // Publish real-time event for status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: fromStatus,
+        newStatus: dto.status,
+        changedBy: user?.name || 'Staff',
+        timestamp: new Date().toISOString(),
+      },
+    });
 
     return result;
   }
@@ -313,6 +353,23 @@ export class TicketService {
     } catch (err) {
       console.error('Failed to send assignment notification:', err);
     }
+
+    // Publish real-time event for assignment
+    const assignedUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+    pubsub.publish(EVENTS.TICKET_ASSIGNED, {
+      ticketAssigned: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        assignedToUserId: userId,
+        assignedToName: assignedUser?.name || 'Unknown',
+        assignedBy: assigner?.name || 'Department Head',
+        timestamp: new Date().toISOString(),
+      },
+    });
 
     return result;
   }
@@ -550,6 +607,19 @@ export class TicketService {
       console.error('Failed to send review notifications:', err);
     }
 
+    // Publish real-time event for status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.FOR_REVIEW,
+        newStatus: TicketStatus.REVIEWED,
+        changedBy: secretary?.name || 'Secretary',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     return this.repository.findById(ticketId);
   }
 
@@ -612,6 +682,19 @@ export class TicketService {
       console.error('Failed to send rejection notification:', err);
     }
 
+    // Publish real-time event for status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.FOR_REVIEW,
+        newStatus: TicketStatus.CANCELLED,
+        changedBy: secretary?.name || 'Secretary',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     return this.repository.findById(ticketId);
   }
 
@@ -667,6 +750,19 @@ export class TicketService {
     } catch (err) {
       console.error('Failed to send approval notification:', err);
     }
+
+    // Publish real-time event for director approval status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.REVIEWED,
+        newStatus: TicketStatus.DIRECTOR_APPROVED,
+        changedBy: director?.name || 'Director',
+        timestamp: new Date().toISOString(),
+      },
+    });
 
     // Auto-assign to appropriate team after director approval
     try {
@@ -765,6 +861,19 @@ export class TicketService {
       console.error('Failed to send disapproval notification:', err);
     }
 
+    // Publish real-time event for disapproval
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.REVIEWED,
+        newStatus: TicketStatus.CANCELLED,
+        changedBy: director?.name || 'Director',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     return this.repository.findById(ticketId);
   }
 
@@ -847,6 +956,19 @@ export class TicketService {
     } catch (err) {
       console.error('Failed to send reopen notification:', err);
     }
+
+    // Publish real-time event for reopen status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.CANCELLED,
+        newStatus: TicketStatus.FOR_REVIEW,
+        changedBy: user?.name || 'User',
+        timestamp: new Date().toISOString(),
+      },
+    });
 
     return this.repository.findById(ticketId);
   }
@@ -940,6 +1062,19 @@ export class TicketService {
       console.error('Failed to send schedule notification:', err);
     }
 
+    // Publish real-time event for schedule visit status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.ASSIGNED,
+        newStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        changedBy: head?.name || 'Department Head',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     return this.repository.findById(ticketId);
   }
 
@@ -1011,6 +1146,19 @@ export class TicketService {
       console.error('Failed to send visit scheduled notification:', err);
     }
 
+    // Publish real-time event for acknowledge status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        newStatus: TicketStatus.SCHEDULED,
+        changedBy: admin?.name || 'Admin',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     return this.repository.findById(ticketId);
   }
 
@@ -1080,6 +1228,19 @@ export class TicketService {
       console.error('Failed to send schedule rejection notification:', err);
     }
 
+    // Publish real-time event for schedule rejection status change
+    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+      ticketStatusChanged: {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        oldStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        newStatus: TicketStatus.ASSIGNED,
+        changedBy: admin?.name || 'Admin',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     return this.repository.findById(ticketId);
   }
 
@@ -1100,8 +1261,8 @@ export class TicketService {
     }
 
     // Allow monitor notes on tickets that are SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED
-    const allowedStatuses = [TicketStatus.SCHEDULED, TicketStatus.IN_PROGRESS, TicketStatus.ON_HOLD, TicketStatus.RESOLVED];
-    if (!allowedStatuses.includes(ticket.status as TicketStatus)) {
+    const allowedStatuses: string[] = [TicketStatus.SCHEDULED, TicketStatus.IN_PROGRESS, TicketStatus.ON_HOLD, TicketStatus.RESOLVED];
+    if (!allowedStatuses.includes(ticket.status)) {
       throw new Error('Ticket must be in SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED status to update monitor notes');
     }
 
@@ -1163,6 +1324,21 @@ export class TicketService {
       );
     } catch (err) {
       console.error('Failed to send monitor update notification:', err);
+    }
+
+    // Publish real-time event if status changed (SCHEDULED → IN_PROGRESS)
+    if (ticket.status === TicketStatus.SCHEDULED) {
+      pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+        ticketStatusChanged: {
+          ticketId,
+          ticketNumber: ticket.ticketNumber,
+          title: ticket.title,
+          oldStatus: TicketStatus.SCHEDULED,
+          newStatus: TicketStatus.IN_PROGRESS,
+          changedBy: head?.name || 'Department Head',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
     return this.repository.findById(ticketId);

@@ -2,6 +2,12 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+// graphql-ws uses package.json "exports" which requires moduleResolution >= node16
+// Using require() since our tsconfig uses CommonJS module resolution
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { useServer } = require('graphql-ws/use/ws') as { useServer: any };
 import { ApolloServer } from 'apollo-server-express';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { createContext } from './context';
@@ -17,6 +23,7 @@ import { ticketAttachmentUpload, getAttachmentUrl } from './modules/storage/uplo
 import { prisma } from './lib/prisma';
 import { jwtService } from './modules/auth/jwt.service';
 import { auth0Service } from './modules/auth/auth0.service';
+import { NotificationService } from './modules/notifications/notification.service';
 
 async function start() {
   // Combine all type definitions and resolvers
@@ -131,6 +138,25 @@ async function start() {
 
         logger.info(`Uploaded ${attachments.length} attachment(s) for ticket #${ticketId} by user #${(req as any).authenticatedUserId}`);
 
+        // Send notifications about file upload to relevant users
+        try {
+          const uploader = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true },
+          });
+          const notificationService = new NotificationService(prisma);
+          await notificationService.notifyAttachmentUploaded(
+            ticketId,
+            ticket.ticketNumber,
+            ticket.title,
+            userId,
+            uploader?.name || 'Someone',
+            attachments.length
+          );
+        } catch (notifErr) {
+          logger.error('Failed to send attachment notification:', notifErr);
+        }
+
         res.json({
           success: true,
           attachments: attachments.map((a) => ({
@@ -174,9 +200,26 @@ async function start() {
   await server.start();
   server.applyMiddleware({ app, path: '/', bodyParserConfig: { limit: '10mb' } });
 
-  app.listen(config.port, () => {
+  // ========================================
+  // HTTP + WebSocket server for real-time subscriptions
+  // HTTP handles normal GraphQL queries/mutations
+  // WebSocket handles subscriptions (live updates)
+  // ========================================
+  const httpServer = createServer(app);
+
+  // WebSocket server — listens on the same port at /graphql path
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: '/graphql',
+  });
+
+  // Attach graphql-ws to handle subscription protocol
+  useServer({ schema }, wsServer);
+
+  httpServer.listen(config.port, () => {
     const base = `${config.publicBaseUrl}`;
     logger.info(`🚀 GraphQL server running at ${base}/`);
+    logger.info(`🔌 WebSocket subscriptions at ws://localhost:${config.port}/graphql`);
     logger.info(`📁 Serving uploads from ${base}/uploads`);
     logger.info(`🌍 Environment: ${config.nodeEnv}`);
   });
