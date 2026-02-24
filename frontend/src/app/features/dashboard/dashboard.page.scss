@@ -1,13 +1,191 @@
 .dashboard-container {
   padding: 24px;
-  
+
   h1 {
     margin-bottom: 24px;
     font-size: 24px;
     font-weight: 600;
   }
-  
+
   .recent-tickets-card {
     margin-top: 24px;
+  }
+}
+
+// ========================================
+// SLA Processing Time Banner
+// ========================================
+.sla-banner {
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
+  border: 1px solid #91d5ff;
+  border-radius: 8px;
+  padding: 16px 20px;
+  animation: slideDown 0.3s ease-out;
+
+  .sla-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .sla-banner-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+
+  .sla-banner-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    strong {
+      font-size: 15px;
+      color: #003a8c;
+    }
+
+    span {
+      font-size: 13px;
+      color: #595959;
+      line-height: 1.5;
+    }
+  }
+
+  .sla-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ========================================
+// SLA Reminder Modal
+// ========================================
+.sla-modal {
+  .sla-modal-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .sla-modal-badge {
+    font-size: 48px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .sla-modal-intro {
+    font-size: 15px;
+    color: #595959;
+    line-height: 1.6;
+    margin: 0;
+
+    strong {
+      color: #1890ff;
+    }
+  }
+
+  .sla-modal-steps {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sla-modal-step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: #fafafa;
+    border-radius: 8px;
+    border: 1px solid #f0f0f0;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #e6f7ff;
+      border-color: #91d5ff;
+    }
+  }
+
+  .sla-modal-step-number {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 44px;
+  }
+
+  .sla-modal-step-icon {
+    font-size: 22px;
+  }
+
+  .sla-modal-step-num {
+    font-size: 11px;
+    color: #8c8c8c;
+    font-weight: 500;
+  }
+
+  .sla-modal-step-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sla-modal-step-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #262626;
+  }
+
+  .sla-modal-step-desc {
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-top: 2px;
+  }
+
+  .sla-modal-step-time {
+    flex-shrink: 0;
+  }
+
+  .sla-modal-step-arrow {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+    color: #bfbfbf;
+    font-size: 16px;
+  }
+
+  .sla-modal-total {
+    text-align: center;
+    padding: 16px;
+    background: #f6ffed;
+    border-radius: 8px;
+    border: 1px solid #b7eb8f;
+
+    .sla-modal-total-label {
+      font-size: 13px;
+      color: #595959;
+      margin-bottom: 4px;
+    }
+
+    .sla-modal-total-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #52c41a;
+      margin-bottom: 8px;
+    }
   }
 }

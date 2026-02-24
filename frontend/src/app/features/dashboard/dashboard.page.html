@@ -1,6 +1,27 @@
 <div class="dashboard-container">
   <h1>Dashboard</h1>
 
+  <!-- SLA Processing Time Banner -->
+  @if (showSlaBanner()) {
+    <div class="sla-banner">
+      <div class="sla-banner-content">
+        <div class="sla-banner-icon">⏱️</div>
+        <div class="sla-banner-text">
+          <strong>Service Request Processing Time</strong>
+          <span>Your ICT service request goes through <strong>5 steps</strong> with a target total processing time of <strong>25 minutes</strong>. Track your request progress in real-time on the ticket detail page.</span>
+        </div>
+        <div class="sla-banner-actions">
+          <button nz-button nzType="primary" nzSize="small" (click)="openSlaModal()">
+            Learn More
+          </button>
+          <button nz-button nzType="text" nzSize="small" (click)="dismissSlaBanner()" nz-tooltip="Dismiss">
+            <i nz-icon nzType="close" nzTheme="outline"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
   <nz-spin [nzSpinning]="loading()">
     <!-- Main Statistics Row -->
     <div nz-row [nzGutter]="16" style="margin-bottom: 16px;">
@@ -150,3 +171,76 @@
     </nz-card>
   </nz-spin>
 </div>
+
+<!-- SLA Processing Time Reminder Modal -->
+<nz-modal
+  [(nzVisible)]="showSlaModal"
+  nzTitle="ICT Service Request Processing Time"
+  [nzWidth]="640"
+  [nzFooter]="slaModalFooter"
+  (nzOnCancel)="closeSlaModal()"
+  nzCentered>
+
+  <ng-container *nzModalContent>
+    <div class="sla-modal">
+      <div class="sla-modal-header">
+        <div class="sla-modal-badge">⏱️</div>
+        <p class="sla-modal-intro">
+          Each service request goes through <strong>5 processing steps</strong> with a target completion time of
+          <strong>5 minutes per step</strong>, for a total of <strong>25 minutes</strong>.
+        </p>
+      </div>
+
+      <nz-divider nzText="Processing Steps"></nz-divider>
+
+      <div class="sla-modal-steps">
+        @for (step of slaSteps; track step.step) {
+          <div class="sla-modal-step">
+            <div class="sla-modal-step-number">
+              <span class="sla-modal-step-icon">{{ step.icon }}</span>
+              <span class="sla-modal-step-num">{{ step.step }}</span>
+            </div>
+            <div class="sla-modal-step-content">
+              <div class="sla-modal-step-name">{{ step.name }}</div>
+              <div class="sla-modal-step-desc">{{ step.description }}</div>
+            </div>
+            <div class="sla-modal-step-time">
+              <nz-tag nzColor="blue">{{ step.expectedMinutes }} min</nz-tag>
+            </div>
+          </div>
+          @if (step.step < 5) {
+            <div class="sla-modal-step-arrow">
+              <i nz-icon nzType="arrow-down" nzTheme="outline"></i>
+            </div>
+          }
+        }
+      </div>
+
+      <nz-divider></nz-divider>
+
+      <div class="sla-modal-total">
+        <div class="sla-modal-total-label">Total Expected Processing Time</div>
+        <div class="sla-modal-total-value">{{ totalSlaMinutes }} minutes</div>
+        <nz-progress
+          [nzPercent]="100"
+          nzStatus="active"
+          [nzStrokeColor]="'#1890ff'"
+          [nzShowInfo]="false">
+        </nz-progress>
+      </div>
+
+      <nz-alert
+        nzType="info"
+        nzShowIcon
+        nzMessage="You can track the real-time processing progress of each step on the Ticket Detail page after submitting a request."
+        style="margin-top: 16px;">
+      </nz-alert>
+    </div>
+  </ng-container>
+
+  <ng-template #slaModalFooter>
+    <button nz-button nzType="primary" (click)="closeSlaModal()">
+      Got it!
+    </button>
+  </ng-template>
+</nz-modal>

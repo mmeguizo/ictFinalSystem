@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy, computed, inject, OnInit, signal, DestroyRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ChangeDetectionStrategy, computed, inject, OnInit, signal, DestroyRef, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { interval } from 'rxjs';
@@ -11,6 +11,12 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzAlertModule } from 'ng-zorro-antd/alert';
+import { NzProgressModule } from 'ng-zorro-antd/progress';
+import { NzDividerModule } from 'ng-zorro-antd/divider';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TicketService, TicketListItem } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -26,6 +32,12 @@ import { AuthService } from '../../core/services/auth.service';
     NzSpinModule,
     NzTableModule,
     NzTagModule,
+    NzModalModule,
+    NzAlertModule,
+    NzProgressModule,
+    NzDividerModule,
+    NzButtonModule,
+    NzToolTipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.page.html',
@@ -35,9 +47,25 @@ export class DashboardPage implements OnInit {
   private readonly ticketService = inject(TicketService);
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly platformId = inject(PLATFORM_ID);
 
   readonly loading = signal(false);
   readonly tickets = signal<TicketListItem[]>([]);
+
+  // SLA Reminder Modal
+  readonly showSlaModal = signal(false);
+  readonly showSlaBanner = signal(true);
+
+  /** SLA processing steps for display */
+  readonly slaSteps = [
+    { step: 1, name: 'Secretary Review', description: 'Secretary endorses and reviews the service request', expectedMinutes: 5, icon: '📋' },
+    { step: 2, name: 'Director Endorsement', description: 'Director reviews and approves the request', expectedMinutes: 5, icon: '✅' },
+    { step: 3, name: 'Assignment', description: 'Request is assigned to the appropriate department', expectedMinutes: 5, icon: '👤' },
+    { step: 4, name: 'Schedule Visit', description: 'Department head schedules a service visit', expectedMinutes: 5, icon: '📅' },
+    { step: 5, name: 'Acknowledgment', description: 'Admin acknowledges the schedule for service delivery', expectedMinutes: 5, icon: '🤝' },
+  ];
+
+  readonly totalSlaMinutes = 25;
 
   // ========================================
   // TICKET STATISTICS
@@ -104,6 +132,7 @@ export class DashboardPage implements OnInit {
 
   ngOnInit(): void {
     this.loadTickets();
+    this.checkSlaReminderOnLogin();
 
     // Set up auto-refresh polling every 60 seconds (1 minute)
     interval(60000) // 60000ms = 1 minute
@@ -156,6 +185,39 @@ export class DashboardPage implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  // ========================================
+  // SLA REMINDER
+  // ========================================
+
+  /** Check if we should show the SLA reminder modal (once per session) */
+  private checkSlaReminderOnLogin(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    const key = 'sla_reminder_shown';
+    const shown = sessionStorage.getItem(key);
+    if (!shown) {
+      // Show the modal after a short delay so dashboard loads first
+      setTimeout(() => {
+        this.showSlaModal.set(true);
+        sessionStorage.setItem(key, 'true');
+      }, 800);
+    }
+  }
+
+  /** Close the SLA modal */
+  closeSlaModal(): void {
+    this.showSlaModal.set(false);
+  }
+
+  /** Dismiss the SLA banner */
+  dismissSlaBanner(): void {
+    this.showSlaBanner.set(false);
+  }
+
+  /** Open the SLA modal (from banner "Learn More" button) */
+  openSlaModal(): void {
+    this.showSlaModal.set(true);
   }
 
   // ========================================
