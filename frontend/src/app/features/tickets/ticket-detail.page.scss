@@ -255,3 +255,341 @@
     vertical-align: top;
   }
 }
+
+// ========================================
+// ATTACHMENTS SECTION
+// ========================================
+
+.upload-section {
+  margin-bottom: 16px;
+}
+
+.upload-area {
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #fafafa;
+
+  &:hover {
+    border-color: #1890ff;
+    background: #e6f7ff;
+  }
+
+  .upload-icon {
+    font-size: 32px;
+    color: #1890ff;
+    margin-bottom: 8px;
+  }
+
+  .upload-text {
+    font-size: 14px;
+    color: #262626;
+    margin-bottom: 4px;
+  }
+
+  .upload-hint {
+    font-size: 12px;
+    color: #8c8c8c;
+    margin: 0;
+  }
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+
+  // Custom scrollbar styling
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 3px;
+
+    &:hover {
+      background: #bfbfbf;
+    }
+  }
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fafafa;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #d9d9d9;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  .attachment-preview {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+
+    .attachment-thumbnail {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid #f0f0f0;
+    }
+
+    .attachment-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #e6f7ff;
+      border-radius: 4px;
+      font-size: 22px;
+      color: #1890ff;
+    }
+  }
+
+  .attachment-info {
+    flex: 1;
+    min-width: 0;
+
+    .attachment-name {
+      display: block;
+      font-size: 14px;
+      color: #1890ff;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      max-width: 100%;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    .attachment-meta {
+      font-size: 12px;
+      color: #8c8c8c;
+    }
+  }
+
+  .attachment-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+  }
+
+  // Deleted attachment styling
+  &.deleted {
+    opacity: 0.6;
+    background: #fff1f0;
+    border-color: #ffccc7;
+
+    .deleted-icon {
+      background: #fff1f0;
+      color: #ff4d4f;
+    }
+
+    .deleted-name {
+      display: block;
+      font-size: 14px;
+      color: #8c8c8c;
+      text-decoration: line-through;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+
+    .deleted-meta {
+      color: #ff4d4f;
+      font-size: 12px;
+    }
+  }
+}
+
+// ========================================
+// SLA Processing Time Tracker
+// ========================================
+.sla-card {
+  .sla-overall {
+    margin-bottom: 24px;
+
+    .sla-overall-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .sla-overall-label {
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .sla-overall-time {
+      font-size: 13px;
+      color: #666;
+    }
+  }
+
+  .sla-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sla-step {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    transition: all 0.2s;
+
+    &--active {
+      background: #e6f7ff;
+      border-color: #91d5ff;
+    }
+
+    &--overdue {
+      background: #fff2f0;
+      border-color: #ffccc7;
+    }
+
+    &--completed {
+      background: #f6ffed;
+      border-color: #b7eb8f;
+    }
+
+    &--skipped {
+      opacity: 0.5;
+    }
+
+    &--waiting {
+      opacity: 0.7;
+    }
+  }
+
+  .sla-step-indicator {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #d9d9d9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+  }
+
+  .sla-step-icon {
+    font-size: 18px;
+  }
+
+  .sla-step-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sla-step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .sla-step-name {
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .sla-step-expected {
+    font-size: 12px;
+    color: #999;
+  }
+
+  .sla-step-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .sla-step-time {
+    font-size: 14px;
+    font-weight: 600;
+
+    &.sla-time--ok {
+      color: #52c41a;
+    }
+
+    &.sla-time--late {
+      color: #ff4d4f;
+    }
+
+    &.sla-time--progress {
+      color: #1890ff;
+    }
+
+    &.sla-time--waiting {
+      color: #999;
+      font-weight: normal;
+    }
+
+    &.sla-time--skipped {
+      color: #bfbfbf;
+      font-weight: normal;
+    }
+  }
+
+  .sla-step-timestamps {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    small {
+      color: #999;
+      font-size: 11px;
+    }
+  }
+
+  .sla-summary {
+    .sla-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 13px;
+
+      span {
+        color: #666;
+      }
+    }
+  }
+}

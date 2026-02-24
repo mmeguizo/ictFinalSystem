@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild, DestroyRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild, DestroyRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -15,6 +15,7 @@ import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzAvatarModule } from 'ng-zorro-antd/avatar';
 import { TicketNotificationService, TicketNotification } from '../../core/services/ticket-notification.service';
 import { AuthService } from '../../core/services/auth.service';
+import { RealtimeService } from '../../core/services/realtime.service';
 
 @Component({
   selector: 'app-notification-bell',
@@ -224,10 +225,24 @@ import { AuthService } from '../../core/services/auth.service';
 export class NotificationBellComponent implements OnInit {
   readonly notificationService = inject(TicketNotificationService);
   private readonly authService = inject(AuthService);
+  private readonly realtimeService = inject(RealtimeService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   dropdownVisible = false;
+
+  constructor() {
+    // React to real-time notification events from WebSocket
+    // When a new notification arrives, refresh count and prepend to local list
+    effect(() => {
+      const notification = this.realtimeService.lastNotification();
+      if (notification) {
+        // Increment unread count and refresh notification list
+        this.notificationService.unreadCount.update(c => c + 1);
+        this.notificationService.getMyNotifications().subscribe();
+      }
+    });
+  }
 
   ngOnInit(): void {
     // Load notifications on init if logged in
@@ -235,12 +250,12 @@ export class NotificationBellComponent implements OnInit {
       // Initial load of both count and notifications
       this.notificationService.getUnreadCount().subscribe();
       this.notificationService.getMyNotifications().subscribe();
-// In your component (e.g., in ngOnInit or a method)
 
+      // Start real-time WebSocket subscriptions (instant push)
+      this.realtimeService.startListening();
 
-      // Set up auto-refresh polling every 30 seconds for notifications
-      // This ensures users get timely notification updates
-      interval(30000) // 30000ms = 30 seconds
+      // Fallback polling every 30 seconds in case WebSocket disconnects
+      interval(30000)
         .pipe(
           filter(() => this.authService.isAuthenticated()),
           switchMap(() => this.notificationService.getUnreadCount()),
@@ -251,6 +266,11 @@ export class NotificationBellComponent implements OnInit {
             console.error('Notification polling failed:', error);
           },
         });
+
+      // Cleanup on destroy
+      this.destroyRef.onDestroy(() => {
+        this.realtimeService.stopListening();
+      });
     }
   }
 
@@ -269,6 +289,8 @@ export class NotificationBellComponent implements OnInit {
 
     // Navigate to ticket if available
     if (notification.ticket?.ticketNumber) {
+      // Force refresh the ticket detail page (handles same-page navigation)
+      this.realtimeService.triggerTicketRefresh(notification.ticket.ticketNumber);
       this.router.navigate(['/tickets', notification.ticket.ticketNumber]);
     }
   }

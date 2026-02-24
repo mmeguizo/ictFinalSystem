@@ -1,11 +1,53 @@
 import { PrismaClient, NotificationType, Role } from '@prisma/client';
 import { NotificationRepository } from './notification.repository';
+import { pubsub, EVENTS } from '../../lib/pubsub';
 
 export class NotificationService {
   private repository: NotificationRepository;
 
   constructor(private prisma: PrismaClient) {
     this.repository = new NotificationRepository(prisma);
+  }
+
+  // ========================================
+  // HELPER: publish notification via WebSocket
+  // ========================================
+  private publishNotification(notification: any) {
+    pubsub.publish(EVENTS.NOTIFICATION_CREATED, {
+      notificationCreated: notification,
+    });
+  }
+
+  /**
+   * Create individual notifications for multiple users and publish each one.
+   * Unlike createMany (which returns only a count), this creates each notification
+   * individually so we get the full record (with id, ticket relation) for WebSocket publishing.
+   */
+  private async createAndPublishForUsers(
+    users: { id: number }[],
+    data: {
+      ticketId: number;
+      type: NotificationType;
+      title: string;
+      message: string;
+      metadata?: Record<string, any>;
+    }
+  ) {
+    for (const user of users) {
+      try {
+        const notification = await this.repository.create({
+          userId: user.id,
+          ticketId: data.ticketId,
+          type: data.type,
+          title: data.title,
+          message: data.message,
+          metadata: data.metadata,
+        });
+        this.publishNotification(notification);
+      } catch (err) {
+        console.error(`Failed to create/publish notification for user ${user.id}:`, err);
+      }
+    }
   }
 
   // ========================================
@@ -60,7 +102,7 @@ export class NotificationService {
     rejectorName: string,
     reason: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_REJECTED,
@@ -71,6 +113,8 @@ export class NotificationService {
         reason,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -84,7 +128,7 @@ export class NotificationService {
     directorName: string,
     reason: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_DISAPPROVED,
@@ -95,6 +139,8 @@ export class NotificationService {
         reason,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -107,7 +153,7 @@ export class NotificationService {
     ticketCreatorId: number,
     reviewerName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_REVIEWED,
@@ -117,6 +163,8 @@ export class NotificationService {
         reviewerName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -129,7 +177,7 @@ export class NotificationService {
     ticketCreatorId: number,
     approverName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.TICKET_APPROVED,
@@ -139,6 +187,8 @@ export class NotificationService {
         approverName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -151,7 +201,7 @@ export class NotificationService {
     assigneeId: number,
     assignerName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: assigneeId,
       ticketId,
       type: NotificationType.TICKET_ASSIGNED,
@@ -161,6 +211,8 @@ export class NotificationService {
         assignerName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -175,7 +227,7 @@ export class NotificationService {
     toStatus: string,
     changerName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: ticketCreatorId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -187,6 +239,8 @@ export class NotificationService {
         changerName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -203,7 +257,7 @@ export class NotificationService {
     authorName: string,
     isInternal: boolean
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: recipientId,
       ticketId,
       type: NotificationType.NOTE_ADDED,
@@ -214,6 +268,8 @@ export class NotificationService {
         isInternal,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -232,26 +288,20 @@ export class NotificationService {
     const adminSecretaries = await this.prisma.user.findMany({
       where: {
         role: { in: [Role.ADMIN, Role.SECRETARY] },
-        id: { not: authorId }, // Don't notify the author
+        id: { not: authorId },
       },
       select: { id: true },
     });
 
     if (adminSecretaries.length === 0) return;
 
-    return this.repository.createMany(
-      adminSecretaries.map((user) => ({
-        userId: user.id,
-        ticketId,
-        type: NotificationType.NOTE_ADDED,
-        title: isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
-        message: `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
-        metadata: {
-          authorName,
-          isInternal,
-        },
-      }))
-    );
+    await this.createAndPublishForUsers(adminSecretaries, {
+      ticketId,
+      type: NotificationType.NOTE_ADDED,
+      title: isInternal ? 'Internal Note Added' : 'New Comment on Ticket',
+      message: `${authorName} added a ${isInternal ? 'note' : 'comment'} on ticket "${ticketTitle}" (${ticketNumber}).`,
+      metadata: { authorName, isInternal },
+    });
   }
 
   /**
@@ -271,18 +321,13 @@ export class NotificationService {
 
     if (secretaries.length === 0) return;
 
-    return this.repository.createMany(
-      secretaries.map((s) => ({
-        userId: s.id,
-        ticketId,
-        type: NotificationType.TICKET_CREATED,
-        title: 'New Ticket for Review',
-        message: `New ticket "${ticketTitle}" (${ticketNumber}) submitted by ${creatorName} requires your review.`,
-        metadata: {
-          creatorName,
-        },
-      }))
-    );
+    await this.createAndPublishForUsers(secretaries, {
+      ticketId,
+      type: NotificationType.TICKET_CREATED,
+      title: 'New Ticket for Review',
+      message: `New ticket "${ticketTitle}" (${ticketNumber}) submitted by ${creatorName} requires your review.`,
+      metadata: { creatorName },
+    });
   }
 
   /**
@@ -302,18 +347,13 @@ export class NotificationService {
 
     if (approvers.length === 0) return;
 
-    return this.repository.createMany(
-      approvers.map((a) => ({
-        userId: a.id,
-        ticketId,
-        type: NotificationType.TICKET_REVIEWED,
-        title: 'Ticket Ready for Endorsement',
-        message: `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your endorsement.`,
-        metadata: {
-          reviewerName,
-        },
-      }))
-    );
+    await this.createAndPublishForUsers(approvers, {
+      ticketId,
+      type: NotificationType.TICKET_REVIEWED,
+      title: 'Ticket Ready for Endorsement',
+      message: `Ticket "${ticketTitle}" (${ticketNumber}) has been reviewed by ${reviewerName} and requires your endorsement.`,
+      metadata: { reviewerName },
+    });
   }
 
   // ========================================
@@ -343,20 +383,13 @@ export class NotificationService {
     const visitDateStr = dateToVisit.toLocaleDateString();
     const completionDateStr = targetCompletionDate.toLocaleDateString();
 
-    return this.repository.createMany(
-      admins.map((a) => ({
-        userId: a.id,
-        ticketId,
-        type: NotificationType.STATUS_CHANGED,
-        title: 'Visit Schedule Requires Acknowledgment',
-        message: `${headName} has scheduled a visit for ticket "${ticketTitle}" (${ticketNumber}). Visit: ${visitDateStr}, Target Completion: ${completionDateStr}. Please acknowledge.`,
-        metadata: {
-          headName,
-          dateToVisit: visitDateStr,
-          targetCompletionDate: completionDateStr,
-        },
-      }))
-    );
+    await this.createAndPublishForUsers(admins, {
+      ticketId,
+      type: NotificationType.STATUS_CHANGED,
+      title: 'Visit Schedule Requires Acknowledgment',
+      message: `${headName} has scheduled a visit for ticket "${ticketTitle}" (${ticketNumber}). Visit: ${visitDateStr}, Target Completion: ${completionDateStr}. Please acknowledge.`,
+      metadata: { headName, dateToVisit: visitDateStr, targetCompletionDate: completionDateStr },
+    });
   }
 
   /**
@@ -375,7 +408,7 @@ export class NotificationService {
     const visitDateStr = dateToVisit.toLocaleDateString();
     const completionDateStr = targetCompletionDate.toLocaleDateString();
 
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -387,6 +420,8 @@ export class NotificationService {
         officeName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -399,7 +434,7 @@ export class NotificationService {
     headId: number,
     reason: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId: headId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -409,6 +444,8 @@ export class NotificationService {
         reason,
       },
     });
+    this.publishNotification(notification);
+    return notification;
   }
 
   /**
@@ -421,7 +458,7 @@ export class NotificationService {
     userId: number,
     headName: string
   ) {
-    return this.repository.create({
+    const notification = await this.repository.create({
       userId,
       ticketId,
       type: NotificationType.STATUS_CHANGED,
@@ -431,5 +468,82 @@ export class NotificationService {
         headName,
       },
     });
+    this.publishNotification(notification);
+    return notification;
+  }
+
+  // ========================================
+  // ATTACHMENT NOTIFICATIONS
+  // ========================================
+
+  /**
+   * Notify relevant users when a file is uploaded to a ticket
+   * - Notify ticket creator (if uploader is not the creator)
+   * - Notify assigned staff (if uploader is not the assignee)
+   * - Notify Admin and Secretary
+   */
+  async notifyAttachmentUploaded(
+    ticketId: number,
+    ticketNumber: string,
+    ticketTitle: string,
+    uploaderId: number,
+    uploaderName: string,
+    fileCount: number
+  ) {
+    const fileText = fileCount === 1 ? '1 file' : `${fileCount} files`;
+
+    // Find ticket to get creator and assignments
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: {
+        assignments: { select: { userId: true } },
+      },
+    });
+
+    if (!ticket) return;
+
+    const recipientIds = new Set<number>();
+
+    // Notify ticket creator (if not the uploader)
+    if (ticket.createdById !== uploaderId) {
+      recipientIds.add(ticket.createdById);
+    }
+
+    // Notify assigned staff (if not the uploader)
+    for (const a of ticket.assignments || []) {
+      if (a.userId !== uploaderId) {
+        recipientIds.add(a.userId);
+      }
+    }
+
+    // Notify Admin and Secretary
+    const adminSecretaries = await this.prisma.user.findMany({
+      where: {
+        role: { in: [Role.ADMIN, Role.SECRETARY] },
+        id: { not: uploaderId },
+      },
+      select: { id: true },
+    });
+    for (const u of adminSecretaries) {
+      recipientIds.add(u.id);
+    }
+
+    if (recipientIds.size === 0) return;
+
+    // Create individual notifications so each gets a real-time push
+    for (const userId of recipientIds) {
+      const notification = await this.repository.create({
+        userId,
+        ticketId,
+        type: NotificationType.ATTACHMENT_ADDED,
+        title: 'File Attached',
+        message: `${uploaderName} uploaded ${fileText} to ticket "${ticketTitle}" (${ticketNumber}).`,
+        metadata: {
+          uploaderName,
+          fileCount,
+        },
+      });
+      this.publishNotification(notification);
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -19,9 +19,26 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { TicketService, TicketDetail } from '../../core/services/ticket.service';
+import { NzUploadModule } from 'ng-zorro-antd/upload';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzProgressModule } from 'ng-zorro-antd/progress';
+import { TicketService, TicketDetail, TicketAttachment } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { RealtimeService } from '../../core/services/realtime.service';
+
+// SLA Step types
+type SLAStepStatus = 'COMPLETED_ON_TIME' | 'COMPLETED_LATE' | 'IN_PROGRESS' | 'IN_PROGRESS_OVERDUE' | 'NOT_STARTED' | 'SKIPPED';
+
+interface SLAStep {
+  stepNumber: number;
+  name: string;
+  expectedMinutes: number;
+  actualMinutes: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  status: SLAStepStatus;
+}
 
 @Component({
   selector: 'app-ticket-detail',
@@ -46,6 +63,9 @@ import { NzMessageService } from 'ng-zorro-antd/message';
     NzPopconfirmModule,
     NzIconModule,
     NzDatePickerModule,
+    NzUploadModule,
+    NzToolTipModule,
+    NzProgressModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ticket-detail.page.html',
@@ -56,6 +76,37 @@ export class TicketDetailPage implements OnInit {
   private readonly ticketService = inject(TicketService);
   private readonly message = inject(NzMessageService);
   private readonly authService = inject(AuthService);
+  private readonly realtimeService = inject(RealtimeService);
+
+  /** The current ticket number displayed on this page */
+  private currentTicketNumber = '';
+
+  constructor() {
+    // Real-time: auto-refresh ticket detail when WebSocket events arrive
+    effect(() => {
+      const changed = this.realtimeService.lastStatusChange();
+      if (changed && this.currentTicketNumber) {
+        this.silentReloadTicket();
+      }
+    });
+
+    effect(() => {
+      const notif = this.realtimeService.lastNotification();
+      if (notif && this.currentTicketNumber) {
+        // Refresh the current ticket when any notification arrives
+        // (could be a note, attachment, status change, etc.)
+        this.silentReloadTicket();
+      }
+    });
+
+    // Handle forced refresh from notification click (same-page navigation)
+    effect(() => {
+      const ticketNum = this.realtimeService.forceTicketRefresh();
+      if (ticketNum && ticketNum === this.currentTicketNumber) {
+        this.silentReloadTicket();
+      }
+    });
+  }
 
   readonly loading = signal(true);
   readonly ticket = signal<TicketDetail | null>(null);
@@ -87,12 +138,7 @@ export class TicketDetailPage implements OnInit {
   readonly directorApprovalAction = signal<'approve' | 'disapprove'>('approve');
   readonly processingDirectorApproval = signal(false);
 
-  // Schedule Visit state (for department heads)
-  readonly showScheduleVisitModal = signal(false);
-  readonly scheduleVisitDate = signal<Date | null>(null);
-  readonly scheduleTargetCompletion = signal<Date | null>(null);
-  readonly scheduleComment = signal('');
-  readonly processingSchedule = signal(false);
+  // Schedule Visit state removed - scheduling is now part of the assign step
 
   // Acknowledge Schedule state (for admin)
   readonly showAcknowledgeModal = signal(false);
@@ -107,6 +153,48 @@ export class TicketDetailPage implements OnInit {
   readonly recommendations = signal('');
   readonly monitorComment = signal('');
   readonly processingMonitor = signal(false);
+
+  // ========================================
+  // FILE ATTACHMENT STATE
+  // ========================================
+  readonly uploadingFiles = signal(false);
+  readonly uploadProgress = signal(0);
+  readonly selectedFiles = signal<File[]>([]);
+  readonly deletingAttachmentId = signal<number | null>(null);
+
+  /** Hidden file input reference */
+  readonly fileInputRef = viewChild<ElementRef<HTMLInputElement>>('fileInput');
+
+  // ========================================
+  // ASSIGN TICKET STATE (for Department Heads)
+  // Used when assigning a staff member from the detail page
+  // ========================================
+  readonly showAssignModal = signal(false);
+  readonly staffList = signal<{ id: number; name: string; email: string; role: string }[]>([]);
+  readonly selectedUserId = signal<number | null>(null);
+  // Optional schedule dates included during assignment (not required)
+  readonly assignDateToVisit = signal<Date | null>(null);
+  readonly assignTargetCompletion = signal<Date | null>(null);
+  readonly assignComment = signal('');
+  readonly processingAssignment = signal(false);
+
+  // ========================================
+  // DEVELOPER STATUS UPDATE WITH DATE (for Staff)
+  // Developer can update targetCompletionDate when changing status
+  // ========================================
+  readonly devTargetCompletionDate = signal<Date | null>(null);
+
+  /**
+   * Get developer's status update comments from the ticket's statusHistory
+   * These are comments from DEVELOPER/TECHNICAL role users during status transitions
+   */
+  readonly devStatusComments = computed(() => {
+    const t = this.ticket();
+    if (!t?.statusHistory) return [];
+    return t.statusHistory.filter(
+      (h: any) => (h.user.role === 'DEVELOPER' || h.user.role === 'TECHNICAL') && h.comment
+    );
+  });
 
   // ========================================
   // ROLE CHECKS
@@ -164,18 +252,8 @@ export class TicketDetailPage implements OnInit {
   /** Check if user is a department head (MIS or ITS) */
   readonly isDepartmentHead = computed(() => this.authService.isOfficeHead());
 
-  /** Check if user can schedule a visit (department head, after staff is assigned) */
-  readonly canScheduleVisit = computed(() => {
-    const t = this.ticket();
-    if (!t) return false;
-    if (!this.isDepartmentHead()) return false;
-    // Can schedule if ticket is ASSIGNED and has staff assigned but no schedule yet
-    if (t.status !== 'ASSIGNED') return false;
-    const hasStaffAssigned = t.assignments?.some(
-      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
-    );
-    return hasStaffAssigned && !t.dateToVisit;
-  });
+  /** Schedule visit is now part of the assign step - this always returns false */
+  readonly canScheduleVisit = computed(() => false);
 
   /** Check if user can acknowledge schedule (admin, ticket is PENDING_ACKNOWLEDGMENT) */
   readonly canAcknowledgeSchedule = computed(() => {
@@ -184,13 +262,31 @@ export class TicketDetailPage implements OnInit {
     return this.isAdmin() && t.status === 'PENDING_ACKNOWLEDGMENT';
   });
 
-  /** Check if user can add monitor notes (department head, ticket is SCHEDULED) */
+  /** Check if user can add/update monitor notes (department head, ticket is SCHEDULED or beyond) */
   readonly canAddMonitor = computed(() => {
     const t = this.ticket();
     if (!t) return false;
     if (!this.isDepartmentHead()) return false;
-    // Can add monitor notes on SCHEDULED tickets that don't have monitor notes yet
-    return t.status === 'SCHEDULED' && !t.monitorNotes;
+    // Can add or update monitor notes on SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED tickets
+    return ['SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED'].includes(t.status);
+  });
+
+  /**
+   * Check if department head can assign a staff member to this ticket
+   * Shows the Assign button on the detail page (same as the table action)
+   * Conditions: user is department head, ticket is ASSIGNED status, no staff assigned yet
+   */
+  readonly canAssignTicket = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    if (!this.isDepartmentHead()) return false;
+    // Only allow assignment when ticket is in ASSIGNED status (from director approval)
+    if (t.status !== 'ASSIGNED' && t.status !== 'DIRECTOR_APPROVED') return false;
+    // Check if there's already a DEVELOPER or TECHNICAL staff assigned
+    const hasStaffAssigned = t.assignments?.some(
+      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
+    );
+    return !hasStaffAssigned;
   });
 
   /** Check if current user can view internal notes (staff members only) */
@@ -215,6 +311,176 @@ export class TicketDetailPage implements OnInit {
   /** Check if user can add internal notes (staff only) */
   readonly canAddInternalNotes = computed(() => this.canViewInternalNotes());
 
+  // ========================================
+  // SLA TIME TRACKING
+  // Based on ICT Support Services processing times:
+  // Step 1: Secretary Review (FOR_REVIEW → REVIEWED) — 5 min
+  // Step 2: Director Endorsement (REVIEWED → DIRECTOR_APPROVED) — 5 min
+  // Step 3: Assignment (DIRECTOR_APPROVED → ASSIGNED) — 5 min
+  // Step 4: Schedule Visit (ASSIGNED → PENDING_ACKNOWLEDGMENT) — 5 min
+  // Step 5: Acknowledgment (PENDING_ACKNOWLEDGMENT → SCHEDULED) — 5 min
+  // Total SLA: 25 minutes
+  // ========================================
+
+  /** SLA step definitions mapping status transitions to expected processing times */
+  private readonly SLA_STEPS = [
+    { stepNumber: 1, name: 'Secretary Review', fromStatus: 'FOR_REVIEW', toStatus: 'REVIEWED', expectedMinutes: 5 },
+    { stepNumber: 2, name: 'Director Endorsement', fromStatus: 'REVIEWED', toStatus: 'DIRECTOR_APPROVED', expectedMinutes: 5 },
+    { stepNumber: 3, name: 'Assignment', fromStatus: 'DIRECTOR_APPROVED', toStatus: 'ASSIGNED', expectedMinutes: 5 },
+    { stepNumber: 4, name: 'Schedule Visit', fromStatus: 'ASSIGNED', toStatus: 'PENDING_ACKNOWLEDGMENT', expectedMinutes: 5 },
+    { stepNumber: 5, name: 'Acknowledgment', fromStatus: 'PENDING_ACKNOWLEDGMENT', toStatus: 'SCHEDULED', expectedMinutes: 5 },
+  ];
+
+  /** Computed SLA timeline from ticket status history */
+  readonly slaTimeline = computed(() => {
+    const t = this.ticket();
+    if (!t) return null;
+
+    const history = [...(t.statusHistory || [])].sort(
+      (a, b) => this.parseDate(a.createdAt).getTime() - this.parseDate(b.createdAt).getTime()
+    );
+
+    const steps: SLAStep[] = [];
+    let totalActualMinutes = 0;
+    let hasOverdue = false;
+    const currentStatus = t.status;
+
+    for (const slaDef of this.SLA_STEPS) {
+      // Find when this step started (entry into fromStatus)
+      const startEntry = this.findStatusEntry(history, slaDef.fromStatus, t.createdAt);
+      // Find when this step completed (transition to toStatus)
+      const completionEntry = history.find(
+        h => h.fromStatus === slaDef.fromStatus && h.toStatus === slaDef.toStatus
+      );
+
+      let status: SLAStepStatus;
+      let actualMinutes: number | null = null;
+      let startedAt: string | null = startEntry;
+      let completedAt: string | null = null;
+
+      if (completionEntry) {
+        // Step is completed
+        completedAt = completionEntry.createdAt;
+        const startTime = this.parseDate(startEntry).getTime();
+        const endTime = this.parseDate(completionEntry.createdAt).getTime();
+        actualMinutes = Math.round(((endTime - startTime) / 60000) * 100) / 100;
+        totalActualMinutes += actualMinutes;
+
+        status = actualMinutes <= slaDef.expectedMinutes ? 'COMPLETED_ON_TIME' : 'COMPLETED_LATE';
+        if (status === 'COMPLETED_LATE') hasOverdue = true;
+      } else if (currentStatus === slaDef.fromStatus) {
+        // Currently in this step
+        const startTime = this.parseDate(startEntry).getTime();
+        const now = Date.now();
+        actualMinutes = Math.round(((now - startTime) / 60000) * 100) / 100;
+
+        status = actualMinutes <= slaDef.expectedMinutes ? 'IN_PROGRESS' : 'IN_PROGRESS_OVERDUE';
+        if (status === 'IN_PROGRESS_OVERDUE') hasOverdue = true;
+      } else if (currentStatus === 'CANCELLED' || currentStatus === 'CLOSED') {
+        // Ticket was cancelled or closed before reaching this step
+        status = 'SKIPPED';
+      } else {
+        // Step hasn't been reached yet
+        const statusOrder = ['FOR_REVIEW', 'REVIEWED', 'DIRECTOR_APPROVED', 'ASSIGNED', 'PENDING_ACKNOWLEDGMENT', 'SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'];
+        const currentIdx = statusOrder.indexOf(currentStatus);
+        const stepIdx = statusOrder.indexOf(slaDef.fromStatus);
+        status = currentIdx >= stepIdx ? 'SKIPPED' : 'NOT_STARTED';
+        startedAt = null;
+      }
+
+      steps.push({
+        stepNumber: slaDef.stepNumber,
+        name: slaDef.name,
+        expectedMinutes: slaDef.expectedMinutes,
+        actualMinutes,
+        startedAt,
+        completedAt,
+        status,
+      });
+    }
+
+    const completedSteps = steps.filter(s => s.status === 'COMPLETED_ON_TIME' || s.status === 'COMPLETED_LATE');
+    const totalExpected = 25; // Total SLA in minutes
+
+    return {
+      steps,
+      totalExpectedMinutes: totalExpected,
+      totalActualMinutes: Math.round(totalActualMinutes * 100) / 100,
+      completedSteps: completedSteps.length,
+      totalSteps: this.SLA_STEPS.length,
+      isOverdue: hasOverdue,
+      submittedAt: t.createdAt,
+      currentStatus,
+    };
+  });
+
+  /** Find when a status was first entered */
+  private findStatusEntry(history: Array<{fromStatus?: string; toStatus: string; createdAt: string}>, status: string, ticketCreatedAt: string): string {
+    if (status === 'FOR_REVIEW') {
+      return ticketCreatedAt; // Ticket starts as FOR_REVIEW upon creation
+    }
+    const entry = history.find(h => h.toStatus === status);
+    return entry ? entry.createdAt : ticketCreatedAt;
+  }
+
+  /** Parse date string to Date object (handles timestamps and ISO strings) */
+  private parseDate(dateString: string): Date {
+    if (/^\d+$/.test(dateString)) {
+      return new Date(parseInt(dateString, 10));
+    }
+    return new Date(dateString);
+  }
+
+  /** Format minutes into human-readable duration */
+  formatDuration(minutes: number | null): string {
+    if (minutes === null || minutes === undefined) return '-';
+    if (minutes < 1) return `${Math.round(minutes * 60)}s`;
+    if (minutes < 60) return `${Math.round(minutes * 10) / 10} min`;
+    const hrs = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    if (hrs < 24) return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+    const days = Math.floor(hrs / 24);
+    const remHrs = hrs % 24;
+    return remHrs > 0 ? `${days}d ${remHrs}h` : `${days}d`;
+  }
+
+  /** Get SLA step icon */
+  getSLAStepIcon(status: SLAStepStatus): string {
+    switch (status) {
+      case 'COMPLETED_ON_TIME': return '✅';
+      case 'COMPLETED_LATE': return '⚠️';
+      case 'IN_PROGRESS': return '🔄';
+      case 'IN_PROGRESS_OVERDUE': return '🔴';
+      case 'NOT_STARTED': return '⏳';
+      case 'SKIPPED': return '⏭️';
+    }
+  }
+
+  /** Get SLA step color class */
+  getSLAStepColor(status: SLAStepStatus): string {
+    switch (status) {
+      case 'COMPLETED_ON_TIME': return '#52c41a';
+      case 'COMPLETED_LATE': return '#faad14';
+      case 'IN_PROGRESS': return '#1890ff';
+      case 'IN_PROGRESS_OVERDUE': return '#ff4d4f';
+      case 'NOT_STARTED': return '#d9d9d9';
+      case 'SKIPPED': return '#bfbfbf';
+    }
+  }
+
+  /** Check if user can upload attachments (creator, assigned staff, heads, admin) */
+  readonly canUploadAttachments = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    // Anyone associated with the ticket can upload
+    return this.isMyTicket() || this.isAssignedToMe() || this.isDepartmentHead() || this.isAdmin();
+  });
+
+  /** Check if user can delete a specific attachment */
+  canDeleteAttachment(_attachment: TicketAttachment): boolean {
+    return this.isMyTicket() || this.isAssignedToMe() || this.isDepartmentHead() || this.isAdmin();
+  }
+
   /** Check if user can update ticket status */
   readonly canUpdateStatus = computed(() => {
     const t = this.ticket();
@@ -232,13 +498,48 @@ export class TicketDetailPage implements OnInit {
   ];
 
   ngOnInit(): void {
-    const ticketNumber = this.route.snapshot.paramMap.get('ticketNumber');
-    if (ticketNumber) {
-      this.loadTicket(ticketNumber);
-    } else {
-      this.loading.set(false);
-      this.message.error('Invalid ticket number');
+    // Subscribe to route param changes so navigating from one ticket to another reloads
+    this.route.paramMap.subscribe((params) => {
+      const ticketNumber = params.get('ticketNumber');
+      if (ticketNumber) {
+        this.currentTicketNumber = ticketNumber;
+        this.loadTicket(ticketNumber);
+      } else {
+        this.loading.set(false);
+        this.message.error('Invalid ticket number');
+      }
+    });
+
+    // Load staff list if user is a department head (for assignment dropdown)
+    if (this.isDepartmentHead()) {
+      this.loadStaffList();
     }
+  }
+
+  /** Silently reload the current ticket without showing loading spinner */
+  private silentReloadTicket(): void {
+    if (!this.currentTicketNumber) return;
+    this.ticketService.getTicketByNumber(this.currentTicketNumber).subscribe({
+      next: (ticket) => this.ticket.set(ticket),
+      error: (err) => console.error('Silent ticket refresh failed:', err),
+    });
+  }
+
+  /**
+   * Load available staff members for the assignment dropdown
+   * MIS_HEAD sees DEVELOPERs, ITS_HEAD sees TECHNICAL staff
+   */
+  loadStaffList(): void {
+    const isMISHead = this.authService.isMISHead();
+    const role = isMISHead ? 'DEVELOPER' : 'TECHNICAL';
+
+    this.ticketService.getUsersByRole(role).subscribe({
+      next: (users) => this.staffList.set(users),
+      error: (err) => {
+        console.error('Failed to load staff list:', err);
+        this.message.error('Failed to load staff list');
+      },
+    });
   }
 
   loadTicket(ticketNumber: string): void {
@@ -327,7 +628,18 @@ export class TicketDetailPage implements OnInit {
     if (!dateString) return '-';
 
     // Parse the date - handle ISO strings, timestamps, and Date objects
-    const d = dateString instanceof Date ? dateString : new Date(dateString);
+    let d: Date;
+
+    if (dateString instanceof Date) {
+      d = dateString;
+    } else if (typeof dateString === 'number') {
+      d = new Date(dateString);
+    } else if (typeof dateString === 'string') {
+      // Support numeric timestamp strings
+      d = /^\d+$/.test(dateString) ? new Date(parseInt(dateString, 10)) : new Date(dateString);
+    } else {
+      d = new Date(dateString as any);
+    }
 
     // Check if date is valid by testing if getTime() returns NaN
     if (isNaN(d.getTime())) {
@@ -403,27 +715,107 @@ export class TicketDetailPage implements OnInit {
   }
 
   // ========================================
+  // ASSIGN TICKET METHODS (for Department Heads)
+  // These allow heads to assign staff directly from the detail page
+  // (same as the table action, but available when navigating from notifications)
+  // ========================================
+
+  /**
+   * Open the assignment modal
+   * Resets all fields to default values
+   */
+  openAssignModal(): void {
+    this.selectedUserId.set(null);
+    this.assignDateToVisit.set(null);
+    this.assignTargetCompletion.set(null);
+    this.assignComment.set('');
+    this.showAssignModal.set(true);
+  }
+
+  /**
+   * Close the assignment modal and reset all fields
+   */
+  closeAssignModal(): void {
+    this.showAssignModal.set(false);
+    this.selectedUserId.set(null);
+    this.assignDateToVisit.set(null);
+    this.assignTargetCompletion.set(null);
+    this.assignComment.set('');
+  }
+
+  /**
+   * Confirm assignment of ticket to selected staff member
+   * Date to visit is required - this triggers assign + schedule in one step
+   */
+  confirmAssignment(): void {
+    const t = this.ticket();
+    const userId = this.selectedUserId();
+    const dateToVisit = this.assignDateToVisit();
+
+    if (!t || !userId) {
+      this.message.warning('Please select a staff member');
+      return;
+    }
+
+    if (!dateToVisit) {
+      this.message.warning('Please select a date to visit');
+      return;
+    }
+
+    this.processingAssignment.set(true);
+
+    // Date to visit is required - triggers assign + schedule in one step
+    const options = {
+      dateToVisit: dateToVisit.toISOString(),
+    };
+
+    this.ticketService
+      .assignTicketToUser(t.id, userId, options)
+      .subscribe({
+        next: () => {
+          this.message.success('Ticket assigned and scheduled! Pending admin acknowledgment.');
+          this.closeAssignModal();
+          this.loadTicket(t.ticketNumber); // Reload to show updated data
+        },
+        error: (error) => {
+          console.error('Failed to assign ticket:', error);
+          this.message.error('Failed to assign ticket');
+          this.processingAssignment.set(false);
+        },
+        complete: () => {
+          this.processingAssignment.set(false);
+        },
+      });
+  }
+
+  // ========================================
   // STATUS UPDATE METHODS (for Staff)
   // ========================================
 
   /**
    * Open status update modal
+   * Pre-fills the target completion date from the ticket if it exists
    */
   openStatusModal(): void {
     const t = this.ticket();
     if (!t) return;
     this.selectedStatus.set(t.status);
     this.statusComment.set('');
+    // Pre-fill target completion date if ticket already has one
+    this.devTargetCompletionDate.set(
+      t.targetCompletionDate ? new Date(t.targetCompletionDate) : null
+    );
     this.showStatusModal.set(true);
   }
 
   /**
-   * Close status update modal
+   * Close status update modal and reset all fields
    */
   closeStatusModal(): void {
     this.showStatusModal.set(false);
     this.selectedStatus.set('');
     this.statusComment.set('');
+    this.devTargetCompletionDate.set(null);
   }
 
   /**
@@ -449,6 +841,8 @@ export class TicketDetailPage implements OnInit {
 
   /**
    * Confirm status update from modal
+   * Passes optional targetCompletionDate if developer updated it
+   * Developer's comment is added as a note (carried over to heads via notes)
    */
   confirmStatusUpdate(): void {
     const t = this.ticket();
@@ -460,8 +854,12 @@ export class TicketDetailPage implements OnInit {
       return;
     }
 
+    // Get the developer's target completion date update (optional)
+    const targetDate = this.devTargetCompletionDate();
+    const targetDateStr = targetDate ? targetDate.toISOString() : undefined;
+
     this.updatingStatus.set(true);
-    this.ticketService.updateStatus(t.id, status, comment || undefined).subscribe({
+    this.ticketService.updateStatus(t.id, status, comment || undefined, targetDateStr).subscribe({
       next: () => {
         this.message.success(`Status updated to ${status.replace('_', ' ')}`);
         this.closeStatusModal();
@@ -681,30 +1079,6 @@ export class TicketDetailPage implements OnInit {
     }
   }
 
-  // ========================================
-  // SCHEDULE VISIT METHODS (for Department Heads)
-  // ========================================
-
-  /**
-   * Open schedule visit modal
-   */
-  openScheduleVisitModal(): void {
-    this.scheduleVisitDate.set(null);
-    this.scheduleTargetCompletion.set(null);
-    this.scheduleComment.set('');
-    this.showScheduleVisitModal.set(true);
-  }
-
-  /**
-   * Close schedule visit modal
-   */
-  closeScheduleVisitModal(): void {
-    this.showScheduleVisitModal.set(false);
-    this.scheduleVisitDate.set(null);
-    this.scheduleTargetCompletion.set(null);
-    this.scheduleComment.set('');
-  }
-
   /**
    * Disable past dates in date picker
    */
@@ -713,49 +1087,6 @@ export class TicketDetailPage implements OnInit {
     today.setHours(0, 0, 0, 0);
     return current < today;
   };
-
-  /**
-   * Confirm schedule visit
-   */
-  confirmScheduleVisit(): void {
-    const t = this.ticket();
-    if (!t) return;
-
-    const visitDate = this.scheduleVisitDate();
-    const completionDate = this.scheduleTargetCompletion();
-
-    if (!visitDate) {
-      this.message.warning('Please select a date to visit');
-      return;
-    }
-
-    if (!completionDate) {
-      this.message.warning('Please select a target completion date');
-      return;
-    }
-
-    this.processingSchedule.set(true);
-    this.ticketService.scheduleVisit(
-      t.id,
-      visitDate.toISOString(),
-      completionDate.toISOString(),
-      this.scheduleComment() || undefined
-    ).subscribe({
-      next: () => {
-        this.message.success('Visit scheduled! Waiting for admin acknowledgment.');
-        this.closeScheduleVisitModal();
-        this.loadTicket(t.ticketNumber);
-      },
-      error: (error) => {
-        console.error('Failed to schedule visit:', error);
-        this.message.error(error?.message || 'Failed to schedule visit');
-        this.processingSchedule.set(false);
-      },
-      complete: () => {
-        this.processingSchedule.set(false);
-      },
-    });
-  }
 
   // ========================================
   // ACKNOWLEDGE SCHEDULE METHODS (for Admin)
@@ -838,11 +1169,12 @@ export class TicketDetailPage implements OnInit {
   // ========================================
 
   /**
-   * Open monitor modal
+   * Open monitor modal, pre-populating with existing values if updating
    */
   openMonitorModal(): void {
-    this.monitorNotes.set('');
-    this.recommendations.set('');
+    const t = this.ticket();
+    this.monitorNotes.set(t?.monitorNotes || '');
+    this.recommendations.set(t?.recommendations || '');
     this.monitorComment.set('');
     this.showMonitorModal.set(true);
   }
@@ -858,7 +1190,7 @@ export class TicketDetailPage implements OnInit {
   }
 
   /**
-   * Confirm add monitor notes and recommendations
+   * Confirm add/update monitor notes and recommendations
    */
   confirmAddMonitor(): void {
     const t = this.ticket();
@@ -885,18 +1217,147 @@ export class TicketDetailPage implements OnInit {
       this.monitorComment() || undefined
     ).subscribe({
       next: () => {
-        this.message.success('Monitor notes and recommendations added!');
+        this.message.success('Monitor notes and recommendations updated!');
         this.closeMonitorModal();
         this.loadTicket(t.ticketNumber);
       },
       error: (error) => {
-        console.error('Failed to add monitor notes:', error);
-        this.message.error(error?.message || 'Failed to add monitor notes');
+        console.error('Failed to update monitor notes:', error);
+        this.message.error(error?.message || 'Failed to update monitor notes');
         this.processingMonitor.set(false);
       },
       complete: () => {
         this.processingMonitor.set(false);
       },
     });
+  }
+
+  // ========================================
+  // FILE ATTACHMENT METHODS
+  // ========================================
+
+  /**
+   * Trigger the hidden file input
+   */
+  triggerFileInput(): void {
+    const input = this.fileInputRef()?.nativeElement;
+    if (input) {
+      input.click();
+    }
+  }
+
+  /**
+   * Handle file selection from the file input
+   */
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+
+    const files = Array.from(input.files);
+    const maxSize = 50 * 1024 * 1024; // 50MB
+
+    // Validate file sizes
+    const oversized = files.filter(f => f.size > maxSize);
+    if (oversized.length > 0) {
+      this.message.error(`File(s) too large (max 50MB): ${oversized.map(f => f.name).join(', ')}`);
+      input.value = ''; // Reset input
+      return;
+    }
+
+    if (files.length > 5) {
+      this.message.warning('Maximum 5 files per upload');
+      input.value = '';
+      return;
+    }
+
+    this.uploadFiles(files);
+    input.value = ''; // Reset input for next selection
+  }
+
+  /**
+   * Upload selected files to the ticket
+   */
+  private uploadFiles(files: File[]): void {
+    const t = this.ticket();
+    if (!t) return;
+
+    this.uploadingFiles.set(true);
+    this.uploadProgress.set(0);
+
+    this.ticketService.uploadAttachments(
+      t.id,
+      files,
+      // Progress callback — updates the progress bar in real time
+      (percent) => this.uploadProgress.set(percent)
+    ).subscribe({
+      next: (result) => {
+        this.message.success(
+          `${result.attachments.length} file(s) uploaded successfully!`
+        );
+        this.uploadingFiles.set(false);
+        this.uploadProgress.set(100);
+        // Reload ticket to show new attachments
+        this.loadTicket(t.ticketNumber);
+      },
+      error: (error) => {
+        console.error('Failed to upload files:', error);
+        const errorMsg = error?.error?.error || error?.message || 'Failed to upload files';
+        this.message.error(errorMsg);
+        this.uploadingFiles.set(false);
+        this.uploadProgress.set(0);
+      },
+    });
+  }
+
+  /**
+   * Delete a ticket attachment
+   */
+  deleteAttachment(attachment: TicketAttachment): void {
+    const t = this.ticket();
+    if (!t) return;
+
+    this.deletingAttachmentId.set(attachment.id);
+    this.ticketService.deleteAttachment(attachment.id).subscribe({
+      next: () => {
+        this.message.success(`"${attachment.originalName}" deleted`);
+        this.deletingAttachmentId.set(null);
+        this.loadTicket(t.ticketNumber);
+      },
+      error: (error) => {
+        console.error('Failed to delete attachment:', error);
+        this.message.error('Failed to delete attachment');
+        this.deletingAttachmentId.set(null);
+      },
+    });
+  }
+
+  /**
+   * Get a human-readable file size string
+   */
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  /**
+   * Get an icon type for the file based on MIME type
+   */
+  getFileIcon(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return 'file-image';
+    if (mimeType === 'application/pdf') return 'file-pdf';
+    if (mimeType.includes('word') || mimeType.includes('document')) return 'file-word';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'file-excel';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'file-ppt';
+    if (mimeType.startsWith('text/')) return 'file-text';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) return 'file-zip';
+    return 'file';
+  }
+
+  /**
+   * Check if attachment is previewable (image)
+   */
+  isImageAttachment(mimeType: string): boolean {
+    return mimeType.startsWith('image/') && !mimeType.includes('svg');
   }
 }

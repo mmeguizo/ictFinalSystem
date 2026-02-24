@@ -8,4 +8,9 @@ export class UpdateTicketStatusDto {
   @IsString()
   @IsOptional()
   comment?: string;
+
+  // Optional: developers can update the target completion date when changing status
+  @IsString()
+  @IsOptional()
+  targetCompletionDate?: string;
 }

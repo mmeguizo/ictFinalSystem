@@ -31,7 +31,8 @@ type NotificationType =
   | 'TICKET_DISAPPROVED'
   | 'TICKET_ASSIGNED'
   | 'STATUS_CHANGED'
-  | 'NOTE_ADDED';
+  | 'NOTE_ADDED'
+  | 'ATTACHMENT_ADDED';
 
 @Component({
   selector: 'app-notifications-page',
@@ -330,6 +331,7 @@ export class NotificationsPage implements OnInit {
     { value: 'TICKET_ASSIGNED', label: 'Ticket Assigned' },
     { value: 'STATUS_CHANGED', label: 'Status Changed' },
     { value: 'NOTE_ADDED', label: 'Note Added' },
+    { value: 'ATTACHMENT_ADDED', label: 'File Attached' },
   ];
 
   // Computed filtered notifications
@@ -448,6 +450,7 @@ export class NotificationsPage implements OnInit {
       'TICKET_ASSIGNED': 'purple',
       'STATUS_CHANGED': 'geekblue',
       'NOTE_ADDED': 'gold',
+      'ATTACHMENT_ADDED': 'cyan',
     };
     return colors[type] || 'default';
   }

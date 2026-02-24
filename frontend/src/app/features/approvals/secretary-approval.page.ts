@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, OnInit, signal, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +16,7 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { TicketService, TicketListItem } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
+import { RealtimeService } from '../../core/services/realtime.service';
 
 @Component({
   selector: 'app-secretary-approval-page',
@@ -44,6 +45,8 @@ export class SecretaryApprovalPage implements OnInit {
   private readonly ticketService = inject(TicketService);
   private readonly message = inject(NzMessageService);
   private readonly authService = inject(AuthService);
+  private readonly realtimeService = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(false);
   readonly tickets = signal<TicketListItem[]>([]);
@@ -111,8 +114,40 @@ export class SecretaryApprovalPage implements OnInit {
     return allTickets;
   });
 
+  constructor() {
+    // Real-time: auto-refresh table when WebSocket events arrive
+    effect(() => {
+      const created = this.realtimeService.lastTicketCreated();
+      if (created) {
+        this.silentRefresh();
+      }
+    });
+
+    effect(() => {
+      const changed = this.realtimeService.lastStatusChange();
+      if (changed) {
+        this.silentRefresh();
+      }
+    });
+
+    effect(() => {
+      const notif = this.realtimeService.lastNotification();
+      if (notif) {
+        this.silentRefresh();
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.loadTicketsForApproval();
+  }
+
+  /** Silently refresh the ticket list without showing loading spinner */
+  private silentRefresh(): void {
+    this.ticketService.getAllSecretaryTickets().subscribe({
+      next: (tickets) => this.tickets.set(tickets),
+      error: (err) => console.error('Silent refresh failed:', err),
+    });
   }
 
   loadTicketsForApproval(): void {

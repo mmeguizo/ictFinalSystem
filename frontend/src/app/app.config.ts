@@ -1,4 +1,4 @@
-import { ApplicationConfig, inject, provideBrowserGlobalErrorListeners, provideZoneChangeDetection, provideAppInitializer } from '@angular/core';
+import { ApplicationConfig, inject, NgZone, provideBrowserGlobalErrorListeners, provideZoneChangeDetection, provideAppInitializer } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 
@@ -29,9 +29,12 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
-import { InMemoryCache, ApolloLink } from '@apollo/client/core';
+import { InMemoryCache, ApolloLink, split } from '@apollo/client/core';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
+import { getMainDefinition } from '@apollo/client/utilities';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { createClient } from 'graphql-ws';
 import type { GraphQLError } from 'graphql';
 import { provideAuth0, AuthService } from '@auth0/auth0-angular';
 import { from } from 'rxjs';
@@ -73,6 +76,7 @@ export const appConfig: ApplicationConfig = {
     provideApollo(() => {
       const httpLink = inject(HttpLink);
       const router = inject(Router);
+      const ngZone = inject(NgZone);
 
       // Only use auth on the browser, not during SSR
       if (typeof window !== 'undefined') {
@@ -94,12 +98,14 @@ export const appConfig: ApplicationConfig = {
           const graphQLErrors = errorResponse.graphQLErrors as ReadonlyArray<GraphQLError> | undefined;
           const networkError = errorResponse.networkError as any;
 
-          // console.log('[Apollo ErrorLink] Received error response:', { graphQLErrors, networkError });
+          // Debug: Log all errors received
+          console.log('[Apollo ErrorLink] Error received:', {
+            graphQLErrors: graphQLErrors?.map(e => ({ message: e.message, code: e.extensions?.['code'] })),
+            networkError: networkError ? { status: networkError.status, message: networkError.message } : null
+          });
 
           if (graphQLErrors && !isLoggingOut) {
             for (const err of graphQLErrors) {
-              // console.log('[Apollo ErrorLink] Checking error:', err.message, 'extensions:', err.extensions);
-
               const errorCode = err.extensions?.['code'] as string;
               const errorMessage = err.message?.toLowerCase() || '';
 
@@ -107,11 +113,17 @@ export const appConfig: ApplicationConfig = {
               const isAuthError =
                 errorCode === 'UNAUTHENTICATED' ||
                 errorCode === 'UNAUTHORIZED' ||
+                errorCode === 'FORBIDDEN' ||
                 errorMessage.includes('unauthorized') ||
+                errorMessage.includes('forbidden') ||
                 errorMessage.includes('jwt expired') ||
+                errorMessage.includes('jwt malformed') ||
                 errorMessage.includes('invalid token') ||
+                errorMessage.includes('invalid signature') ||
                 errorMessage.includes('session expired') ||
-                errorMessage.includes('authentication required');
+                errorMessage.includes('authentication required') ||
+                errorMessage.includes('token expired') ||
+                errorMessage.includes('no authorization');
 
               // Check for internal server error that might be caused by auth failure
               // When JWT expires, backend wraps the error as "Internal server error"
@@ -123,7 +135,16 @@ export const appConfig: ApplicationConfig = {
                 console.warn('[Apollo] Authentication error detected, logging out user. Error:', err.message, 'Code:', errorCode);
                 isLoggingOut = true;
                 // Clear auth state and redirect to login
-                appAuthService.logout();
+                // Must run inside NgZone so Angular Router navigation works
+                ngZone.run(() => {
+                  appAuthService.logout();
+                });
+                // Fallback: force redirect if router navigation didn't work
+                setTimeout(() => {
+                  if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                  }
+                }, 500);
                 return;
               }
             }
@@ -135,7 +156,15 @@ export const appConfig: ApplicationConfig = {
             if ('status' in networkError && networkError.status === 401) {
               console.warn('[Apollo] 401 Network error detected, logging out user');
               isLoggingOut = true;
-              appAuthService.logout();
+              ngZone.run(() => {
+                appAuthService.logout();
+              });
+              // Fallback: force redirect if router navigation didn't work
+              setTimeout(() => {
+                if (window.location.pathname !== '/login') {
+                  window.location.href = '/login';
+                }
+              }, 500);
             }
           }
         });
@@ -178,11 +207,38 @@ export const appConfig: ApplicationConfig = {
         });
 
         // Chain: errorLink -> authLink -> httpLink
-        const link = ApolloLink.from([
+        const httpChain = ApolloLink.from([
           errorLink,
           authLink,
           httpLink.create({ uri: environment.apiUrl })
         ]);
+
+        // WebSocket link for subscriptions (real-time updates)
+        const wsLink = new GraphQLWsLink(
+          createClient({
+            url: environment.wsUrl,
+            connectionParams: () => {
+              const token = appAuthService.getToken();
+              return token ? { authorization: `Bearer ${token}` } : {};
+            },
+            // Auto-reconnect on connection loss
+            retryAttempts: Infinity,
+            shouldRetry: () => true,
+          })
+        );
+
+        // Split: subscriptions go through WebSocket, everything else through HTTP
+        const link = split(
+          ({ query }) => {
+            const definition = getMainDefinition(query);
+            return (
+              definition.kind === 'OperationDefinition' &&
+              definition.operation === 'subscription'
+            );
+          },
+          wsLink,
+          httpChain
+        );
 
         return {
           link,

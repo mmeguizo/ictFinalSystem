@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, throwError } from 'rxjs';
+import { catchError, tap, throwError } from 'rxjs';
 import { NotificationService } from '../services/notification.service';
 import { AuthService } from '../services/auth.service';
 
@@ -9,12 +9,34 @@ import { AuthService } from '../services/auth.service';
  * Global error handling for HTTP requests
  * Catches errors and displays user-friendly messages
  * Auto-logs out user on 401 Unauthorized errors
+ * Also checks successful (HTTP 200) GraphQL responses for auth errors
  */
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const notification = inject(NotificationService);
   const authService = inject(AuthService);
 
   return next(req).pipe(
+    // Check successful responses for GraphQL auth errors (HTTP 200 with errors in body)
+    tap((event: any) => {
+      if (event?.body?.errors && Array.isArray(event.body.errors)) {
+        for (const gqlError of event.body.errors) {
+          const code = gqlError?.extensions?.code;
+          const msg = (gqlError?.message || '').toLowerCase();
+          if (
+            code === 'UNAUTHENTICATED' ||
+            code === 'UNAUTHORIZED' ||
+            msg.includes('session expired') ||
+            msg.includes('jwt expired') ||
+            msg.includes('invalid token') ||
+            msg.includes('token expired')
+          ) {
+            console.warn('[ErrorInterceptor] GraphQL auth error in 200 response, logging out');
+            authService.logout();
+            return;
+          }
+        }
+      }
+    }),
     catchError((error: HttpErrorResponse) => {
       let errorMessage = 'An unexpected error occurred';
       let shouldLogout = false;
