@@ -1,9 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-import { NotificationService } from './notification.service';
-import { pubsub, EVENTS } from '../../lib/pubsub';
-import { withFilter } from 'graphql-subscriptions';
+import { NotificationService } from "./notification.service";
+import { pubsub, EVENTS } from "../../lib/pubsub";
+import { withFilter } from "graphql-subscriptions";
+import { prisma } from "../../lib/prisma";
 
-const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
 export const notificationResolvers = {
@@ -11,23 +10,25 @@ export const notificationResolvers = {
     myNotifications: async (
       _: any,
       { unreadOnly, limit }: { unreadOnly?: boolean; limit?: number },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return notificationService.getMyNotifications(
         context.currentUser.id,
         unreadOnly ?? false,
-        limit ?? 50
+        limit ?? 50,
       );
     },
 
     unreadNotificationCount: async (_: any, __: any, context: any) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      const unread = await notificationService.getUnreadCount(context.currentUser.id);
+      const unread = await notificationService.getUnreadCount(
+        context.currentUser.id,
+      );
       return { unread };
     },
   },
@@ -36,19 +37,21 @@ export const notificationResolvers = {
     markNotificationAsRead: async (
       _: any,
       { id }: { id: number },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return notificationService.markAsRead(id, context.currentUser.id);
     },
 
     markAllNotificationsAsRead: async (_: any, __: any, context: any) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      const count = await notificationService.markAllAsRead(context.currentUser.id);
+      const count = await notificationService.markAllAsRead(
+        context.currentUser.id,
+      );
       return { count };
     },
   },
@@ -68,7 +71,7 @@ export const notificationResolvers = {
             return payload.ticketStatusChanged.ticketId === variables.ticketId;
           }
           return true; // No filter — send all status changes
-        }
+        },
       ),
     },
 
@@ -89,7 +92,7 @@ export const notificationResolvers = {
         () => pubsub.asyncIterableIterator([EVENTS.TICKET_ASSIGNED]),
         (payload: any, variables: any) => {
           return payload.ticketAssigned.assignedToUserId === variables.userId;
-        }
+        },
       ),
     },
 
@@ -103,7 +106,7 @@ export const notificationResolvers = {
         () => pubsub.asyncIterableIterator([EVENTS.NOTIFICATION_CREATED]),
         (payload: any, variables: any) => {
           return payload.notificationCreated.userId === variables.userId;
-        }
+        },
       ),
     },
   },

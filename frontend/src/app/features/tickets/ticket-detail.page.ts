@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  OnInit,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -28,7 +38,13 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { RealtimeService } from '../../core/services/realtime.service';
 
 // SLA Step types
-type SLAStepStatus = 'COMPLETED_ON_TIME' | 'COMPLETED_LATE' | 'IN_PROGRESS' | 'IN_PROGRESS_OVERDUE' | 'NOT_STARTED' | 'SKIPPED';
+type SLAStepStatus =
+  | 'COMPLETED_ON_TIME'
+  | 'COMPLETED_LATE'
+  | 'IN_PROGRESS'
+  | 'IN_PROGRESS_OVERDUE'
+  | 'NOT_STARTED'
+  | 'SKIPPED';
 
 interface SLAStep {
   stepNumber: number;
@@ -184,6 +200,32 @@ export class TicketDetailPage implements OnInit {
   // ========================================
   readonly devTargetCompletionDate = signal<Date | null>(null);
 
+  // ========================================
+  // SATISFACTION SURVEY STATE
+  // ========================================
+  readonly showSatisfactionModal = signal(false);
+  readonly satisfactionRating = signal(0);
+  readonly satisfactionComment = signal('');
+  readonly submittingSatisfaction = signal(false);
+
+  /** Check if user can submit satisfaction survey */
+  readonly canSubmitSatisfaction = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    // Only creator, only resolved/closed, and not already rated
+    return (
+      this.isMyTicket() &&
+      (t.status === 'RESOLVED' || t.status === 'CLOSED') &&
+      !t.satisfactionRating
+    );
+  });
+
+  /** Check if satisfaction was already submitted */
+  readonly hasSatisfactionRating = computed(() => {
+    const t = this.ticket();
+    return t?.satisfactionRating != null;
+  });
+
   /**
    * Get developer's status update comments from the ticket's statusHistory
    * These are comments from DEVELOPER/TECHNICAL role users during status transitions
@@ -192,7 +234,7 @@ export class TicketDetailPage implements OnInit {
     const t = this.ticket();
     if (!t?.statusHistory) return [];
     return t.statusHistory.filter(
-      (h: any) => (h.user.role === 'DEVELOPER' || h.user.role === 'TECHNICAL') && h.comment
+      (h: any) => (h.user.role === 'DEVELOPER' || h.user.role === 'TECHNICAL') && h.comment,
     );
   });
 
@@ -216,11 +258,11 @@ export class TicketDetailPage implements OnInit {
     return this.isAdmin() || this.isSecretaryRole();
   });
 
-  /** Check if user can perform director approval (admin or director, ticket status REVIEWED) */
+  /** Check if user can perform director approval (admin, director, or department heads, ticket status REVIEWED) */
   readonly canApproveAsDirector = computed(() => {
     const t = this.ticket();
     if (!t || t.status !== 'REVIEWED') return false;
-    return this.isAdmin() || this.isDirectorRole();
+    return this.isAdmin() || this.isDirectorRole() || this.isDepartmentHead();
   });
 
   /** Check if current user is the creator of this ticket */
@@ -245,8 +287,8 @@ export class TicketDetailPage implements OnInit {
   });
 
   /** Check if user is staff (Developer or Technical) */
-  readonly isStaff = computed(() =>
-    this.authService.isDeveloper() || this.authService.isTechnical()
+  readonly isStaff = computed(
+    () => this.authService.isDeveloper() || this.authService.isTechnical(),
   );
 
   /** Check if user is a department head (MIS or ITS) */
@@ -279,12 +321,13 @@ export class TicketDetailPage implements OnInit {
   readonly canAssignTicket = computed(() => {
     const t = this.ticket();
     if (!t) return false;
+    // Only MIS_HEAD and ITS_HEAD can assign (not admin)
     if (!this.isDepartmentHead()) return false;
     // Only allow assignment when ticket is in ASSIGNED status (from director approval)
     if (t.status !== 'ASSIGNED' && t.status !== 'DIRECTOR_APPROVED') return false;
     // Check if there's already a DEVELOPER or TECHNICAL staff assigned
     const hasStaffAssigned = t.assignments?.some(
-      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
+      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL',
     );
     return !hasStaffAssigned;
   });
@@ -292,7 +335,15 @@ export class TicketDetailPage implements OnInit {
   /** Check if current user can view internal notes (staff members only) */
   readonly canViewInternalNotes = computed(() => {
     const role = this.authService.currentUser()?.role;
-    const staffRoles = ['ADMIN', 'SECRETARY', 'DIRECTOR', 'DEVELOPER', 'TECHNICAL', 'MIS_HEAD', 'ITS_HEAD'];
+    const staffRoles = [
+      'ADMIN',
+      'SECRETARY',
+      'DIRECTOR',
+      'DEVELOPER',
+      'TECHNICAL',
+      'MIS_HEAD',
+      'ITS_HEAD',
+    ];
     return role ? staffRoles.includes(role) : false;
   });
 
@@ -305,7 +356,7 @@ export class TicketDetailPage implements OnInit {
     if (this.canViewInternalNotes()) {
       return t.notes;
     }
-    return t.notes.filter(note => !note.isInternal);
+    return t.notes.filter((note) => !note.isInternal);
   });
 
   /** Check if user can add internal notes (staff only) */
@@ -324,11 +375,41 @@ export class TicketDetailPage implements OnInit {
 
   /** SLA step definitions mapping status transitions to expected processing times */
   private readonly SLA_STEPS = [
-    { stepNumber: 1, name: 'Secretary Review', fromStatus: 'FOR_REVIEW', toStatus: 'REVIEWED', expectedMinutes: 5 },
-    { stepNumber: 2, name: 'Director Endorsement', fromStatus: 'REVIEWED', toStatus: 'DIRECTOR_APPROVED', expectedMinutes: 5 },
-    { stepNumber: 3, name: 'Assignment', fromStatus: 'DIRECTOR_APPROVED', toStatus: 'ASSIGNED', expectedMinutes: 5 },
-    { stepNumber: 4, name: 'Schedule Visit', fromStatus: 'ASSIGNED', toStatus: 'PENDING_ACKNOWLEDGMENT', expectedMinutes: 5 },
-    { stepNumber: 5, name: 'Acknowledgment', fromStatus: 'PENDING_ACKNOWLEDGMENT', toStatus: 'SCHEDULED', expectedMinutes: 5 },
+    {
+      stepNumber: 1,
+      name: 'Secretary Review',
+      fromStatus: 'FOR_REVIEW',
+      toStatus: 'REVIEWED',
+      expectedMinutes: 5,
+    },
+    {
+      stepNumber: 2,
+      name: 'Director Endorsement',
+      fromStatus: 'REVIEWED',
+      toStatus: 'DIRECTOR_APPROVED',
+      expectedMinutes: 5,
+    },
+    {
+      stepNumber: 3,
+      name: 'Assignment',
+      fromStatus: 'DIRECTOR_APPROVED',
+      toStatus: 'ASSIGNED',
+      expectedMinutes: 5,
+    },
+    {
+      stepNumber: 4,
+      name: 'Schedule Visit',
+      fromStatus: 'ASSIGNED',
+      toStatus: 'PENDING_ACKNOWLEDGMENT',
+      expectedMinutes: 5,
+    },
+    {
+      stepNumber: 5,
+      name: 'Acknowledgment',
+      fromStatus: 'PENDING_ACKNOWLEDGMENT',
+      toStatus: 'SCHEDULED',
+      expectedMinutes: 5,
+    },
   ];
 
   /** Computed SLA timeline from ticket status history */
@@ -337,7 +418,7 @@ export class TicketDetailPage implements OnInit {
     if (!t) return null;
 
     const history = [...(t.statusHistory || [])].sort(
-      (a, b) => this.parseDate(a.createdAt).getTime() - this.parseDate(b.createdAt).getTime()
+      (a, b) => this.parseDate(a.createdAt).getTime() - this.parseDate(b.createdAt).getTime(),
     );
 
     const steps: SLAStep[] = [];
@@ -350,7 +431,7 @@ export class TicketDetailPage implements OnInit {
       const startEntry = this.findStatusEntry(history, slaDef.fromStatus, t.createdAt);
       // Find when this step completed (transition to toStatus)
       const completionEntry = history.find(
-        h => h.fromStatus === slaDef.fromStatus && h.toStatus === slaDef.toStatus
+        (h) => h.fromStatus === slaDef.fromStatus && h.toStatus === slaDef.toStatus,
       );
 
       let status: SLAStepStatus;
@@ -381,7 +462,18 @@ export class TicketDetailPage implements OnInit {
         status = 'SKIPPED';
       } else {
         // Step hasn't been reached yet
-        const statusOrder = ['FOR_REVIEW', 'REVIEWED', 'DIRECTOR_APPROVED', 'ASSIGNED', 'PENDING_ACKNOWLEDGMENT', 'SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'];
+        const statusOrder = [
+          'FOR_REVIEW',
+          'REVIEWED',
+          'DIRECTOR_APPROVED',
+          'ASSIGNED',
+          'PENDING_ACKNOWLEDGMENT',
+          'SCHEDULED',
+          'IN_PROGRESS',
+          'ON_HOLD',
+          'RESOLVED',
+          'CLOSED',
+        ];
         const currentIdx = statusOrder.indexOf(currentStatus);
         const stepIdx = statusOrder.indexOf(slaDef.fromStatus);
         status = currentIdx >= stepIdx ? 'SKIPPED' : 'NOT_STARTED';
@@ -399,7 +491,9 @@ export class TicketDetailPage implements OnInit {
       });
     }
 
-    const completedSteps = steps.filter(s => s.status === 'COMPLETED_ON_TIME' || s.status === 'COMPLETED_LATE');
+    const completedSteps = steps.filter(
+      (s) => s.status === 'COMPLETED_ON_TIME' || s.status === 'COMPLETED_LATE',
+    );
     const totalExpected = 25; // Total SLA in minutes
 
     return {
@@ -415,11 +509,15 @@ export class TicketDetailPage implements OnInit {
   });
 
   /** Find when a status was first entered */
-  private findStatusEntry(history: Array<{fromStatus?: string; toStatus: string; createdAt: string}>, status: string, ticketCreatedAt: string): string {
+  private findStatusEntry(
+    history: Array<{ fromStatus?: string; toStatus: string; createdAt: string }>,
+    status: string,
+    ticketCreatedAt: string,
+  ): string {
     if (status === 'FOR_REVIEW') {
       return ticketCreatedAt; // Ticket starts as FOR_REVIEW upon creation
     }
-    const entry = history.find(h => h.toStatus === status);
+    const entry = history.find((h) => h.toStatus === status);
     return entry ? entry.createdAt : ticketCreatedAt;
   }
 
@@ -447,24 +545,36 @@ export class TicketDetailPage implements OnInit {
   /** Get SLA step icon */
   getSLAStepIcon(status: SLAStepStatus): string {
     switch (status) {
-      case 'COMPLETED_ON_TIME': return '✅';
-      case 'COMPLETED_LATE': return '⚠️';
-      case 'IN_PROGRESS': return '🔄';
-      case 'IN_PROGRESS_OVERDUE': return '🔴';
-      case 'NOT_STARTED': return '⏳';
-      case 'SKIPPED': return '⏭️';
+      case 'COMPLETED_ON_TIME':
+        return '✅';
+      case 'COMPLETED_LATE':
+        return '⚠️';
+      case 'IN_PROGRESS':
+        return '🔄';
+      case 'IN_PROGRESS_OVERDUE':
+        return '🔴';
+      case 'NOT_STARTED':
+        return '⏳';
+      case 'SKIPPED':
+        return '⏭️';
     }
   }
 
   /** Get SLA step color class */
   getSLAStepColor(status: SLAStepStatus): string {
     switch (status) {
-      case 'COMPLETED_ON_TIME': return '#52c41a';
-      case 'COMPLETED_LATE': return '#faad14';
-      case 'IN_PROGRESS': return '#1890ff';
-      case 'IN_PROGRESS_OVERDUE': return '#ff4d4f';
-      case 'NOT_STARTED': return '#d9d9d9';
-      case 'SKIPPED': return '#bfbfbf';
+      case 'COMPLETED_ON_TIME':
+        return '#52c41a';
+      case 'COMPLETED_LATE':
+        return '#faad14';
+      case 'IN_PROGRESS':
+        return '#1890ff';
+      case 'IN_PROGRESS_OVERDUE':
+        return '#ff4d4f';
+      case 'NOT_STARTED':
+        return '#d9d9d9';
+      case 'SKIPPED':
+        return '#bfbfbf';
     }
   }
 
@@ -492,9 +602,24 @@ export class TicketDetailPage implements OnInit {
 
   /** Status options for staff */
   readonly statusOptions = [
-    { value: 'IN_PROGRESS', label: 'In Progress', color: 'processing', description: 'Start working on this ticket' },
-    { value: 'ON_HOLD', label: 'On Hold', color: 'warning', description: 'Pause work - waiting for info/resources' },
-    { value: 'RESOLVED', label: 'Resolved', color: 'success', description: 'Work completed - ready for closure' },
+    {
+      value: 'IN_PROGRESS',
+      label: 'In Progress',
+      color: 'processing',
+      description: 'Start working on this ticket',
+    },
+    {
+      value: 'ON_HOLD',
+      label: 'On Hold',
+      color: 'warning',
+      description: 'Pause work - waiting for info/resources',
+    },
+    {
+      value: 'RESOLVED',
+      label: 'Resolved',
+      color: 'success',
+      description: 'Work completed - ready for closure',
+    },
   ];
 
   ngOnInit(): void {
@@ -769,23 +894,21 @@ export class TicketDetailPage implements OnInit {
       dateToVisit: dateToVisit.toISOString(),
     };
 
-    this.ticketService
-      .assignTicketToUser(t.id, userId, options)
-      .subscribe({
-        next: () => {
-          this.message.success('Ticket assigned and scheduled! Pending admin acknowledgment.');
-          this.closeAssignModal();
-          this.loadTicket(t.ticketNumber); // Reload to show updated data
-        },
-        error: (error) => {
-          console.error('Failed to assign ticket:', error);
-          this.message.error('Failed to assign ticket');
-          this.processingAssignment.set(false);
-        },
-        complete: () => {
-          this.processingAssignment.set(false);
-        },
-      });
+    this.ticketService.assignTicketToUser(t.id, userId, options).subscribe({
+      next: () => {
+        this.message.success('Ticket assigned and scheduled! Pending admin acknowledgment.');
+        this.closeAssignModal();
+        this.loadTicket(t.ticketNumber); // Reload to show updated data
+      },
+      error: (error) => {
+        console.error('Failed to assign ticket:', error);
+        this.message.error('Failed to assign ticket');
+        this.processingAssignment.set(false);
+      },
+      complete: () => {
+        this.processingAssignment.set(false);
+      },
+    });
   }
 
   // ========================================
@@ -803,7 +926,7 @@ export class TicketDetailPage implements OnInit {
     this.statusComment.set('');
     // Pre-fill target completion date if ticket already has one
     this.devTargetCompletionDate.set(
-      t.targetCompletionDate ? new Date(t.targetCompletionDate) : null
+      t.targetCompletionDate ? new Date(t.targetCompletionDate) : null,
     );
     this.showStatusModal.set(true);
   }
@@ -927,6 +1050,51 @@ export class TicketDetailPage implements OnInit {
         },
         complete: () => {
           this.reopening.set(false);
+        },
+      });
+  }
+
+  // ========================================
+  // SATISFACTION SURVEY METHODS
+  // ========================================
+
+  openSatisfactionModal(): void {
+    this.satisfactionRating.set(0);
+    this.satisfactionComment.set('');
+    this.showSatisfactionModal.set(true);
+  }
+
+  closeSatisfactionModal(): void {
+    this.showSatisfactionModal.set(false);
+    this.satisfactionRating.set(0);
+    this.satisfactionComment.set('');
+  }
+
+  submitSatisfactionSurvey(): void {
+    const t = this.ticket();
+    if (!t) return;
+    const rating = this.satisfactionRating();
+    if (rating < 1 || rating > 5) {
+      this.message.warning('Please select a rating between 1 and 5 stars');
+      return;
+    }
+
+    this.submittingSatisfaction.set(true);
+    this.ticketService
+      .submitSatisfaction(t.id, rating, this.satisfactionComment().trim() || undefined)
+      .subscribe({
+        next: () => {
+          this.message.success('Thank you for your feedback!');
+          this.closeSatisfactionModal();
+          this.loadTicket(t.ticketNumber);
+        },
+        error: (error) => {
+          console.error('Failed to submit satisfaction:', error);
+          this.message.error(error.message || 'Failed to submit satisfaction');
+          this.submittingSatisfaction.set(false);
+        },
+        complete: () => {
+          this.submittingSatisfaction.set(false);
         },
       });
   }
@@ -1123,21 +1291,23 @@ export class TicketDetailPage implements OnInit {
     this.processingAcknowledge.set(true);
 
     if (action === 'acknowledge') {
-      this.ticketService.acknowledgeSchedule(t.id, this.acknowledgeComment() || undefined).subscribe({
-        next: () => {
-          this.message.success('Schedule acknowledged! The user will be notified.');
-          this.closeAcknowledgeModal();
-          this.loadTicket(t.ticketNumber);
-        },
-        error: (error) => {
-          console.error('Failed to acknowledge schedule:', error);
-          this.message.error(error?.message || 'Failed to acknowledge schedule');
-          this.processingAcknowledge.set(false);
-        },
-        complete: () => {
-          this.processingAcknowledge.set(false);
-        },
-      });
+      this.ticketService
+        .acknowledgeSchedule(t.id, this.acknowledgeComment() || undefined)
+        .subscribe({
+          next: () => {
+            this.message.success('Schedule acknowledged! The user will be notified.');
+            this.closeAcknowledgeModal();
+            this.loadTicket(t.ticketNumber);
+          },
+          error: (error) => {
+            console.error('Failed to acknowledge schedule:', error);
+            this.message.error(error?.message || 'Failed to acknowledge schedule');
+            this.processingAcknowledge.set(false);
+          },
+          complete: () => {
+            this.processingAcknowledge.set(false);
+          },
+        });
     } else {
       const reason = this.rejectReason().trim();
       if (!reason) {
@@ -1210,26 +1380,23 @@ export class TicketDetailPage implements OnInit {
     }
 
     this.processingMonitor.set(true);
-    this.ticketService.addMonitorAndRecommendations(
-      t.id,
-      notes,
-      recs,
-      this.monitorComment() || undefined
-    ).subscribe({
-      next: () => {
-        this.message.success('Monitor notes and recommendations updated!');
-        this.closeMonitorModal();
-        this.loadTicket(t.ticketNumber);
-      },
-      error: (error) => {
-        console.error('Failed to update monitor notes:', error);
-        this.message.error(error?.message || 'Failed to update monitor notes');
-        this.processingMonitor.set(false);
-      },
-      complete: () => {
-        this.processingMonitor.set(false);
-      },
-    });
+    this.ticketService
+      .addMonitorAndRecommendations(t.id, notes, recs, this.monitorComment() || undefined)
+      .subscribe({
+        next: () => {
+          this.message.success('Monitor notes and recommendations updated!');
+          this.closeMonitorModal();
+          this.loadTicket(t.ticketNumber);
+        },
+        error: (error) => {
+          console.error('Failed to update monitor notes:', error);
+          this.message.error(error?.message || 'Failed to update monitor notes');
+          this.processingMonitor.set(false);
+        },
+        complete: () => {
+          this.processingMonitor.set(false);
+        },
+      });
   }
 
   // ========================================
@@ -1257,9 +1424,11 @@ export class TicketDetailPage implements OnInit {
     const maxSize = 50 * 1024 * 1024; // 50MB
 
     // Validate file sizes
-    const oversized = files.filter(f => f.size > maxSize);
+    const oversized = files.filter((f) => f.size > maxSize);
     if (oversized.length > 0) {
-      this.message.error(`File(s) too large (max 50MB): ${oversized.map(f => f.name).join(', ')}`);
+      this.message.error(
+        `File(s) too large (max 50MB): ${oversized.map((f) => f.name).join(', ')}`,
+      );
       input.value = ''; // Reset input
       return;
     }
@@ -1284,29 +1453,29 @@ export class TicketDetailPage implements OnInit {
     this.uploadingFiles.set(true);
     this.uploadProgress.set(0);
 
-    this.ticketService.uploadAttachments(
-      t.id,
-      files,
-      // Progress callback — updates the progress bar in real time
-      (percent) => this.uploadProgress.set(percent)
-    ).subscribe({
-      next: (result) => {
-        this.message.success(
-          `${result.attachments.length} file(s) uploaded successfully!`
-        );
-        this.uploadingFiles.set(false);
-        this.uploadProgress.set(100);
-        // Reload ticket to show new attachments
-        this.loadTicket(t.ticketNumber);
-      },
-      error: (error) => {
-        console.error('Failed to upload files:', error);
-        const errorMsg = error?.error?.error || error?.message || 'Failed to upload files';
-        this.message.error(errorMsg);
-        this.uploadingFiles.set(false);
-        this.uploadProgress.set(0);
-      },
-    });
+    this.ticketService
+      .uploadAttachments(
+        t.id,
+        files,
+        // Progress callback — updates the progress bar in real time
+        (percent) => this.uploadProgress.set(percent),
+      )
+      .subscribe({
+        next: (result) => {
+          this.message.success(`${result.attachments.length} file(s) uploaded successfully!`);
+          this.uploadingFiles.set(false);
+          this.uploadProgress.set(100);
+          // Reload ticket to show new attachments
+          this.loadTicket(t.ticketNumber);
+        },
+        error: (error) => {
+          console.error('Failed to upload files:', error);
+          const errorMsg = error?.error?.error || error?.message || 'Failed to upload files';
+          this.message.error(errorMsg);
+          this.uploadingFiles.set(false);
+          this.uploadProgress.set(0);
+        },
+      });
   }
 
   /**
@@ -1350,7 +1519,8 @@ export class TicketDetailPage implements OnInit {
     if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'file-excel';
     if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'file-ppt';
     if (mimeType.startsWith('text/')) return 'file-text';
-    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) return 'file-zip';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z'))
+      return 'file-zip';
     return 'file';
   }
 

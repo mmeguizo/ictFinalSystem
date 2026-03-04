@@ -1,4 +1,4 @@
-import { gql } from 'apollo-server-express';
+import { gql } from "apollo-server-express";
 
 export const userTypeDefs = gql`
   enum Role {
@@ -23,6 +23,8 @@ export const userTypeDefs = gql`
     avatarUrl: String
     lastLoginAt: String
     isActive: Boolean!
+    deactivatedAt: String
+    externalId: String
   }
 
   input CreateUserInput {
@@ -63,5 +65,7 @@ export const userTypeDefs = gql`
     updateMyProfile(input: UpdateProfileInput!): User!
     setMyPassword(password: String!): User!
     login(email: String!, password: String!): LoginPayload!
+    toggleUserActive(id: Int!): User!
+    deleteUser(id: Int!): Boolean!
   }
 `;

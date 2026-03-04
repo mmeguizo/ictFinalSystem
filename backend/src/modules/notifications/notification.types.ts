@@ -1,4 +1,4 @@
-import { gql } from 'apollo-server-express';
+import { gql } from "apollo-server-express";
 
 export const notificationTypeDefs = gql`
   enum NotificationType {
@@ -11,6 +11,8 @@ export const notificationTypeDefs = gql`
     STATUS_CHANGED
     NOTE_ADDED
     ATTACHMENT_ADDED
+    SLA_BREACH
+    TICKET_ESCALATED
   }
 
   type NotificationTicket {
@@ -43,7 +45,9 @@ export const notificationTypeDefs = gql`
 
   # ─── Real-time subscription payloads ──────────────────────
 
-  """Fired when a ticket's status changes (e.g. FOR_REVIEW → ASSIGNED)"""
+  """
+  Fired when a ticket's status changes (e.g. FOR_REVIEW → ASSIGNED)
+  """
   type TicketStatusChangedPayload {
     ticketId: Int!
     ticketNumber: String!
@@ -54,7 +58,9 @@ export const notificationTypeDefs = gql`
     timestamp: String!
   }
 
-  """Fired when a brand-new ticket is created"""
+  """
+  Fired when a brand-new ticket is created
+  """
   type TicketCreatedPayload {
     ticketId: Int!
     ticketNumber: String!
@@ -65,7 +71,9 @@ export const notificationTypeDefs = gql`
     timestamp: String!
   }
 
-  """Fired when a ticket is assigned to someone"""
+  """
+  Fired when a ticket is assigned to someone
+  """
   type TicketAssignedPayload {
     ticketId: Int!
     ticketNumber: String!
@@ -87,16 +95,24 @@ export const notificationTypeDefs = gql`
   }
 
   extend type Subscription {
-    """Listen for any ticket status change (optionally filter by ticketId)"""
+    """
+    Listen for any ticket status change (optionally filter by ticketId)
+    """
     ticketStatusChanged(ticketId: Int): TicketStatusChangedPayload!
 
-    """Listen for newly created tickets (useful for secretary/dashboard)"""
+    """
+    Listen for newly created tickets (useful for secretary/dashboard)
+    """
     ticketCreated: TicketCreatedPayload!
 
-    """Listen for ticket assignments to a specific user"""
+    """
+    Listen for ticket assignments to a specific user
+    """
     ticketAssigned(userId: Int!): TicketAssignedPayload!
 
-    """Listen for new notifications for the current user"""
+    """
+    Listen for new notifications for the current user
+    """
     notificationCreated(userId: Int!): Notification!
   }
 `;

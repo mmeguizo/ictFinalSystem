@@ -1,0 +1,404 @@
+<nz-spin [nzSpinning]="loading()" nzTip="Loading analytics...">
+  <div class="analytics-container">
+    <!-- Header -->
+    <div class="analytics-header">
+      <h2>
+        <span nz-icon nzType="bar-chart" nzTheme="outline"></span>
+        Analytics & Reports
+      </h2>
+      <div class="header-actions">
+        <nz-range-picker
+          [ngModel]="dateRange()"
+          (ngModelChange)="onDateRangeChange($event)"
+          nzFormat="yyyy-MM-dd"
+          [nzAllowClear]="true"
+          nzPlaceholder="['Start Date', 'End Date']"
+        ></nz-range-picker>
+        <button
+          nz-button
+          nzType="default"
+          (click)="exportPDF()"
+          nz-tooltip
+          nzTooltipTitle="Export as PDF"
+        >
+          <span nz-icon nzType="file-pdf" nzTheme="outline"></span>
+          PDF
+        </button>
+        <button
+          nz-button
+          nzType="default"
+          (click)="exportExcel()"
+          nz-tooltip
+          nzTooltipTitle="Export as Excel"
+        >
+          <span nz-icon nzType="file-excel" nzTheme="outline"></span>
+          Excel
+        </button>
+        <button nz-button nzType="primary" (click)="loadAllData()">
+          <span nz-icon nzType="reload"></span>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <nz-divider></nz-divider>
+
+    <!-- ========================================
+         TAB 1: OVERVIEW
+         ======================================== -->
+    <nz-tabset nzType="card" nzSize="large">
+      <nz-tab nzTitle="Overview">
+        <!-- Summary Stats -->
+        @if (analytics(); as data) {
+          <div nz-row [nzGutter]="[16, 16]" class="stat-row">
+            <div nz-col [nzXs]="12" [nzSm]="8" [nzMd]="6">
+              <nz-card class="stat-card total">
+                <nz-statistic
+                  nzTitle="Total Tickets"
+                  [nzValue]="data.total"
+                  [nzPrefix]="totalIcon"
+                ></nz-statistic>
+                <ng-template #totalIcon>
+                  <span nz-icon nzType="file-text" nzTheme="outline"></span>
+                </ng-template>
+              </nz-card>
+            </div>
+            @for (item of data.byStatus; track item.status) {
+              <div nz-col [nzXs]="12" [nzSm]="8" [nzMd]="6">
+                <nz-card class="stat-card">
+                  <nz-statistic
+                    [nzTitle]="formatStatus(item.status)"
+                    [nzValue]="item.count"
+                    [nzValueStyle]="{ color: getStatusChartColor(item.status) }"
+                  ></nz-statistic>
+                </nz-card>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Charts Row -->
+        @if (isBrowser) {
+          <div nz-row [nzGutter]="[16, 16]" class="charts-row">
+            <!-- Status Doughnut -->
+            <div nz-col [nzXs]="24" [nzMd]="12">
+              <nz-card nzTitle="Tickets by Status">
+                <div class="chart-wrapper">
+                  <canvas
+                    baseChart
+                    [type]="'doughnut'"
+                    [data]="statusChartData()"
+                    [options]="statusChartOptions"
+                  >
+                  </canvas>
+                </div>
+              </nz-card>
+            </div>
+
+            <!-- Type Doughnut -->
+            <div nz-col [nzXs]="24" [nzMd]="12">
+              <nz-card nzTitle="Tickets by Department">
+                <div class="chart-wrapper">
+                  <canvas
+                    baseChart
+                    [type]="'doughnut'"
+                    [data]="typeChartData()"
+                    [options]="typeChartOptions"
+                  >
+                  </canvas>
+                </div>
+              </nz-card>
+            </div>
+
+            <!-- Priority Bar -->
+            <div nz-col [nzXs]="24" [nzMd]="12">
+              <nz-card nzTitle="Tickets by Priority">
+                <div class="chart-wrapper">
+                  <canvas
+                    baseChart
+                    [type]="'bar'"
+                    [data]="priorityChartData()"
+                    [options]="priorityChartOptions"
+                  >
+                  </canvas>
+                </div>
+              </nz-card>
+            </div>
+
+            <!-- Trends Line Chart -->
+            <div nz-col [nzXs]="24" [nzMd]="12">
+              <nz-card nzTitle="Ticket Trends">
+                <div class="chart-wrapper">
+                  <canvas
+                    baseChart
+                    [type]="'line'"
+                    [data]="trendsChartData()"
+                    [options]="trendsChartOptions"
+                  >
+                  </canvas>
+                </div>
+              </nz-card>
+            </div>
+          </div>
+        }
+      </nz-tab>
+
+      <!-- ========================================
+           TAB 2: SLA DASHBOARD
+           ======================================== -->
+      <nz-tab nzTitle="SLA Dashboard">
+        @if (slaMetrics(); as sla) {
+          <!-- SLA Summary Stats -->
+          <div nz-row [nzGutter]="[16, 16]" class="stat-row">
+            <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+              <nz-card class="stat-card sla-compliance">
+                <div class="compliance-gauge">
+                  <nz-progress
+                    [nzPercent]="sla.complianceRate"
+                    nzType="circle"
+                    [nzWidth]="120"
+                    [nzStrokeColor]="slaComplianceColor()"
+                    [nzFormat]="complianceFormat"
+                  ></nz-progress>
+                  <div class="compliance-label">SLA Compliance</div>
+                </div>
+                <ng-template #complianceFormat let-percent>
+                  <span class="compliance-value">{{ percent }}%</span>
+                </ng-template>
+              </nz-card>
+            </div>
+            <div nz-col [nzXs]="12" [nzSm]="6" [nzMd]="4">
+              <nz-card class="stat-card overdue">
+                <nz-statistic
+                  nzTitle="Overdue"
+                  [nzValue]="sla.overdue"
+                  [nzValueStyle]="{ color: '#ff4d4f' }"
+                  [nzPrefix]="overdueIcon"
+                ></nz-statistic>
+                <ng-template #overdueIcon>
+                  <span nz-icon nzType="warning" nzTheme="outline"></span>
+                </ng-template>
+              </nz-card>
+            </div>
+            <div nz-col [nzXs]="12" [nzSm]="6" [nzMd]="4">
+              <nz-card class="stat-card due-today">
+                <nz-statistic
+                  nzTitle="Due Today"
+                  [nzValue]="sla.dueToday"
+                  [nzValueStyle]="{ color: '#fa8c16' }"
+                  [nzPrefix]="dueTodayIcon"
+                ></nz-statistic>
+                <ng-template #dueTodayIcon>
+                  <span nz-icon nzType="clock-circle" nzTheme="outline"></span>
+                </ng-template>
+              </nz-card>
+            </div>
+            <div nz-col [nzXs]="12" [nzSm]="6" [nzMd]="4">
+              <nz-card class="stat-card due-soon">
+                <nz-statistic
+                  nzTitle="Due Soon (3 days)"
+                  [nzValue]="sla.dueSoon"
+                  [nzValueStyle]="{ color: '#faad14' }"
+                  [nzPrefix]="dueSoonIcon"
+                ></nz-statistic>
+                <ng-template #dueSoonIcon>
+                  <span nz-icon nzType="hourglass" nzTheme="outline"></span>
+                </ng-template>
+              </nz-card>
+            </div>
+            <div nz-col [nzXs]="12" [nzSm]="6" [nzMd]="3">
+              <nz-card class="stat-card">
+                <nz-statistic
+                  nzTitle="Avg Resolution"
+                  [nzValue]="sla.averageResolutionHours ?? 0"
+                  nzSuffix="hrs"
+                  [nzPrefix]="avgIcon"
+                ></nz-statistic>
+                <ng-template #avgIcon>
+                  <span nz-icon nzType="field-time" nzTheme="outline"></span>
+                </ng-template>
+              </nz-card>
+            </div>
+            <div nz-col [nzXs]="12" [nzSm]="6" [nzMd]="3">
+              <nz-card class="stat-card">
+                <nz-statistic
+                  nzTitle="Resolved in SLA"
+                  [nzValue]="sla.resolvedWithinSLA"
+                  nzSuffix="/ {{ sla.totalResolved }}"
+                  [nzValueStyle]="{ color: '#52c41a' }"
+                ></nz-statistic>
+              </nz-card>
+            </div>
+          </div>
+
+          <!-- Overdue Tickets Table -->
+          @if (sla.overdueTickets.length > 0) {
+            <nz-card nzTitle="Overdue Tickets" class="overdue-table-card">
+              <nz-alert
+                nzType="error"
+                [nzMessage]="
+                  sla.overdueTickets.length + ' ticket(s) have exceeded their SLA deadline'
+                "
+                nzShowIcon
+                class="overdue-alert"
+              ></nz-alert>
+              <nz-table
+                #overdueTable
+                [nzData]="sla.overdueTickets"
+                nzSize="small"
+                [nzPageSize]="10"
+                nzShowSizeChanger
+              >
+                <thead>
+                  <tr>
+                    <th>Ticket #</th>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Overdue By</th>
+                    <th>Assigned To</th>
+                    <th>Created By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (ticket of overdueTable.data; track ticket.id) {
+                    <tr>
+                      <td>
+                        <a [routerLink]="['/tickets', ticket.ticketNumber]">
+                          {{ ticket.ticketNumber }}
+                        </a>
+                      </td>
+                      <td>{{ ticket.title }}</td>
+                      <td>
+                        <nz-tag>{{ ticket.type }}</nz-tag>
+                      </td>
+                      <td>
+                        <nz-tag [nzColor]="getPriorityColor(ticket.priority)">
+                          {{ ticket.priority }}
+                        </nz-tag>
+                      </td>
+                      <td>
+                        <nz-tag [nzColor]="getStatusColor(ticket.status)">
+                          {{ formatStatus(ticket.status) }}
+                        </nz-tag>
+                      </td>
+                      <td>
+                        <span class="overdue-hours">{{ getOverdueHours(ticket.dueDate) }}h</span>
+                      </td>
+                      <td>
+                        @if (ticket.assignments.length > 0) {
+                          {{ ticket.assignments[0].user.name }}
+                        } @else {
+                          <span class="unassigned">Unassigned</span>
+                        }
+                      </td>
+                      <td>{{ ticket.createdBy.name }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </nz-table>
+            </nz-card>
+          } @else {
+            <nz-card>
+              <nz-alert
+                nzType="success"
+                nzMessage="No overdue tickets! All tickets are within SLA."
+                nzShowIcon
+              ></nz-alert>
+            </nz-card>
+          }
+        }
+      </nz-tab>
+
+      <!-- ========================================
+           TAB 3: STAFF PERFORMANCE
+           ======================================== -->
+      <nz-tab nzTitle="Staff Performance">
+        @if (staffPerformance().length > 0) {
+          <!-- Staff Workload Chart -->
+          @if (isBrowser) {
+            <nz-card nzTitle="Staff Workload" class="staff-chart-card">
+              <div class="chart-wrapper chart-lg">
+                <canvas
+                  baseChart
+                  [type]="'bar'"
+                  [data]="staffChartData()"
+                  [options]="staffChartOptions"
+                >
+                </canvas>
+              </div>
+            </nz-card>
+          }
+
+          <!-- Staff Performance Table -->
+          <nz-card nzTitle="Performance Details" class="staff-table-card">
+            <nz-table #staffTable [nzData]="staffPerformance()" nzSize="small" [nzPageSize]="10">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Assigned</th>
+                  <th>Resolved</th>
+                  <th>Resolution Rate</th>
+                  <th>Avg Resolution</th>
+                  <th>SLA Compliance</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (staff of staffTable.data; track staff.userId) {
+                  <tr>
+                    <td>
+                      <strong>{{ staff.name }}</strong>
+                    </td>
+                    <td>
+                      <nz-tag>{{ staff.role }}</nz-tag>
+                    </td>
+                    <td>{{ staff.totalAssigned }}</td>
+                    <td>{{ staff.totalResolved }}</td>
+                    <td>
+                      <nz-progress
+                        [nzPercent]="
+                          staff.totalAssigned > 0
+                            ? (staff.totalResolved / staff.totalAssigned) * 100
+                            : 0
+                        "
+                        [nzSize]="'small'"
+                        [nzShowInfo]="true"
+                      ></nz-progress>
+                    </td>
+                    <td>
+                      @if (staff.averageResolutionHours !== null) {
+                        {{ staff.averageResolutionHours }}h
+                      } @else {
+                        <span class="no-data">N/A</span>
+                      }
+                    </td>
+                    <td>
+                      <nz-progress
+                        [nzPercent]="staff.slaComplianceRate"
+                        [nzSize]="'small'"
+                        [nzShowInfo]="true"
+                        [nzStrokeColor]="
+                          staff.slaComplianceRate >= 90
+                            ? '#52c41a'
+                            : staff.slaComplianceRate >= 70
+                              ? '#faad14'
+                              : '#ff4d4f'
+                        "
+                      ></nz-progress>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </nz-table>
+          </nz-card>
+        } @else {
+          <nz-card>
+            <nz-empty nzDescription="No staff performance data available"></nz-empty>
+          </nz-card>
+        }
+      </nz-tab>
+    </nz-tabset>
+  </div>
+</nz-spin>

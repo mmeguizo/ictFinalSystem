@@ -1,31 +1,64 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const createUserSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  name: z.string().min(2, 'Name must be at least 2 characters').max(120).optional(),
-  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
-  role: z.enum(['ADMIN', 'DEVELOPER', 'OFFICE_HEAD', 'USER']).optional(),
+  email: z.string().email("Invalid email address"),
+  name: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(120)
+    .optional(),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .optional(),
+  role: z
+    .enum([
+      "ADMIN",
+      "DEVELOPER",
+      "TECHNICAL",
+      "SECRETARY",
+      "DIRECTOR",
+      "MIS_HEAD",
+      "ITS_HEAD",
+      "USER",
+    ])
+    .optional(),
 });
 
 export const updateProfileSchema = z.object({
   name: z.string().min(2).max(120).optional(),
-  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
-  confirmPassword: z.string().min(8, 'Confirm Password must be at least 8 characters').optional(),  
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .optional(),
+  confirmPassword: z
+    .string()
+    .min(8, "Confirm Password must be at least 8 characters")
+    .optional(),
   avatarDataUrl: z.string().optional(),
 });
 
 export const setPasswordSchema = z.object({
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const setUserRoleSchema = z.object({
   id: z.number().int().positive(),
-  role: z.enum(['ADMIN', 'DEVELOPER', 'OFFICE_HEAD', 'USER']),
+  role: z.enum([
+    "ADMIN",
+    "DEVELOPER",
+    "TECHNICAL",
+    "SECRETARY",
+    "DIRECTOR",
+    "MIS_HEAD",
+    "ITS_HEAD",
+    "USER",
+  ]),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;

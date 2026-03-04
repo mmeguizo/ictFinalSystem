@@ -50,223 +50,238 @@ enum MISCategory {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  password  String?
-  role      Role     @default(USER)
-  externalId String? @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  picture   String?
+  id          Int       @id @default(autoincrement())
+  email       String    @unique
+  name        String?
+  password    String?
+  role        Role      @default(USER)
+  externalId  String?   @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  picture     String?
   // URL to a user-uploaded avatar hosted by our app (preferred for profile overrides)
-  avatarUrl String?
+  avatarUrl   String?
   lastLoginAt DateTime?
-  
+
   // Ticket relationships
-  createdTickets      Ticket[]           @relation("TicketCreator")
-  assignedTickets     TicketAssignment[]
-  ticketNotes         TicketNote[]
+  createdTickets       Ticket[]              @relation("TicketCreator")
+  assignedTickets      TicketAssignment[]
+  ticketNotes          TicketNote[]
   statusHistoryEntries TicketStatusHistory[]
-  
+
   // Notifications
-  notifications       Notification[]
-  
+  notifications Notification[]
+
   // Attachments
-  uploadedAttachments  TicketAttachment[] @relation("AttachmentUploader")
-  deletedAttachments   TicketAttachment[] @relation("AttachmentDeleter")
+  uploadedAttachments TicketAttachment[] @relation("AttachmentUploader")
+  deletedAttachments  TicketAttachment[] @relation("AttachmentDeleter")
 
+  isActive        Boolean   @default(true)
+  deactivatedAt   DateTime?
+  deactivatedById Int?
 
-  isActive            Boolean   @default(true)
-  deactivatedAt        DateTime?
-  deactivatedById      Int?
- 
   @@index([role])
-  @@index([isActive]) 
+  @@index([isActive])
 }
 
 model Ticket {
-  id                Int      @id @default(autoincrement())
-  ticketNumber      String   @unique
-  controlNumber     String?      @unique  
-  type              TicketType
-  title             String
-  description       String   @db.Text
-  status            TicketStatus @default(FOR_REVIEW)
-  priority          Priority     @default(MEDIUM)
-  
+  id            Int          @id @default(autoincrement())
+  ticketNumber  String       @unique
+  controlNumber String?      @unique
+  type          TicketType
+  title         String
+  description   String       @db.Text
+  status        TicketStatus @default(FOR_REVIEW)
+  priority      Priority     @default(MEDIUM)
+
   // SLA tracking
   dueDate           DateTime?
-  estimatedDuration Int?      // in hours
-  actualDuration    Int?      // in hours
-  
+  estimatedDuration Int? // in hours
+  actualDuration    Int? // in hours
+
   // Review/Approval workflow
-  secretaryReviewedById  Int?
-  secretaryReviewedAt    DateTime?
-  directorApprovedById   Int?
-  directorApprovedAt     DateTime?
-  
+  secretaryReviewedById Int?
+  secretaryReviewedAt   DateTime?
+  directorApprovedById  Int?
+  directorApprovedAt    DateTime?
+
   // Schedule workflow (Head sets dates, Admin acknowledges)
-  dateToVisit            DateTime?
-  targetCompletionDate   DateTime?
-  headScheduledById      Int?
-  headScheduledAt        DateTime?
-  adminAcknowledgedById  Int?
-  adminAcknowledgedAt    DateTime?
-  
+  dateToVisit           DateTime?
+  targetCompletionDate  DateTime?
+  headScheduledById     Int?
+  headScheduledAt       DateTime?
+  adminAcknowledgedById Int?
+  adminAcknowledgedAt   DateTime?
+
   // Monitoring (Head adds after visit)
-  monitorNotes           String?   @db.Text
-  recommendations        String?   @db.Text
-  monitoredById          Int?
-  monitoredAt            DateTime?
-  
+  monitorNotes    String?   @db.Text
+  recommendations String?   @db.Text
+  monitoredById   Int?
+  monitoredAt     DateTime?
+
+  // Escalation tracking
+  escalatedAt     DateTime?
+  escalationLevel Int       @default(0)
+
+  // Satisfaction survey (filled by creator after resolution)
+  satisfactionRating  Int? // 1-5 star rating
+  satisfactionComment String? @db.Text
+
   // Relationships
-  createdById       Int
-  createdBy         User      @relation("TicketCreator", fields: [createdById], references: [id])
-  
+  createdById Int
+  createdBy   User @relation("TicketCreator", fields: [createdById], references: [id])
+
   // Polymorphic content
-  misTicket         MISTicket?
-  itsTicket         ITSTicket?
-  
+  misTicket MISTicket?
+  itsTicket ITSTicket?
+
   // Collections
-  assignments       TicketAssignment[]
-  notes             TicketNote[]
-  attachments       TicketAttachment[]
-  statusHistory     TicketStatusHistory[]
-  notifications     Notification[]
-  
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  resolvedAt        DateTime?
-  closedAt          DateTime?
-  
+  assignments   TicketAssignment[]
+  notes         TicketNote[]
+  attachments   TicketAttachment[]
+  statusHistory TicketStatusHistory[]
+  notifications Notification[]
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+  closedAt   DateTime?
+
   @@index([status])
   @@index([createdById])
   @@index([type])
+  @@index([dueDate])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([resolvedAt])
+  @@index([escalationLevel])
+  @@index([type, status])
+  @@index([dueDate, status])
 }
 
 model MISTicket {
-  id              Int         @id @default(autoincrement())
-  ticketId        Int         @unique
-  ticket          Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  category        MISCategory
-  
+  id       Int    @id @default(autoincrement())
+  ticketId Int    @unique
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  category MISCategory
+
   // Website fields
-  websiteNewRequest Boolean   @default(false)
-  websiteUpdate     Boolean   @default(false)
-  
+  websiteNewRequest Boolean @default(false)
+  websiteUpdate     Boolean @default(false)
+
   // Software fields
-  softwareNewRequest Boolean  @default(false)
-  softwareUpdate     Boolean  @default(false)
-  softwareInstall    Boolean  @default(false)
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  softwareNewRequest Boolean @default(false)
+  softwareUpdate     Boolean @default(false)
+  softwareInstall    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ITSTicket {
-  id                    Int      @id @default(autoincrement())
-  ticketId              Int      @unique
-  ticket                Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
+  id       Int    @id @default(autoincrement())
+  ticketId Int    @unique
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
   // Borrow fields
-  borrowRequest         Boolean  @default(false)
-  borrowDetails         String?  @db.Text
-  
+  borrowRequest Boolean @default(false)
+  borrowDetails String? @db.Text
+
   // Maintenance fields
-  maintenanceDesktopLaptop  Boolean @default(false)
+  maintenanceDesktopLaptop   Boolean @default(false)
   maintenanceInternetNetwork Boolean @default(false)
-  maintenancePrinter        Boolean @default(false)
-  maintenanceDetails        String? @db.Text
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  maintenancePrinter         Boolean @default(false)
+  maintenanceDetails         String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TicketAssignment {
-  id              Int      @id @default(autoincrement())
-  ticketId        Int
-  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  userId          Int
-  user            User     @relation(fields: [userId], references: [id])
-  
-  assignedAt      DateTime @default(now())
-  
+  id       Int    @id @default(autoincrement())
+  ticketId Int
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  assignedAt DateTime @default(now())
+
   @@unique([ticketId, userId])
   @@index([userId])
 }
 
 model TicketNote {
-  id              Int      @id @default(autoincrement())
-  ticketId        Int
-  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  userId          Int
-  user            User     @relation(fields: [userId], references: [id])
-  
-  content         String   @db.Text
-  isInternal      Boolean  @default(false) // Internal notes only visible to staff
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  id       Int    @id @default(autoincrement())
+  ticketId Int
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  content    String  @db.Text
+  isInternal Boolean @default(false) // Internal notes only visible to staff
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([ticketId])
   @@index([userId])
 }
 
 model TicketAttachment {
-  id              Int      @id @default(autoincrement())
-  ticketId        Int
-  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  filename        String
-  originalName    String
-  mimeType        String
-  size            Int
-  url             String
-  
+  id       Int    @id @default(autoincrement())
+  ticketId Int
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+
   // Who uploaded this file
-  uploadedById    Int?
-  uploadedBy      User?    @relation("AttachmentUploader", fields: [uploadedById], references: [id])
-  
+  uploadedById Int?
+  uploadedBy   User? @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+
   // Soft delete tracking
-  isDeleted       Boolean  @default(false)
-  deletedAt       DateTime?
-  deletedById     Int?
-  deletedBy       User?    @relation("AttachmentDeleter", fields: [deletedById], references: [id])
-  
-  createdAt       DateTime @default(now())
-  
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  deletedById Int?
+  deletedBy   User?     @relation("AttachmentDeleter", fields: [deletedById], references: [id])
+
+  createdAt DateTime @default(now())
+
   @@index([ticketId])
   @@index([uploadedById])
 }
 
 model TicketStatusHistory {
-  id              Int          @id @default(autoincrement())
-  ticketId        Int
-  ticket          Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  userId          Int
-  user            User         @relation(fields: [userId], references: [id])
-  
-  fromStatus      TicketStatus?
-  toStatus        TicketStatus
-  comment         String?      @db.Text
-  
-  createdAt       DateTime     @default(now())
-  
-  @@index([ticketId])
-}
+  id       Int    @id @default(autoincrement())
+  ticketId Int
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  fromStatus TicketStatus?
+  toStatus   TicketStatus
+  comment    String?       @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([ticketId, userId])
+  @@index([createdAt])
+}
 
 model TicketCounter {
   id      Int @id @default(autoincrement())
   year    Int
   month   Int
   counter Int @default(0)
-  
+
   @@unique([year, month])
 }
 
@@ -284,33 +299,35 @@ enum NotificationType {
   STATUS_CHANGED
   NOTE_ADDED
   ATTACHMENT_ADDED
+  SLA_BREACH
+  TICKET_ESCALATED
 }
 
 model Notification {
-  id              Int              @id @default(autoincrement())
-  
+  id Int @id @default(autoincrement())
+
   // Who should receive this notification
-  userId          Int
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Related ticket (optional - some notifications may not be ticket-related)
-  ticketId        Int?
-  ticket          Ticket?          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
+  ticketId Int?
+  ticket   Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
   // Notification content
-  type            NotificationType
-  title           String
-  message         String           @db.Text
-  
+  type    NotificationType
+  title   String
+  message String           @db.Text
+
   // Read status
-  isRead          Boolean          @default(false)
-  readAt          DateTime?
-  
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
   // Metadata (stores extra info like actor name, old/new status, etc.)
-  metadata        Json?
-  
-  createdAt       DateTime         @default(now())
-  
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
   @@index([userId, isRead])
   @@index([ticketId])
   @@index([createdAt])

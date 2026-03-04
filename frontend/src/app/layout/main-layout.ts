@@ -112,7 +112,16 @@ export class MainLayout {
         icon: 'dashboard',
         label: 'Dashboard',
         path: '/dashboard',
-        roles: ['USER', 'ADMIN', 'DEVELOPER', 'TECHNICAL', 'MIS_HEAD', 'ITS_HEAD', 'SECRETARY', 'DIRECTOR'],
+        roles: [
+          'USER',
+          'ADMIN',
+          'DEVELOPER',
+          'TECHNICAL',
+          'MIS_HEAD',
+          'ITS_HEAD',
+          'SECRETARY',
+          'DIRECTOR',
+        ],
       },
       {
         icon: 'setting',
@@ -125,7 +134,7 @@ export class MainLayout {
         icon: 'plus-circle',
         label: 'New Ticket',
         path: '/tickets/new',
-        roles: ['USER', 'SECRETARY','ADMIN'],
+        roles: ['USER', 'SECRETARY', 'ADMIN'],
       },
       // Regular users see "My Tickets" - tickets they created
       {
@@ -162,12 +171,28 @@ export class MainLayout {
         path: '/tickets/approvals',
         roles: ['SECRETARY', 'DIRECTOR'],
       },
+      // Analytics — for admin, director, and department heads
+      {
+        icon: 'bar-chart',
+        label: 'Analytics',
+        path: '/analytics',
+        roles: ['ADMIN', 'DIRECTOR', 'MIS_HEAD', 'ITS_HEAD'],
+      },
       // Notifications - available to all authenticated users
       {
         icon: 'bell',
         label: 'Notifications',
         path: '/notifications',
-        roles: ['USER', 'ADMIN', 'DEVELOPER', 'TECHNICAL', 'MIS_HEAD', 'ITS_HEAD', 'SECRETARY', 'DIRECTOR'],
+        roles: [
+          'USER',
+          'ADMIN',
+          'DEVELOPER',
+          'TECHNICAL',
+          'MIS_HEAD',
+          'ITS_HEAD',
+          'SECRETARY',
+          'DIRECTOR',
+        ],
       },
     ];
 
@@ -320,7 +345,7 @@ export class MainLayout {
       return;
     }
 
-     if (this.profileForm.get('password')?.value && !this.passwordsMatch()) {
+    if (this.profileForm.get('password')?.value && !this.passwordsMatch()) {
       // replace with your toast/modal error mechanism
       alert('Passwords do not match.');
       return;
@@ -378,7 +403,7 @@ export class MainLayout {
 
       const avatarDataUrl = this.pendingAvatarDataUrl ?? null;
       const resp = await firstValueFrom(
-        this.api.updateMyProfile(displayName || "", avatarDataUrl || "", token)
+        this.api.updateMyProfile(displayName || '', avatarDataUrl || '', token),
       );
 
       const graphQLErrors = (resp as { errors?: readonly { message?: string }[] }).errors;

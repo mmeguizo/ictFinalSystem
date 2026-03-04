@@ -1,13 +1,21 @@
-import { PrismaClient, Priority, TicketStatus, TicketType } from '@prisma/client';
-import { TicketRepository } from '../ticket.repository';
-import { AutoAssignmentService } from './auto-assignment.service';
-import { CreateMISTicketDto } from '../dto/create-mis-ticket.dto';
-import { CreateITSTicketDto } from '../dto/create-its-ticket.dto';
-import { UpdateTicketStatusDto } from '../dto/update-ticket-status.dto';
-import { CreateTicketNoteDto } from '../dto/create-ticket-note.dto';
-import { calculateDueDate, calculateEstimatedDuration } from '../utils/sla.utils';
-import { NotificationService } from '../../notifications/notification.service';
-import { pubsub, EVENTS } from '../../../lib/pubsub';
+import {
+  PrismaClient,
+  Priority,
+  TicketStatus,
+  TicketType,
+} from "@prisma/client";
+import { TicketRepository, PaginationParams } from "../ticket.repository";
+import { AutoAssignmentService } from "./auto-assignment.service";
+import { CreateMISTicketDto } from "../dto/create-mis-ticket.dto";
+import { CreateITSTicketDto } from "../dto/create-its-ticket.dto";
+import { UpdateTicketStatusDto } from "../dto/update-ticket-status.dto";
+import { CreateTicketNoteDto } from "../dto/create-ticket-note.dto";
+import {
+  calculateDueDate,
+  calculateEstimatedDuration,
+} from "../utils/sla.utils";
+import { NotificationService } from "../../notifications/notification.service";
+import { pubsub, EVENTS } from "../../../lib/pubsub";
 
 export class TicketService {
   private readonly repository: TicketRepository;
@@ -20,18 +28,19 @@ export class TicketService {
     this.notificationService = new NotificationService(prisma);
   }
 
-
-
   /**
    * Create a new MIS ticket
    */
   async createMISTicket(dto: CreateMISTicketDto, createdById: number) {
-    const ticketNumber = await this.repository.generateTicketNumber(TicketType.MIS);
+    const ticketNumber = await this.repository.generateTicketNumber(
+      TicketType.MIS,
+    );
     const controlNumber = await this.repository.generateControlNumber();
     const priority = dto.priority || Priority.MEDIUM;
     const dueDate = calculateDueDate(priority);
     const estimatedDuration =
-      dto.estimatedDuration || calculateEstimatedDuration(TicketType.MIS, priority);
+      dto.estimatedDuration ||
+      calculateEstimatedDuration(TicketType.MIS, priority);
 
     // Get creator name for notification
     const creator = await this.prisma.user.findUnique({
@@ -74,10 +83,10 @@ export class TicketService {
         ticket.id,
         ticketNumber,
         dto.title,
-        creator?.name || 'Unknown User'
+        creator?.name || "Unknown User",
       );
     } catch (err) {
-      console.error('Failed to send new ticket notification:', err);
+      console.error("Failed to send new ticket notification:", err);
     }
 
     // Publish real-time event for new MIS ticket
@@ -86,9 +95,9 @@ export class TicketService {
         ticketId: ticket.id,
         ticketNumber,
         title: dto.title,
-        type: 'MIS',
+        type: "MIS",
         priority,
-        createdBy: creator?.name || 'Unknown User',
+        createdBy: creator?.name || "Unknown User",
         timestamp: new Date().toISOString(),
       },
     });
@@ -102,11 +111,14 @@ export class TicketService {
    * Create a new ITS ticket
    */
   async createITSTicket(dto: CreateITSTicketDto, createdById: number) {
-    const ticketNumber = await this.repository.generateTicketNumber(TicketType.ITS);
+    const ticketNumber = await this.repository.generateTicketNumber(
+      TicketType.ITS,
+    );
     const priority = dto.priority || Priority.MEDIUM;
     const dueDate = calculateDueDate(priority);
     const estimatedDuration =
-      dto.estimatedDuration || calculateEstimatedDuration(TicketType.ITS, priority);
+      dto.estimatedDuration ||
+      calculateEstimatedDuration(TicketType.ITS, priority);
 
     // Get creator name for notification
     const creator = await this.prisma.user.findUnique({
@@ -148,10 +160,10 @@ export class TicketService {
         ticket.id,
         ticketNumber,
         dto.title,
-        creator?.name || 'Unknown User'
+        creator?.name || "Unknown User",
       );
     } catch (err) {
-      console.error('Failed to send new ticket notification:', err);
+      console.error("Failed to send new ticket notification:", err);
     }
 
     // Publish real-time event for new ITS ticket
@@ -160,9 +172,9 @@ export class TicketService {
         ticketId: ticket.id,
         ticketNumber,
         title: dto.title,
-        type: 'ITS',
+        type: "ITS",
         priority,
-        createdBy: creator?.name || 'Unknown User',
+        createdBy: creator?.name || "Unknown User",
         timestamp: new Date().toISOString(),
       },
     });
@@ -178,7 +190,7 @@ export class TicketService {
   async getTicket(id: number) {
     const ticket = await this.repository.findById(id);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
     return ticket;
   }
@@ -189,7 +201,7 @@ export class TicketService {
   async getTicketByNumber(ticketNumber: string) {
     const ticket = await this.repository.findByTicketNumber(ticketNumber);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
     return ticket;
   }
@@ -197,13 +209,16 @@ export class TicketService {
   /**
    * Get tickets with optional filters
    */
-  async getTickets(filters?: {
-    status?: TicketStatus;
-    type?: TicketType;
-    createdById?: number;
-    assignedToUserId?: number;
-  }) {
-    return this.repository.findMany(filters);
+  async getTickets(
+    filters?: {
+      status?: TicketStatus;
+      type?: TicketType;
+      createdById?: number;
+      assignedToUserId?: number;
+    },
+    pagination?: PaginationParams,
+  ) {
+    return this.repository.findMany(filters, pagination);
   }
 
   /**
@@ -211,7 +226,11 @@ export class TicketService {
    * Notifies ticket creator when status changes (e.g., developer starts/resolves)
    * Optionally updates targetCompletionDate if provided (developers can update this)
    */
-  async updateStatus(ticketId: number, userId: number, dto: UpdateTicketStatusDto) {
+  async updateStatus(
+    ticketId: number,
+    userId: number,
+    dto: UpdateTicketStatusDto,
+  ) {
     // Get ticket and user info before update for notification
     const ticket = await this.repository.findById(ticketId);
     const user = await this.prisma.user.findUnique({
@@ -220,17 +239,24 @@ export class TicketService {
     });
 
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     const fromStatus = ticket.status;
-    const result = await this.repository.updateStatus(ticketId, userId, dto.status, dto.comment);
+    const result = await this.repository.updateStatus(
+      ticketId,
+      userId,
+      dto.status,
+      dto.comment,
+    );
 
     // If developer provided a new targetCompletionDate, update it on the ticket
     if ((dto as any).targetCompletionDate) {
       await this.prisma.ticket.update({
         where: { id: ticketId },
-        data: { targetCompletionDate: new Date((dto as any).targetCompletionDate) },
+        data: {
+          targetCompletionDate: new Date((dto as any).targetCompletionDate),
+        },
       });
     }
 
@@ -244,10 +270,10 @@ export class TicketService {
           ticket.createdById,
           fromStatus,
           dto.status,
-          user?.name || 'Staff'
+          user?.name || "Staff",
         );
       } catch (err) {
-        console.error('Failed to send status change notification:', err);
+        console.error("Failed to send status change notification:", err);
       }
     }
 
@@ -259,7 +285,7 @@ export class TicketService {
         title: ticket.title,
         oldStatus: fromStatus,
         newStatus: dto.status,
-        changedBy: user?.name || 'Staff',
+        changedBy: user?.name || "Staff",
         timestamp: new Date().toISOString(),
       },
     });
@@ -280,7 +306,11 @@ export class TicketService {
     ticketId: number,
     userId: number,
     assignedById?: number,
-    options?: { dateToVisit?: Date; targetCompletionDate?: Date; comment?: string }
+    options?: {
+      dateToVisit?: Date;
+      targetCompletionDate?: Date;
+      comment?: string;
+    },
   ) {
     // Get ticket and assigner info for notification
     const ticket = await this.repository.findById(ticketId);
@@ -292,10 +322,14 @@ export class TicketService {
       : null;
 
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
-    const result = await this.autoAssignment.manualAssign(ticketId, userId, assignedById);
+    const result = await this.autoAssignment.manualAssign(
+      ticketId,
+      userId,
+      assignedById,
+    );
 
     // If dateToVisit is provided, combine assign + schedule into one step:
     // Set the schedule dates AND transition status to PENDING_ACKNOWLEDGMENT
@@ -310,20 +344,22 @@ export class TicketService {
         updateData.targetCompletionDate = options.targetCompletionDate;
       }
 
-      await this.prisma.ticket.update({
-        where: { id: ticketId },
-        data: updateData,
-      });
+      // Atomic: ticket update + status history for assign+schedule
+      await this.prisma.$transaction(async (tx) => {
+        await tx.ticket.update({
+          where: { id: ticketId },
+          data: updateData,
+        });
 
-      // Add status history for the transition ASSIGNED → PENDING_ACKNOWLEDGMENT
-      await this.prisma.ticketStatusHistory.create({
-        data: {
-          ticketId,
-          userId: assignedById || userId,
-          fromStatus: TicketStatus.ASSIGNED,
-          toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-          comment: `Staff assigned and visit scheduled for ${options.dateToVisit.toLocaleDateString()}`,
-        },
+        await tx.ticketStatusHistory.create({
+          data: {
+            ticketId,
+            userId: assignedById || userId,
+            fromStatus: TicketStatus.ASSIGNED,
+            toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+            comment: `Staff assigned and visit scheduled for ${options.dateToVisit!.toLocaleDateString()}`,
+          },
+        });
       });
 
       // Notify admin about schedule for acknowledgment
@@ -332,12 +368,12 @@ export class TicketService {
           ticketId,
           ticket.ticketNumber,
           ticket.title,
-          assigner?.name || 'Department Head',
+          assigner?.name || "Department Head",
           options.dateToVisit,
-          options.targetCompletionDate || options.dateToVisit
+          options.targetCompletionDate || options.dateToVisit,
         );
       } catch (err) {
-        console.error('Failed to send schedule notification:', err);
+        console.error("Failed to send schedule notification:", err);
       }
     }
 
@@ -348,10 +384,10 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         userId,
-        assigner?.name || 'Department Head'
+        assigner?.name || "Department Head",
       );
     } catch (err) {
-      console.error('Failed to send assignment notification:', err);
+      console.error("Failed to send assignment notification:", err);
     }
 
     // Publish real-time event for assignment
@@ -365,8 +401,8 @@ export class TicketService {
         ticketNumber: ticket.ticketNumber,
         title: ticket.title,
         assignedToUserId: userId,
-        assignedToName: assignedUser?.name || 'Unknown',
-        assignedBy: assigner?.name || 'Department Head',
+        assignedToName: assignedUser?.name || "Unknown",
+        assignedBy: assigner?.name || "Department Head",
         timestamp: new Date().toISOString(),
       },
     });
@@ -396,10 +432,15 @@ export class TicketService {
     });
 
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
-    const result = await this.repository.addNote(ticketId, userId, dto.content, dto.isInternal || false);
+    const result = await this.repository.addNote(
+      ticketId,
+      userId,
+      dto.content,
+      dto.isInternal || false,
+    );
 
     // Send notifications
     try {
@@ -409,27 +450,28 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         userId,
-        author?.name || 'Staff',
-        dto.isInternal || false
+        author?.name || "Staff",
+        dto.isInternal || false,
       );
 
       if (dto.isInternal) {
         // Internal note: notify other assigned staff (not the author)
-        const otherAssignees = ticket.assignments?.filter(a => a.user.id !== userId) || [];
+        const otherAssignees =
+          ticket.assignments?.filter((a) => a.user.id !== userId) || [];
         for (const assignee of otherAssignees) {
           await this.notificationService.notifyNoteAdded(
             ticketId,
             ticket.ticketNumber,
             ticket.title,
             assignee.user.id,
-            author?.name || 'Staff',
-            true
+            author?.name || "Staff",
+            true,
           );
         }
       } else {
         // Public note
         const isAuthorTicketCreator = userId === ticket.createdById;
-        
+
         if (isAuthorTicketCreator) {
           // Creator added a comment - notify assigned staff
           const assignees = ticket.assignments || [];
@@ -439,8 +481,8 @@ export class TicketService {
               ticket.ticketNumber,
               ticket.title,
               assignee.user.id,
-              author?.name || 'User',
-              false
+              author?.name || "User",
+              false,
             );
           }
         } else {
@@ -450,13 +492,13 @@ export class TicketService {
             ticket.ticketNumber,
             ticket.title,
             ticket.createdById,
-            author?.name || 'Staff',
-            false
+            author?.name || "Staff",
+            false,
           );
         }
       }
     } catch (err) {
-      console.error('Failed to send note notification:', err);
+      console.error("Failed to send note notification:", err);
     }
 
     return result;
@@ -477,10 +519,77 @@ export class TicketService {
   }
 
   /**
+   * Get enhanced SLA metrics with compliance and overdue details
+   */
+  async getEnhancedSLAMetrics() {
+    return this.repository.getEnhancedSLAMetrics();
+  }
+
+  /**
+   * Get ticket creation/resolution trends
+   */
+  async getTicketTrends(filters?: { startDate?: Date; endDate?: Date }) {
+    return this.repository.getTicketTrends(filters);
+  }
+
+  /**
+   * Get staff performance metrics
+   */
+  async getStaffPerformance(filters?: { startDate?: Date; endDate?: Date }) {
+    return this.repository.getStaffPerformance(filters);
+  }
+
+  /**
+   * Submit satisfaction survey (ticket creator only, resolved/closed tickets only)
+   */
+  async submitSatisfaction(
+    ticketId: number,
+    userId: number,
+    rating: number,
+    comment?: string,
+  ) {
+    const ticket = await this.repository.findById(ticketId);
+    if (!ticket) throw new Error("Ticket not found");
+    if (ticket.createdById !== userId)
+      throw new Error(
+        "Only the ticket creator can submit a satisfaction survey",
+      );
+    if (ticket.status !== "RESOLVED" && ticket.status !== "CLOSED") {
+      throw new Error(
+        "Satisfaction survey can only be submitted for resolved or closed tickets",
+      );
+    }
+    if (rating < 1 || rating > 5)
+      throw new Error("Rating must be between 1 and 5");
+    if (ticket.satisfactionRating)
+      throw new Error("Satisfaction survey already submitted");
+
+    return this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        satisfactionRating: rating,
+        satisfactionComment: comment || null,
+      },
+      include: {
+        createdBy: true,
+        misTicket: true,
+        itsTicket: true,
+        assignments: { include: { user: true } },
+        notes: { include: { user: true } },
+        attachments: { include: { uploadedBy: true, deletedBy: true } },
+        statusHistory: {
+          include: { user: true },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+  }
+
+  /**
    * Get user's assigned tickets
    */
-  async getUserTickets(userId: number) {
-    return this.repository.findMany({ assignedToUserId: userId });
+  async getUserTickets(userId: number, pagination?: PaginationParams) {
+    return this.repository.findMany({ assignedToUserId: userId }, pagination);
   }
 
   /**
@@ -488,54 +597,75 @@ export class TicketService {
    * Returns all tickets of their type that are in work statuses
    * (DIRECTOR_APPROVED, ASSIGNED, PENDING_ACKNOWLEDGMENT, SCHEDULED, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED)
    */
-  async getOfficeHeadTickets(ticketType: TicketType) {
-    return this.repository.findManyByTypeAndStatuses(ticketType, [
-      TicketStatus.DIRECTOR_APPROVED,
-      TicketStatus.ASSIGNED,
-      TicketStatus.PENDING_ACKNOWLEDGMENT,
-      TicketStatus.SCHEDULED,
-      TicketStatus.IN_PROGRESS,
-      TicketStatus.ON_HOLD,
-      TicketStatus.RESOLVED,
-      TicketStatus.CLOSED,
-    ]);
+  async getOfficeHeadTickets(
+    ticketType: TicketType,
+    pagination?: PaginationParams,
+  ) {
+    return this.repository.findManyByTypeAndStatuses(
+      ticketType,
+      [
+        TicketStatus.DIRECTOR_APPROVED,
+        TicketStatus.ASSIGNED,
+        TicketStatus.PENDING_ACKNOWLEDGMENT,
+        TicketStatus.SCHEDULED,
+        TicketStatus.IN_PROGRESS,
+        TicketStatus.ON_HOLD,
+        TicketStatus.RESOLVED,
+        TicketStatus.CLOSED,
+      ],
+      pagination,
+    );
   }
 
   /**
    * Get user's created tickets
    */
-  async getUserCreatedTickets(userId: number) {
-    return this.repository.findMany({ createdById: userId });
+  async getUserCreatedTickets(userId: number, pagination?: PaginationParams) {
+    return this.repository.findMany({ createdById: userId }, pagination);
   }
 
   /**
    * Get tickets for secretary review (FOR_REVIEW status)
    */
   async getTicketsForSecretaryReview() {
-    return this.repository.findMany({ status: TicketStatus.FOR_REVIEW });
+    const result = await this.repository.findMany({
+      status: TicketStatus.FOR_REVIEW,
+    });
+    return result.items;
   }
 
   /**
    * Get tickets for secretary review filtered by type (FOR_REVIEW status)
    * Used by department heads to see only their department's tickets
    */
-  async getTicketsForSecretaryReviewByType(type: 'MIS' | 'ITS') {
-    return this.repository.findMany({ status: TicketStatus.FOR_REVIEW, type: type === 'MIS' ? TicketType.MIS : TicketType.ITS });
+  async getTicketsForSecretaryReviewByType(type: "MIS" | "ITS") {
+    const result = await this.repository.findMany({
+      status: TicketStatus.FOR_REVIEW,
+      type: type === "MIS" ? TicketType.MIS : TicketType.ITS,
+    });
+    return result.items;
   }
 
   /**
    * Get tickets pending director approval (REVIEWED status)
    */
   async getTicketsPendingDirectorApproval() {
-    return this.repository.findMany({ status: TicketStatus.REVIEWED });
+    const result = await this.repository.findMany({
+      status: TicketStatus.REVIEWED,
+    });
+    return result.items;
   }
 
   /**
    * Get tickets pending director approval filtered by type (REVIEWED status)
    * Used by department heads to see only their department's tickets
    */
-  async getTicketsPendingDirectorApprovalByType(type: 'MIS' | 'ITS') {
-    return this.repository.findMany({ status: TicketStatus.REVIEWED, type: type === 'MIS' ? TicketType.MIS : TicketType.ITS });
+  async getTicketsPendingDirectorApprovalByType(type: "MIS" | "ITS") {
+    const result = await this.repository.findMany({
+      status: TicketStatus.REVIEWED,
+      type: type === "MIS" ? TicketType.MIS : TicketType.ITS,
+    });
+    return result.items;
   }
 
   /**
@@ -543,20 +673,31 @@ export class TicketService {
    * For admin/director/secretary oversight to see pending, reviewed and rejected tickets
    */
   async getAllSecretaryTickets() {
-    return this.repository.findManyByStatuses([TicketStatus.FOR_REVIEW, TicketStatus.REVIEWED, TicketStatus.CANCELLED]);
+    const result = await this.repository.findManyByStatuses([
+      TicketStatus.FOR_REVIEW,
+      TicketStatus.REVIEWED,
+      TicketStatus.CANCELLED,
+    ]);
+    return result.items;
   }
 
   /**
    * Review ticket as secretary (mark as reviewed for director approval)
    */
-  async reviewAsSecretary(ticketId: number, secretaryId: number, comment?: string) {
+  async reviewAsSecretary(
+    ticketId: number,
+    secretaryId: number,
+    comment?: string,
+  ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     if (ticket.status !== TicketStatus.FOR_REVIEW) {
-      throw new Error('Ticket must be in FOR_REVIEW status for secretary review');
+      throw new Error(
+        "Ticket must be in FOR_REVIEW status for secretary review",
+      );
     }
 
     // Get secretary name for notification
@@ -565,25 +706,26 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Add status history BEFORE updating (so fromStatus is captured correctly)
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId: secretaryId,
-        fromStatus: ticket.status, // FOR_REVIEW
-        toStatus: TicketStatus.REVIEWED,
-        comment: comment || 'Reviewed by secretary',
-      },
-    });
+    // Atomic: status history + ticket update
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          userId: secretaryId,
+          fromStatus: ticket.status, // FOR_REVIEW
+          toStatus: TicketStatus.REVIEWED,
+          comment: comment || "Reviewed by secretary",
+        },
+      });
 
-    // Update ticket with secretary review
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: {
-        status: TicketStatus.REVIEWED,
-        secretaryReviewedById: secretaryId,
-        secretaryReviewedAt: new Date(),
-      },
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.REVIEWED,
+          secretaryReviewedById: secretaryId,
+          secretaryReviewedAt: new Date(),
+        },
+      });
     });
 
     // Send notifications
@@ -594,17 +736,17 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         ticket.createdById,
-        secretary?.name || 'Secretary'
+        secretary?.name || "Secretary",
       );
       // Notify directors that ticket is ready for approval
       await this.notificationService.notifyTicketReadyForDirectorApproval(
         ticketId,
         ticket.ticketNumber,
         ticket.title,
-        secretary?.name || 'Secretary'
+        secretary?.name || "Secretary",
       );
     } catch (err) {
-      console.error('Failed to send review notifications:', err);
+      console.error("Failed to send review notifications:", err);
     }
 
     // Publish real-time event for status change
@@ -615,7 +757,7 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.FOR_REVIEW,
         newStatus: TicketStatus.REVIEWED,
-        changedBy: secretary?.name || 'Secretary',
+        changedBy: secretary?.name || "Secretary",
         timestamp: new Date().toISOString(),
       },
     });
@@ -627,18 +769,24 @@ export class TicketService {
    * Reject ticket as secretary (return to user with notes)
    * Moves ticket to CANCELLED status with reason/notes visible to user
    */
-  async rejectAsSecretary(ticketId: number, secretaryId: number, reason: string) {
+  async rejectAsSecretary(
+    ticketId: number,
+    secretaryId: number,
+    reason: string,
+  ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     if (ticket.status !== TicketStatus.FOR_REVIEW) {
-      throw new Error('Ticket must be in FOR_REVIEW status for secretary rejection');
+      throw new Error(
+        "Ticket must be in FOR_REVIEW status for secretary rejection",
+      );
     }
 
     if (!reason || reason.trim().length === 0) {
-      throw new Error('Rejection reason/notes are required');
+      throw new Error("Rejection reason/notes are required");
     }
 
     // Get secretary name for notification
@@ -647,25 +795,26 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Add status history with rejection reason (visible to user)
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId: secretaryId,
-        fromStatus: ticket.status, // FOR_REVIEW
-        toStatus: TicketStatus.CANCELLED,
-        comment: `Rejected by secretary: ${reason}`,
-      },
-    });
+    // Atomic: status history + ticket update
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          userId: secretaryId,
+          fromStatus: ticket.status, // FOR_REVIEW
+          toStatus: TicketStatus.CANCELLED,
+          comment: `Rejected by secretary: ${reason}`,
+        },
+      });
 
-    // Update ticket status to CANCELLED
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: {
-        status: TicketStatus.CANCELLED,
-        secretaryReviewedById: secretaryId,
-        secretaryReviewedAt: new Date(),
-      },
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.CANCELLED,
+          secretaryReviewedById: secretaryId,
+          secretaryReviewedAt: new Date(),
+        },
+      });
     });
 
     // Send notification to ticket creator
@@ -675,11 +824,11 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         ticket.createdById,
-        secretary?.name || 'Secretary',
-        reason
+        secretary?.name || "Secretary",
+        reason,
       );
     } catch (err) {
-      console.error('Failed to send rejection notification:', err);
+      console.error("Failed to send rejection notification:", err);
     }
 
     // Publish real-time event for status change
@@ -690,7 +839,7 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.FOR_REVIEW,
         newStatus: TicketStatus.CANCELLED,
-        changedBy: secretary?.name || 'Secretary',
+        changedBy: secretary?.name || "Secretary",
         timestamp: new Date().toISOString(),
       },
     });
@@ -701,14 +850,18 @@ export class TicketService {
   /**
    * Approve ticket as director
    */
-  async approveAsDirector(ticketId: number, directorId: number, comment?: string) {
+  async approveAsDirector(
+    ticketId: number,
+    directorId: number,
+    comment?: string,
+  ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     if (ticket.status !== TicketStatus.REVIEWED) {
-      throw new Error('Ticket must be reviewed by secretary first');
+      throw new Error("Ticket must be reviewed by secretary first");
     }
 
     // Get director name for notification
@@ -717,25 +870,26 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Add status history BEFORE updating (so fromStatus is captured correctly)
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId: directorId,
-        fromStatus: ticket.status, // REVIEWED
-        toStatus: TicketStatus.DIRECTOR_APPROVED,
-        comment: comment || 'Approved by director',
-      },
-    });
+    // Atomic: approval status history + ticket update
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          userId: directorId,
+          fromStatus: ticket.status, // REVIEWED
+          toStatus: TicketStatus.DIRECTOR_APPROVED,
+          comment: comment || "Approved by director",
+        },
+      });
 
-    // Update ticket with director approval
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: {
-        status: TicketStatus.DIRECTOR_APPROVED,
-        directorApprovedById: directorId,
-        directorApprovedAt: new Date(),
-      },
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.DIRECTOR_APPROVED,
+          directorApprovedById: directorId,
+          directorApprovedAt: new Date(),
+        },
+      });
     });
 
     // Send notification to ticket creator
@@ -745,10 +899,10 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         ticket.createdById,
-        director?.name || 'Director'
+        director?.name || "Director",
       );
     } catch (err) {
-      console.error('Failed to send approval notification:', err);
+      console.error("Failed to send approval notification:", err);
     }
 
     // Publish real-time event for director approval status change
@@ -759,30 +913,34 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.REVIEWED,
         newStatus: TicketStatus.DIRECTOR_APPROVED,
-        changedBy: director?.name || 'Director',
+        changedBy: director?.name || "Director",
         timestamp: new Date().toISOString(),
       },
     });
 
     // Auto-assign to appropriate team after director approval
     try {
-      const assignment = await this.autoAssignment.assignTicket(ticketId, ticket.type);
-      
-      // Add status history for auto-assignment transition
-      await this.prisma.ticketStatusHistory.create({
-        data: {
-          ticketId,
-          userId: directorId, // System action triggered by director
-          fromStatus: TicketStatus.DIRECTOR_APPROVED,
-          toStatus: TicketStatus.ASSIGNED,
-          comment: `Auto-assigned to ${ticket.type === 'MIS' ? 'MIS' : 'ITS'} department head`,
-        },
-      });
+      const assignment = await this.autoAssignment.assignTicket(
+        ticketId,
+        ticket.type,
+      );
 
-      // Update status to ASSIGNED after assignment
-      await this.prisma.ticket.update({
-        where: { id: ticketId },
-        data: { status: TicketStatus.ASSIGNED },
+      // Atomic: assignment status history + ticket status update
+      await this.prisma.$transaction(async (tx) => {
+        await tx.ticketStatusHistory.create({
+          data: {
+            ticketId,
+            userId: directorId, // System action triggered by director
+            fromStatus: TicketStatus.DIRECTOR_APPROVED,
+            toStatus: TicketStatus.ASSIGNED,
+            comment: `Auto-assigned to ${ticket.type === "MIS" ? "MIS" : "ITS"} department head`,
+          },
+        });
+
+        await tx.ticket.update({
+          where: { id: ticketId },
+          data: { status: TicketStatus.ASSIGNED },
+        });
       });
 
       // Notify the assigned office head
@@ -792,11 +950,14 @@ export class TicketService {
           ticket.ticketNumber,
           ticket.title,
           assignment.userId,
-          'System (Auto-Assignment)'
+          "System (Auto-Assignment)",
         );
       }
     } catch (error) {
-      console.error('Failed to auto-assign ticket after director approval:', error);
+      console.error(
+        "Failed to auto-assign ticket after director approval:",
+        error,
+      );
     }
 
     return this.repository.findById(ticketId);
@@ -806,18 +967,22 @@ export class TicketService {
    * Disapprove/Reject ticket as director
    * Moves ticket to CANCELLED status with reason
    */
-  async disapproveAsDirector(ticketId: number, directorId: number, reason: string) {
+  async disapproveAsDirector(
+    ticketId: number,
+    directorId: number,
+    reason: string,
+  ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     if (ticket.status !== TicketStatus.REVIEWED) {
-      throw new Error('Ticket must be reviewed by secretary first');
+      throw new Error("Ticket must be reviewed by secretary first");
     }
 
     if (!reason || reason.trim().length === 0) {
-      throw new Error('Disapproval reason is required');
+      throw new Error("Disapproval reason is required");
     }
 
     // Get director name for notification
@@ -826,25 +991,26 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Add status history with disapproval reason
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId: directorId,
-        fromStatus: ticket.status, // REVIEWED
-        toStatus: TicketStatus.CANCELLED,
-        comment: `Disapproved by director: ${reason}`,
-      },
-    });
+    // Atomic: status history + ticket update
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          userId: directorId,
+          fromStatus: ticket.status, // REVIEWED
+          toStatus: TicketStatus.CANCELLED,
+          comment: `Disapproved by director: ${reason}`,
+        },
+      });
 
-    // Update ticket status to CANCELLED
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: {
-        status: TicketStatus.CANCELLED,
-        directorApprovedById: directorId, // Track who made the decision
-        directorApprovedAt: new Date(),   // Track when decision was made
-      },
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.CANCELLED,
+          directorApprovedById: directorId, // Track who made the decision
+          directorApprovedAt: new Date(), // Track when decision was made
+        },
+      });
     });
 
     // Send notification to ticket creator
@@ -854,11 +1020,11 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         ticket.createdById,
-        director?.name || 'Director',
-        reason
+        director?.name || "Director",
+        reason,
       );
     } catch (err) {
-      console.error('Failed to send disapproval notification:', err);
+      console.error("Failed to send disapproval notification:", err);
     }
 
     // Publish real-time event for disapproval
@@ -869,7 +1035,7 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.REVIEWED,
         newStatus: TicketStatus.CANCELLED,
-        changedBy: director?.name || 'Director',
+        changedBy: director?.name || "Director",
         timestamp: new Date().toISOString(),
       },
     });
@@ -881,20 +1047,25 @@ export class TicketService {
    * Reopen a rejected/cancelled ticket for re-review
    * User can update the ticket details and resubmit
    */
-  async reopenTicket(ticketId: number, userId: number, updatedDescription?: string, comment?: string) {
+  async reopenTicket(
+    ticketId: number,
+    userId: number,
+    updatedDescription?: string,
+    comment?: string,
+  ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     // Only CANCELLED tickets can be reopened
     if (ticket.status !== TicketStatus.CANCELLED) {
-      throw new Error('Only cancelled/rejected tickets can be reopened');
+      throw new Error("Only cancelled/rejected tickets can be reopened");
     }
 
     // Only the original creator can reopen the ticket
     if (ticket.createdById !== userId) {
-      throw new Error('Only the ticket creator can reopen this ticket');
+      throw new Error("Only the ticket creator can reopen this ticket");
     }
 
     // Get user name for notification
@@ -903,47 +1074,49 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Add status history for reopen
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId,
-        fromStatus: TicketStatus.CANCELLED,
-        toStatus: TicketStatus.FOR_REVIEW,
-        comment: comment || 'Ticket reopened for re-review',
-      },
-    });
-
-    // Update ticket - reset to FOR_REVIEW, clear previous review data
-    const updateData: any = {
-      status: TicketStatus.FOR_REVIEW,
-      secretaryReviewedById: null,
-      secretaryReviewedAt: null,
-      directorApprovedById: null,
-      directorApprovedAt: null,
-    };
-
-    // If user provided updated description, update it
-    if (updatedDescription && updatedDescription.trim().length > 0) {
-      updateData.description = updatedDescription.trim();
-    }
-
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: updateData,
-    });
-
-    // Add a note about the reopen if comment provided
-    if (comment && comment.trim().length > 0) {
-      await this.prisma.ticketNote.create({
+    // Atomic: status history + ticket update + optional note
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
         data: {
           ticketId,
           userId,
-          content: `Ticket reopened: ${comment.trim()}`,
-          isInternal: false,
+          fromStatus: TicketStatus.CANCELLED,
+          toStatus: TicketStatus.FOR_REVIEW,
+          comment: comment || "Ticket reopened for re-review",
         },
       });
-    }
+
+      // Update ticket - reset to FOR_REVIEW, clear previous review data
+      const updateData: any = {
+        status: TicketStatus.FOR_REVIEW,
+        secretaryReviewedById: null,
+        secretaryReviewedAt: null,
+        directorApprovedById: null,
+        directorApprovedAt: null,
+      };
+
+      // If user provided updated description, update it
+      if (updatedDescription && updatedDescription.trim().length > 0) {
+        updateData.description = updatedDescription.trim();
+      }
+
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: updateData,
+      });
+
+      // Add a note about the reopen if comment provided
+      if (comment && comment.trim().length > 0) {
+        await tx.ticketNote.create({
+          data: {
+            ticketId,
+            userId,
+            content: `Ticket reopened: ${comment.trim()}`,
+            isInternal: false,
+          },
+        });
+      }
+    });
 
     // Notify secretaries about reopened ticket
     try {
@@ -951,10 +1124,10 @@ export class TicketService {
         ticketId,
         ticket.ticketNumber,
         ticket.title,
-        user?.name || 'User'
+        user?.name || "User",
       );
     } catch (err) {
-      console.error('Failed to send reopen notification:', err);
+      console.error("Failed to send reopen notification:", err);
     }
 
     // Publish real-time event for reopen status change
@@ -965,14 +1138,13 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.CANCELLED,
         newStatus: TicketStatus.FOR_REVIEW,
-        changedBy: user?.name || 'User',
+        changedBy: user?.name || "User",
         timestamp: new Date().toISOString(),
       },
     });
 
     return this.repository.findById(ticketId);
   }
-
 
   // ========================================
   // SCHEDULE WORKFLOW METHODS
@@ -983,7 +1155,10 @@ export class TicketService {
    * For admin/director to see tickets that heads have scheduled
    */
   async getTicketsPendingAcknowledgment() {
-    return this.repository.findMany({ status: TicketStatus.PENDING_ACKNOWLEDGMENT });
+    const result = await this.repository.findMany({
+      status: TicketStatus.PENDING_ACKNOWLEDGMENT,
+    });
+    return result.items;
   }
 
   /**
@@ -995,16 +1170,16 @@ export class TicketService {
     headId: number,
     dateToVisit: Date,
     targetCompletionDate: Date,
-    comment?: string
+    comment?: string,
   ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     // Only ASSIGNED tickets can be scheduled
     if (ticket.status !== TicketStatus.ASSIGNED) {
-      throw new Error('Ticket must be in ASSIGNED status to schedule a visit');
+      throw new Error("Ticket must be in ASSIGNED status to schedule a visit");
     }
 
     // Get head name for notification
@@ -1013,40 +1188,42 @@ export class TicketService {
       select: { name: true, role: true },
     });
 
-    // Add status history
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId: headId,
-        fromStatus: TicketStatus.ASSIGNED,
-        toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-        comment: comment || `Visit scheduled for ${dateToVisit.toLocaleDateString()}`,
-      },
-    });
-
-    // Update ticket with schedule info
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: {
-        status: TicketStatus.PENDING_ACKNOWLEDGMENT,
-        dateToVisit,
-        targetCompletionDate,
-        headScheduledById: headId,
-        headScheduledAt: new Date(),
-      },
-    });
-
-    // Add a note about the scheduling
-    if (comment && comment.trim().length > 0) {
-      await this.prisma.ticketNote.create({
+    // Atomic: status history + ticket update + optional note
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
         data: {
           ticketId,
           userId: headId,
-          content: `Visit scheduled: ${comment.trim()}`,
-          isInternal: true,
+          fromStatus: TicketStatus.ASSIGNED,
+          toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+          comment:
+            comment ||
+            `Visit scheduled for ${dateToVisit.toLocaleDateString()}`,
         },
       });
-    }
+
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.PENDING_ACKNOWLEDGMENT,
+          dateToVisit,
+          targetCompletionDate,
+          headScheduledById: headId,
+          headScheduledAt: new Date(),
+        },
+      });
+
+      if (comment && comment.trim().length > 0) {
+        await tx.ticketNote.create({
+          data: {
+            ticketId,
+            userId: headId,
+            content: `Visit scheduled: ${comment.trim()}`,
+            isInternal: true,
+          },
+        });
+      }
+    });
 
     // Notify admin about schedule for acknowledgment
     try {
@@ -1054,12 +1231,12 @@ export class TicketService {
         ticketId,
         ticket.ticketNumber,
         ticket.title,
-        head?.name || 'Department Head',
+        head?.name || "Department Head",
         dateToVisit,
-        targetCompletionDate
+        targetCompletionDate,
       );
     } catch (err) {
-      console.error('Failed to send schedule notification:', err);
+      console.error("Failed to send schedule notification:", err);
     }
 
     // Publish real-time event for schedule visit status change
@@ -1070,7 +1247,7 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.ASSIGNED,
         newStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-        changedBy: head?.name || 'Department Head',
+        changedBy: head?.name || "Department Head",
         timestamp: new Date().toISOString(),
       },
     });
@@ -1082,14 +1259,20 @@ export class TicketService {
    * Acknowledge schedule (for Admin/Director)
    * Confirms the visit dates set by the head, notifies the user
    */
-  async acknowledgeSchedule(ticketId: number, adminId: number, comment?: string) {
+  async acknowledgeSchedule(
+    ticketId: number,
+    adminId: number,
+    comment?: string,
+  ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     if (ticket.status !== TicketStatus.PENDING_ACKNOWLEDGMENT) {
-      throw new Error('Ticket must be in PENDING_ACKNOWLEDGMENT status to acknowledge');
+      throw new Error(
+        "Ticket must be in PENDING_ACKNOWLEDGMENT status to acknowledge",
+      );
     }
 
     // Get admin name for notification
@@ -1098,38 +1281,38 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Add status history
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId: adminId,
-        fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-        toStatus: TicketStatus.SCHEDULED,
-        comment: comment || 'Visit schedule acknowledged by admin',
-      },
-    });
-
-    // Update ticket
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: {
-        status: TicketStatus.SCHEDULED,
-        adminAcknowledgedById: adminId,
-        adminAcknowledgedAt: new Date(),
-      },
-    });
-
-    // Add a note if comment provided
-    if (comment && comment.trim().length > 0) {
-      await this.prisma.ticketNote.create({
+    // Atomic: status history + ticket update + optional note
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
         data: {
           ticketId,
           userId: adminId,
-          content: `Schedule acknowledged: ${comment.trim()}`,
-          isInternal: true,
+          fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+          toStatus: TicketStatus.SCHEDULED,
+          comment: comment || "Visit schedule acknowledged by admin",
         },
       });
-    }
+
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.SCHEDULED,
+          adminAcknowledgedById: adminId,
+          adminAcknowledgedAt: new Date(),
+        },
+      });
+
+      if (comment && comment.trim().length > 0) {
+        await tx.ticketNote.create({
+          data: {
+            ticketId,
+            userId: adminId,
+            content: `Schedule acknowledged: ${comment.trim()}`,
+            isInternal: true,
+          },
+        });
+      }
+    });
 
     // Notify the ticket creator about the scheduled visit
     try {
@@ -1140,10 +1323,10 @@ export class TicketService {
         ticket.createdById,
         ticket.dateToVisit!,
         ticket.targetCompletionDate!,
-        ticket.type === TicketType.MIS ? 'MIS Office' : 'ITS Office'
+        ticket.type === TicketType.MIS ? "MIS Office" : "ITS Office",
       );
     } catch (err) {
-      console.error('Failed to send visit scheduled notification:', err);
+      console.error("Failed to send visit scheduled notification:", err);
     }
 
     // Publish real-time event for acknowledge status change
@@ -1154,7 +1337,7 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
         newStatus: TicketStatus.SCHEDULED,
-        changedBy: admin?.name || 'Admin',
+        changedBy: admin?.name || "Admin",
         timestamp: new Date().toISOString(),
       },
     });
@@ -1169,11 +1352,13 @@ export class TicketService {
   async rejectSchedule(ticketId: number, adminId: number, reason: string) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     if (ticket.status !== TicketStatus.PENDING_ACKNOWLEDGMENT) {
-      throw new Error('Ticket must be in PENDING_ACKNOWLEDGMENT status to reject schedule');
+      throw new Error(
+        "Ticket must be in PENDING_ACKNOWLEDGMENT status to reject schedule",
+      );
     }
 
     // Get admin name for notification
@@ -1182,37 +1367,37 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Add status history
-    await this.prisma.ticketStatusHistory.create({
-      data: {
-        ticketId,
-        userId: adminId,
-        fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-        toStatus: TicketStatus.ASSIGNED,
-        comment: `Schedule rejected: ${reason}`,
-      },
-    });
+    // Atomic: status history + ticket update + rejection note
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          userId: adminId,
+          fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+          toStatus: TicketStatus.ASSIGNED,
+          comment: `Schedule rejected: ${reason}`,
+        },
+      });
 
-    // Update ticket - clear schedule data, return to ASSIGNED
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: {
-        status: TicketStatus.ASSIGNED,
-        dateToVisit: null,
-        targetCompletionDate: null,
-        headScheduledById: null,
-        headScheduledAt: null,
-      },
-    });
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status: TicketStatus.ASSIGNED,
+          dateToVisit: null,
+          targetCompletionDate: null,
+          headScheduledById: null,
+          headScheduledAt: null,
+        },
+      });
 
-    // Add note about rejection
-    await this.prisma.ticketNote.create({
-      data: {
-        ticketId,
-        userId: adminId,
-        content: `Schedule rejected by admin: ${reason}`,
-        isInternal: true,
-      },
+      await tx.ticketNote.create({
+        data: {
+          ticketId,
+          userId: adminId,
+          content: `Schedule rejected by admin: ${reason}`,
+          isInternal: true,
+        },
+      });
     });
 
     // Notify head about schedule rejection
@@ -1222,10 +1407,10 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         ticket.headScheduledById!,
-        reason
+        reason,
       );
     } catch (err) {
-      console.error('Failed to send schedule rejection notification:', err);
+      console.error("Failed to send schedule rejection notification:", err);
     }
 
     // Publish real-time event for schedule rejection status change
@@ -1236,7 +1421,7 @@ export class TicketService {
         title: ticket.title,
         oldStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
         newStatus: TicketStatus.ASSIGNED,
-        changedBy: admin?.name || 'Admin',
+        changedBy: admin?.name || "Admin",
         timestamp: new Date().toISOString(),
       },
     });
@@ -1253,17 +1438,24 @@ export class TicketService {
     headId: number,
     monitorNotes: string,
     recommendations: string,
-    comment?: string
+    comment?: string,
   ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     // Allow monitor notes on tickets that are SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED
-    const allowedStatuses: string[] = [TicketStatus.SCHEDULED, TicketStatus.IN_PROGRESS, TicketStatus.ON_HOLD, TicketStatus.RESOLVED];
+    const allowedStatuses: string[] = [
+      TicketStatus.SCHEDULED,
+      TicketStatus.IN_PROGRESS,
+      TicketStatus.ON_HOLD,
+      TicketStatus.RESOLVED,
+    ];
     if (!allowedStatuses.includes(ticket.status)) {
-      throw new Error('Ticket must be in SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED status to update monitor notes');
+      throw new Error(
+        "Ticket must be in SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED status to update monitor notes",
+      );
     }
 
     // Get head name for notification
@@ -1272,45 +1464,48 @@ export class TicketService {
       select: { name: true },
     });
 
-    // Update ticket with monitor data
-    // If ticket is SCHEDULED, transition to IN_PROGRESS; otherwise keep current status
-    const updateData: any = {
-      monitorNotes,
-      recommendations,
-      monitoredById: headId,
-      monitoredAt: new Date(),
-    };
+    // Atomic: ticket update + optional status history + note
+    await this.prisma.$transaction(async (tx) => {
+      // Update ticket with monitor data
+      // If ticket is SCHEDULED, transition to IN_PROGRESS; otherwise keep current status
+      const updateData: any = {
+        monitorNotes,
+        recommendations,
+        monitoredById: headId,
+        monitoredAt: new Date(),
+      };
 
-    if (ticket.status === TicketStatus.SCHEDULED) {
-      updateData.status = TicketStatus.IN_PROGRESS;
-    }
+      if (ticket.status === TicketStatus.SCHEDULED) {
+        updateData.status = TicketStatus.IN_PROGRESS;
+      }
 
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: updateData,
-    });
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: updateData,
+      });
 
-    // Add status history if status changed
-    if (ticket.status === TicketStatus.SCHEDULED) {
-      await this.prisma.ticketStatusHistory.create({
+      // Add status history if status changed
+      if (ticket.status === TicketStatus.SCHEDULED) {
+        await tx.ticketStatusHistory.create({
+          data: {
+            ticketId,
+            userId: headId,
+            fromStatus: TicketStatus.SCHEDULED,
+            toStatus: TicketStatus.IN_PROGRESS,
+            comment: comment || "Monitor notes added after visit",
+          },
+        });
+      }
+
+      // Add a note with the monitor info
+      await tx.ticketNote.create({
         data: {
           ticketId,
           userId: headId,
-          fromStatus: TicketStatus.SCHEDULED,
-          toStatus: TicketStatus.IN_PROGRESS,
-          comment: comment || 'Monitor notes added after visit',
+          content: `**Monitor Notes:**\n${monitorNotes}\n\n**Recommendations:**\n${recommendations}${comment ? `\n\n**Additional Comments:** ${comment}` : ""}`,
+          isInternal: false, // Visible to user
         },
       });
-    }
-
-    // Add a note with the monitor info
-    await this.prisma.ticketNote.create({
-      data: {
-        ticketId,
-        userId: headId,
-        content: `**Monitor Notes:**\n${monitorNotes}\n\n**Recommendations:**\n${recommendations}${comment ? `\n\n**Additional Comments:** ${comment}` : ''}`,
-        isInternal: false, // Visible to user
-      },
     });
 
     // Notify user about monitoring update
@@ -1320,10 +1515,10 @@ export class TicketService {
         ticket.ticketNumber,
         ticket.title,
         ticket.createdById,
-        head?.name || 'Department Head'
+        head?.name || "Department Head",
       );
     } catch (err) {
-      console.error('Failed to send monitor update notification:', err);
+      console.error("Failed to send monitor update notification:", err);
     }
 
     // Publish real-time event if status changed (SCHEDULED → IN_PROGRESS)
@@ -1335,7 +1530,7 @@ export class TicketService {
           title: ticket.title,
           oldStatus: TicketStatus.SCHEDULED,
           newStatus: TicketStatus.IN_PROGRESS,
-          changedBy: head?.name || 'Department Head',
+          changedBy: head?.name || "Department Head",
           timestamp: new Date().toISOString(),
         },
       });
@@ -1344,12 +1539,7 @@ export class TicketService {
     return this.repository.findById(ticketId);
   }
 
-
   /**
- * Generate control number using atomic upsert (safe from race conditions)
- */
-
-
-
-
+   * Generate control number using atomic upsert (safe from race conditions)
+   */
 }

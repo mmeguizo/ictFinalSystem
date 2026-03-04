@@ -1,122 +1,157 @@
-import { PrismaClient, TicketType } from '@prisma/client';
-import { TicketService } from './services/ticket.service';
-import { CreateMISTicketDto } from './dto/create-mis-ticket.dto';
-import { CreateITSTicketDto } from './dto/create-its-ticket.dto';
-import { UpdateTicketStatusDto } from './dto/update-ticket-status.dto';
-import { CreateTicketNoteDto } from './dto/create-ticket-note.dto';
-import { deleteAttachmentFile } from '../storage/upload.middleware';
+import { TicketType } from "@prisma/client";
+import { TicketService } from "./services/ticket.service";
+import { CreateMISTicketDto } from "./dto/create-mis-ticket.dto";
+import { CreateITSTicketDto } from "./dto/create-its-ticket.dto";
+import { UpdateTicketStatusDto } from "./dto/update-ticket-status.dto";
+import { CreateTicketNoteDto } from "./dto/create-ticket-note.dto";
+import { deleteAttachmentFile } from "../storage/upload.middleware";
+import { prisma } from "../../lib/prisma";
 
-const prisma = new PrismaClient();
 const ticketService = new TicketService(prisma);
 
 export const ticketResolvers = {
   Query: {
     ticket: async (_: any, { id }: { id: number }, context: any) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return ticketService.getTicket(id);
     },
 
-    ticketByNumber: async (_: any, { ticketNumber }: { ticketNumber: string }, context: any) => {
+    ticketByNumber: async (
+      _: any,
+      { ticketNumber }: { ticketNumber: string },
+      context: any,
+    ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return ticketService.getTicketByNumber(ticketNumber);
     },
 
-    tickets: async (_: any, { filter }: { filter?: any }, context: any) => {
+    tickets: async (
+      _: any,
+      { filter, pagination }: { filter?: any; pagination?: any },
+      context: any,
+    ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      return ticketService.getTickets(filter);
+      return ticketService.getTickets(filter, pagination);
     },
 
-    myTickets: async (_: any, __: any, context: any) => {
+    myTickets: async (
+      _: any,
+      { pagination }: { pagination?: any },
+      context: any,
+    ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      
+
       // Office Heads see all tickets of their type that are in work statuses
-      if (context.currentUser.role === 'MIS_HEAD') {
-        return ticketService.getOfficeHeadTickets(TicketType.MIS);
+      if (context.currentUser.role === "MIS_HEAD") {
+        return ticketService.getOfficeHeadTickets(TicketType.MIS, pagination);
       }
-      if (context.currentUser.role === 'ITS_HEAD') {
-        return ticketService.getOfficeHeadTickets(TicketType.ITS);
+      if (context.currentUser.role === "ITS_HEAD") {
+        return ticketService.getOfficeHeadTickets(TicketType.ITS, pagination);
       }
-      
+
       // Regular staff see only tickets explicitly assigned to them
-      return ticketService.getUserTickets(context.currentUser.id);
+      return ticketService.getUserTickets(context.currentUser.id, pagination);
     },
 
-    myCreatedTickets: async (_: any, __: any, context: any) => {
+    myCreatedTickets: async (
+      _: any,
+      { pagination }: { pagination?: any },
+      context: any,
+    ) => {
       // console.log('myCreatedTickets resolver called with context:', context);
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      return ticketService.getUserCreatedTickets(context.currentUser.id);
+      return ticketService.getUserCreatedTickets(
+        context.currentUser.id,
+        pagination,
+      );
     },
 
     ticketsForSecretaryReview: async (_: any, __: any, context: any) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only admins, secretaries, and department heads can view tickets for review
-      if (!['ADMIN', 'SECRETARY', 'MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Insufficient permissions');
+      if (
+        !["ADMIN", "SECRETARY", "MIS_HEAD", "ITS_HEAD"].includes(
+          context.currentUser.role,
+        )
+      ) {
+        throw new Error("Forbidden: Insufficient permissions");
       }
-      
+
       // For department heads, filter by their department type
-      if (context.currentUser.role === 'MIS_HEAD') {
-        return ticketService.getTicketsForSecretaryReviewByType('MIS');
+      if (context.currentUser.role === "MIS_HEAD") {
+        return ticketService.getTicketsForSecretaryReviewByType("MIS");
       }
-      if (context.currentUser.role === 'ITS_HEAD') {
-        return ticketService.getTicketsForSecretaryReviewByType('ITS');
+      if (context.currentUser.role === "ITS_HEAD") {
+        return ticketService.getTicketsForSecretaryReviewByType("ITS");
       }
-      
+
       return ticketService.getTicketsForSecretaryReview();
     },
 
     ticketsPendingDirectorApproval: async (_: any, __: any, context: any) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only admins, directors, and department heads can view director pending approvals
-      if (!['ADMIN', 'DIRECTOR', 'MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Insufficient permissions');
+      if (
+        !["ADMIN", "DIRECTOR", "MIS_HEAD", "ITS_HEAD"].includes(
+          context.currentUser.role,
+        )
+      ) {
+        throw new Error("Forbidden: Insufficient permissions");
       }
-      
+
       // For department heads, filter by their department type
-      if (context.currentUser.role === 'MIS_HEAD') {
-        return ticketService.getTicketsPendingDirectorApprovalByType('MIS');
+      if (context.currentUser.role === "MIS_HEAD") {
+        return ticketService.getTicketsPendingDirectorApprovalByType("MIS");
       }
-      if (context.currentUser.role === 'ITS_HEAD') {
-        return ticketService.getTicketsPendingDirectorApprovalByType('ITS');
+      if (context.currentUser.role === "ITS_HEAD") {
+        return ticketService.getTicketsPendingDirectorApprovalByType("ITS");
       }
-      
+
       return ticketService.getTicketsPendingDirectorApproval();
     },
 
-    allSecretaryTickets: async (_: any, __: any, context: any) => {
+    allSecretaryTickets: async (
+      _: any,
+      { pagination }: { pagination?: any },
+      context: any,
+    ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only admins, directors, secretaries, and department heads can view all tickets for secretary oversight
-      if (!['ADMIN', 'DIRECTOR', 'SECRETARY', 'MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Insufficient permissions');
+      if (
+        !["ADMIN", "DIRECTOR", "SECRETARY", "MIS_HEAD", "ITS_HEAD"].includes(
+          context.currentUser.role,
+        )
+      ) {
+        throw new Error("Forbidden: Insufficient permissions");
       }
-      
+
       // For department heads, filter by their department type
       // MIS_HEAD only sees MIS tickets, ITS_HEAD only sees ITS tickets
-      if (context.currentUser.role === 'MIS_HEAD') {
-        return ticketService.getTickets({ type: TicketType.MIS });
+      if (context.currentUser.role === "MIS_HEAD") {
+        return ticketService.getTickets({ type: TicketType.MIS }, pagination);
       }
-      if (context.currentUser.role === 'ITS_HEAD') {
-        return ticketService.getTickets({ type: TicketType.ITS });
+      if (context.currentUser.role === "ITS_HEAD") {
+        return ticketService.getTickets({ type: TicketType.ITS }, pagination);
       }
-      
+
       // Admin, Director, Secretary see all tickets
-      return ticketService.getTickets();
+      return ticketService.getTickets(undefined, pagination);
     },
 
     /**
@@ -125,24 +160,32 @@ export const ticketResolvers = {
      */
     ticketsPendingAcknowledgment: async (_: any, __: any, context: any) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only admins and directors can view pending acknowledgments
-      if (!['ADMIN', 'DIRECTOR'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Insufficient permissions');
+      if (!["ADMIN", "DIRECTOR"].includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Insufficient permissions");
       }
       return ticketService.getTicketsPendingAcknowledgment();
     },
 
-    ticketAnalytics: async (_: any, { filter }: { filter?: any }, context: any) => {
+    ticketAnalytics: async (
+      _: any,
+      { filter }: { filter?: any },
+      context: any,
+    ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      
-      const filters = filter ? {
-        startDate: filter.startDate ? new Date(filter.startDate) : undefined,
-        endDate: filter.endDate ? new Date(filter.endDate) : undefined,
-      } : undefined;
+
+      const filters = filter
+        ? {
+            startDate: filter.startDate
+              ? new Date(filter.startDate)
+              : undefined,
+            endDate: filter.endDate ? new Date(filter.endDate) : undefined,
+          }
+        : undefined;
 
       const analytics = await ticketService.getAnalytics(filters);
 
@@ -165,25 +208,71 @@ export const ticketResolvers = {
 
     slaMetrics: async (_: any, __: any, context: any) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      return ticketService.getSLAMetrics();
+      return ticketService.getEnhancedSLAMetrics();
+    },
+
+    ticketTrends: async (
+      _: any,
+      { filter }: { filter?: any },
+      context: any,
+    ) => {
+      if (!context.currentUser) {
+        throw new Error("Unauthorized");
+      }
+      const filters = filter
+        ? {
+            startDate: filter.startDate
+              ? new Date(filter.startDate)
+              : undefined,
+            endDate: filter.endDate ? new Date(filter.endDate) : undefined,
+          }
+        : undefined;
+      return ticketService.getTicketTrends(filters);
+    },
+
+    staffPerformance: async (
+      _: any,
+      { filter }: { filter?: any },
+      context: any,
+    ) => {
+      if (!context.currentUser) {
+        throw new Error("Unauthorized");
+      }
+      const filters = filter
+        ? {
+            startDate: filter.startDate
+              ? new Date(filter.startDate)
+              : undefined,
+            endDate: filter.endDate ? new Date(filter.endDate) : undefined,
+          }
+        : undefined;
+      return ticketService.getStaffPerformance(filters);
     },
   },
 
   Mutation: {
-    createMISTicket: async (_: any, { input }: { input: CreateMISTicketDto }, context: any) => {
-        // console.log('createMISTicket called with input:', input);
-        // console.log('createMISTicket called with context:', context);
+    createMISTicket: async (
+      _: any,
+      { input }: { input: CreateMISTicketDto },
+      context: any,
+    ) => {
+      // console.log('createMISTicket called with input:', input);
+      // console.log('createMISTicket called with context:', context);
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return ticketService.createMISTicket(input, context.currentUser.id);
     },
 
-    createITSTicket: async (_: any, { input }: { input: CreateITSTicketDto }, context: any) => {
+    createITSTicket: async (
+      _: any,
+      { input }: { input: CreateITSTicketDto },
+      context: any,
+    ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return ticketService.createITSTicket(input, context.currentUser.id);
     },
@@ -191,10 +280,10 @@ export const ticketResolvers = {
     updateTicketStatus: async (
       _: any,
       { ticketId, input }: { ticketId: number; input: UpdateTicketStatusDto },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       await ticketService.updateStatus(ticketId, context.currentUser.id, input);
       return ticketService.getTicket(ticketId);
@@ -203,16 +292,24 @@ export const ticketResolvers = {
     reviewTicketAsSecretary: async (
       _: any,
       { ticketId, comment }: { ticketId: number; comment?: string },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only secretaries, admins, and department heads can review tickets
-      if (!['ADMIN', 'SECRETARY', 'MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only secretaries can review tickets');
+      if (
+        !["ADMIN", "SECRETARY", "MIS_HEAD", "ITS_HEAD"].includes(
+          context.currentUser.role,
+        )
+      ) {
+        throw new Error("Forbidden: Only secretaries can review tickets");
       }
-      return ticketService.reviewAsSecretary(ticketId, context.currentUser.id, comment);
+      return ticketService.reviewAsSecretary(
+        ticketId,
+        context.currentUser.id,
+        comment,
+      );
     },
 
     /**
@@ -222,31 +319,45 @@ export const ticketResolvers = {
     rejectTicketAsSecretary: async (
       _: any,
       { ticketId, reason }: { ticketId: number; reason: string },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Secretaries, directors, and admins can reject tickets
-      if (!['ADMIN', 'SECRETARY', 'DIRECTOR'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only secretaries can reject tickets');
+      if (
+        !["ADMIN", "SECRETARY", "DIRECTOR"].includes(context.currentUser.role)
+      ) {
+        throw new Error("Forbidden: Only secretaries can reject tickets");
       }
-      return ticketService.rejectAsSecretary(ticketId, context.currentUser.id, reason);
+      return ticketService.rejectAsSecretary(
+        ticketId,
+        context.currentUser.id,
+        reason,
+      );
     },
 
     approveTicketAsDirector: async (
       _: any,
       { ticketId, comment }: { ticketId: number; comment?: string },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      // Only directors, admins, and department heads can approve as director
-      if (!['ADMIN', 'DIRECTOR', 'MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only directors can approve tickets');
+      // Directors, admins, and department heads can approve/endorse
+      if (
+        !["ADMIN", "DIRECTOR", "MIS_HEAD", "ITS_HEAD"].includes(
+          context.currentUser.role,
+        )
+      ) {
+        throw new Error("Forbidden: Only authorized staff can endorse tickets");
       }
-      return ticketService.approveAsDirector(ticketId, context.currentUser.id, comment);
+      return ticketService.approveAsDirector(
+        ticketId,
+        context.currentUser.id,
+        comment,
+      );
     },
 
     /**
@@ -256,35 +367,55 @@ export const ticketResolvers = {
     disapproveTicketAsDirector: async (
       _: any,
       { ticketId, reason }: { ticketId: number; reason: string },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only directors, admins can disapprove
-      if (!['ADMIN', 'DIRECTOR'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only directors can disapprove tickets');
+      if (!["ADMIN", "DIRECTOR"].includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Only directors can disapprove tickets");
       }
-      return ticketService.disapproveAsDirector(ticketId, context.currentUser.id, reason);
+      return ticketService.disapproveAsDirector(
+        ticketId,
+        context.currentUser.id,
+        reason,
+      );
     },
 
     assignTicket: async (
       _: any,
-      { ticketId, userId, input }: { ticketId: number; userId: number; input?: { dateToVisit?: string; targetCompletionDate?: string; comment?: string } },
-      context: any
+      {
+        ticketId,
+        userId,
+        input,
+      }: {
+        ticketId: number;
+        userId: number;
+        input?: {
+          dateToVisit?: string;
+          targetCompletionDate?: string;
+          comment?: string;
+        };
+      },
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      // Only admins and department heads can assign tickets
-      if (!['ADMIN', 'MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Insufficient permissions');
+      // Only department heads (MIS_HEAD, ITS_HEAD) can assign tickets
+      if (!["MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Only department heads can assign tickets");
       }
       // Pass the current user's ID as the assigner for status history tracking
       // Also pass optional schedule dates (dateToVisit, targetCompletionDate) if provided
       await ticketService.assignUser(ticketId, userId, context.currentUser.id, {
-        dateToVisit: input?.dateToVisit ? new Date(input.dateToVisit) : undefined,
-        targetCompletionDate: input?.targetCompletionDate ? new Date(input.targetCompletionDate) : undefined,
+        dateToVisit: input?.dateToVisit
+          ? new Date(input.dateToVisit)
+          : undefined,
+        targetCompletionDate: input?.targetCompletionDate
+          ? new Date(input.targetCompletionDate)
+          : undefined,
         comment: input?.comment,
       });
       return ticketService.getTicket(ticketId);
@@ -293,14 +424,16 @@ export const ticketResolvers = {
     unassignTicket: async (
       _: any,
       { ticketId, userId }: { ticketId: number; userId: number },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
-      // Only admins and department heads can unassign tickets
-      if (!['ADMIN', 'MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Insufficient permissions');
+      // Only department heads (MIS_HEAD, ITS_HEAD) can unassign tickets
+      if (!["MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)) {
+        throw new Error(
+          "Forbidden: Only department heads can unassign tickets",
+        );
       }
       await ticketService.unassignUser(ticketId, userId);
       return ticketService.getTicket(ticketId);
@@ -309,10 +442,10 @@ export const ticketResolvers = {
     addTicketNote: async (
       _: any,
       { ticketId, input }: { ticketId: number; input: CreateTicketNoteDto },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return ticketService.addNote(ticketId, context.currentUser.id, input);
     },
@@ -323,17 +456,23 @@ export const ticketResolvers = {
      */
     reopenTicket: async (
       _: any,
-      { ticketId, input }: { ticketId: number; input?: { updatedDescription?: string; comment?: string } },
-      context: any
+      {
+        ticketId,
+        input,
+      }: {
+        ticketId: number;
+        input?: { updatedDescription?: string; comment?: string };
+      },
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       return ticketService.reopenTicket(
         ticketId,
         context.currentUser.id,
         input?.updatedDescription,
-        input?.comment
+        input?.comment,
       );
     },
 
@@ -347,22 +486,32 @@ export const ticketResolvers = {
      */
     scheduleVisit: async (
       _: any,
-      { ticketId, input }: { ticketId: number; input: { dateToVisit: string; targetCompletionDate: string; comment?: string } },
-      context: any
+      {
+        ticketId,
+        input,
+      }: {
+        ticketId: number;
+        input: {
+          dateToVisit: string;
+          targetCompletionDate: string;
+          comment?: string;
+        };
+      },
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only department heads can schedule visits
-      if (!['MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only department heads can schedule visits');
+      if (!["MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Only department heads can schedule visits");
       }
       return ticketService.scheduleVisit(
         ticketId,
         context.currentUser.id,
         new Date(input.dateToVisit),
         new Date(input.targetCompletionDate),
-        input.comment
+        input.comment,
       );
     },
 
@@ -373,16 +522,22 @@ export const ticketResolvers = {
     acknowledgeSchedule: async (
       _: any,
       { ticketId, comment }: { ticketId: number; comment?: string },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only admins and directors can acknowledge schedules
-      if (!['ADMIN', 'DIRECTOR'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only admin/director can acknowledge schedules');
+      if (!["ADMIN", "DIRECTOR"].includes(context.currentUser.role)) {
+        throw new Error(
+          "Forbidden: Only admin/director can acknowledge schedules",
+        );
       }
-      return ticketService.acknowledgeSchedule(ticketId, context.currentUser.id, comment);
+      return ticketService.acknowledgeSchedule(
+        ticketId,
+        context.currentUser.id,
+        comment,
+      );
     },
 
     /**
@@ -392,16 +547,20 @@ export const ticketResolvers = {
     rejectSchedule: async (
       _: any,
       { ticketId, reason }: { ticketId: number; reason: string },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only admins and directors can reject schedules
-      if (!['ADMIN', 'DIRECTOR'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only admin/director can reject schedules');
+      if (!["ADMIN", "DIRECTOR"].includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Only admin/director can reject schedules");
       }
-      return ticketService.rejectSchedule(ticketId, context.currentUser.id, reason);
+      return ticketService.rejectSchedule(
+        ticketId,
+        context.currentUser.id,
+        reason,
+      );
     },
 
     /**
@@ -409,22 +568,34 @@ export const ticketResolvers = {
      */
     addMonitorAndRecommendations: async (
       _: any,
-      { ticketId, input }: { ticketId: number; input: { monitorNotes: string; recommendations: string; comment?: string } },
-      context: any
+      {
+        ticketId,
+        input,
+      }: {
+        ticketId: number;
+        input: {
+          monitorNotes: string;
+          recommendations: string;
+          comment?: string;
+        };
+      },
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
       // Only department heads can add monitor notes
-      if (!['MIS_HEAD', 'ITS_HEAD'].includes(context.currentUser.role)) {
-        throw new Error('Forbidden: Only department heads can add monitor notes');
+      if (!["MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)) {
+        throw new Error(
+          "Forbidden: Only department heads can add monitor notes",
+        );
       }
       return ticketService.addMonitorAndRecommendations(
         ticketId,
         context.currentUser.id,
         input.monitorNotes,
         input.recommendations,
-        input.comment
+        input.comment,
       );
     },
 
@@ -436,10 +607,10 @@ export const ticketResolvers = {
     deleteTicketAttachment: async (
       _: any,
       { attachmentId }: { attachmentId: number },
-      context: any
+      context: any,
     ) => {
       if (!context.currentUser) {
-        throw new Error('Unauthorized');
+        throw new Error("Unauthorized");
       }
 
       // Find the attachment with its ticket
@@ -455,22 +626,26 @@ export const ticketResolvers = {
       });
 
       if (!attachment) {
-        throw new Error('Attachment not found');
+        throw new Error("Attachment not found");
       }
 
       if (attachment.isDeleted) {
-        throw new Error('Attachment is already deleted');
+        throw new Error("Attachment is already deleted");
       }
 
       // Check permissions: creator, assigned user, department head, or admin
       const userId = context.currentUser.id;
       const userRole = context.currentUser.role;
       const isCreator = attachment.ticket.createdById === userId;
-      const isAssigned = attachment.ticket.assignments.some((a: any) => a.userId === userId);
-      const isPrivileged = ['ADMIN', 'MIS_HEAD', 'ITS_HEAD'].includes(userRole);
+      const isAssigned = attachment.ticket.assignments.some(
+        (a: any) => a.userId === userId,
+      );
+      const isPrivileged = ["ADMIN", "MIS_HEAD", "ITS_HEAD"].includes(userRole);
 
       if (!isCreator && !isAssigned && !isPrivileged) {
-        throw new Error('Forbidden: You do not have permission to delete this attachment');
+        throw new Error(
+          "Forbidden: You do not have permission to delete this attachment",
+        );
       }
 
       // Soft delete: mark as deleted, keep the record
@@ -491,6 +666,29 @@ export const ticketResolvers = {
       }
 
       return true;
+    },
+
+    /**
+     * Submit satisfaction survey for a resolved/closed ticket
+     * Only the ticket creator can submit
+     */
+    submitSatisfaction: async (
+      _: any,
+      {
+        ticketId,
+        input,
+      }: { ticketId: number; input: { rating: number; comment?: string } },
+      context: any,
+    ) => {
+      if (!context.currentUser) {
+        throw new Error("Unauthorized");
+      }
+      return ticketService.submitSatisfaction(
+        ticketId,
+        context.currentUser.id,
+        input.rating,
+        input.comment,
+      );
     },
   },
 };

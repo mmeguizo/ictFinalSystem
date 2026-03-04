@@ -1,0 +1,150 @@
+.analytics-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+.stat-row {
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  border-radius: 8px;
+  transition: box-shadow 0.2s;
+  height: 100%;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  &.total {
+    border-left: 4px solid #1890ff;
+  }
+
+  &.overdue {
+    border-left: 4px solid #ff4d4f;
+  }
+
+  &.due-today {
+    border-left: 4px solid #fa8c16;
+  }
+
+  &.due-soon {
+    border-left: 4px solid #faad14;
+  }
+
+  &.sla-compliance {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.compliance-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+
+  .compliance-label {
+    margin-top: 8px;
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.65);
+    font-weight: 500;
+  }
+}
+
+.compliance-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.charts-row {
+  margin-bottom: 20px;
+}
+
+.chart-wrapper {
+  height: 300px;
+  position: relative;
+
+  &.chart-lg {
+    height: 400px;
+  }
+}
+
+.overdue-table-card {
+  margin-top: 16px;
+}
+
+.overdue-alert {
+  margin-bottom: 16px;
+}
+
+.overdue-hours {
+  color: #ff4d4f;
+  font-weight: 600;
+}
+
+.unassigned {
+  color: rgba(0, 0, 0, 0.35);
+  font-style: italic;
+}
+
+.no-data {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.staff-chart-card,
+.staff-table-card {
+  margin-bottom: 16px;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .analytics-container {
+    padding: 12px;
+  }
+
+  .analytics-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chart-wrapper {
+    height: 250px;
+  }
+}
+
+// Dark mode support for cards
+:host ::ng-deep {
+  .ant-card {
+    border-radius: 8px;
+  }
+
+  .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+    border-radius: 8px 8px 0 0;
+  }
+}

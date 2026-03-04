@@ -148,7 +148,7 @@ export class MyTicketsPage implements OnInit {
     const ticket = this.monitorTicket();
     if (!ticket?.statusHistory) return [];
     return ticket.statusHistory.filter(
-      (h) => (h.user.role === 'DEVELOPER' || h.user.role === 'TECHNICAL') && h.comment
+      (h) => (h.user.role === 'DEVELOPER' || h.user.role === 'TECHNICAL') && h.comment,
     );
   });
 
@@ -167,7 +167,7 @@ export class MyTicketsPage implements OnInit {
 
   /** Check if user is staff (Developer or Technical) */
   readonly isStaff = computed(
-    () => this.authService.isDeveloper() || this.authService.isTechnical()
+    () => this.authService.isDeveloper() || this.authService.isTechnical(),
   );
 
   /** Check if user is admin */
@@ -176,9 +176,12 @@ export class MyTicketsPage implements OnInit {
   /** Check if user is secretary */
   readonly isSecretary = computed(() => this.authService.isSecretary());
 
+  /** Check if user is director */
+  readonly isDirector = computed(() => this.authService.isDirector());
+
   /** Check if user can review as secretary (admin or secretary) */
   readonly canReviewAsSecretary = computed(
-    () => this.authService.isAdmin() || this.authService.isSecretary()
+    () => this.authService.isAdmin() || this.authService.isSecretary(),
   );
 
   /** Check if user can view all tickets (admin, heads, secretary) */
@@ -186,12 +189,12 @@ export class MyTicketsPage implements OnInit {
     () =>
       this.authService.isAdmin() ||
       this.authService.isOfficeHead() ||
-      this.authService.isSecretary()
+      this.authService.isSecretary(),
   );
 
   /** Check if user can create tickets (USER and SECRETARY roles) */
   readonly canCreateTicket = computed(
-    () => this.authService.isSecretary() || this.authService.isUser()
+    () => this.authService.isSecretary() || this.authService.isUser(),
   );
 
   /** Check if user can assign tickets (department heads only) */
@@ -246,47 +249,47 @@ export class MyTicketsPage implements OnInit {
 
   /** Count of tickets for review */
   readonly forReviewCount = computed(
-    () => this.tickets().filter((t) => t.status === 'FOR_REVIEW').length
+    () => this.tickets().filter((t) => t.status === 'FOR_REVIEW').length,
   );
 
   /** Count of reviewed tickets */
   readonly reviewedCount = computed(
-    () => this.tickets().filter((t) => t.status === 'REVIEWED').length
+    () => this.tickets().filter((t) => t.status === 'REVIEWED').length,
   );
 
   /** Count of director approved tickets */
   readonly directorApprovedCount = computed(
-    () => this.tickets().filter((t) => t.status === 'DIRECTOR_APPROVED').length
+    () => this.tickets().filter((t) => t.status === 'DIRECTOR_APPROVED').length,
   );
 
   /** Count of assigned tickets */
   readonly assignedCount = computed(
-    () => this.tickets().filter((t) => t.status === 'ASSIGNED').length
+    () => this.tickets().filter((t) => t.status === 'ASSIGNED').length,
   );
 
   /** Count of pending acknowledgment tickets */
   readonly pendingAcknowledgmentCount = computed(
-    () => this.tickets().filter((t) => t.status === 'PENDING_ACKNOWLEDGMENT').length
+    () => this.tickets().filter((t) => t.status === 'PENDING_ACKNOWLEDGMENT').length,
   );
 
   /** Count of scheduled tickets */
   readonly scheduledCount = computed(
-    () => this.tickets().filter((t) => t.status === 'SCHEDULED').length
+    () => this.tickets().filter((t) => t.status === 'SCHEDULED').length,
   );
 
   /** Count of in progress tickets */
   readonly inProgressCount = computed(
-    () => this.tickets().filter((t) => t.status === 'IN_PROGRESS').length
+    () => this.tickets().filter((t) => t.status === 'IN_PROGRESS').length,
   );
 
   /** Count of on hold tickets */
   readonly onHoldCount = computed(
-    () => this.tickets().filter((t) => t.status === 'ON_HOLD').length
+    () => this.tickets().filter((t) => t.status === 'ON_HOLD').length,
   );
 
   /** Count of resolved tickets */
   readonly resolvedCount = computed(
-    () => this.tickets().filter((t) => t.status === 'RESOLVED').length
+    () => this.tickets().filter((t) => t.status === 'RESOLVED').length,
   );
 
   /** Count of closed tickets */
@@ -294,21 +297,21 @@ export class MyTicketsPage implements OnInit {
 
   /** Count of cancelled tickets */
   readonly cancelledCount = computed(
-    () => this.tickets().filter((t) => t.status === 'CANCELLED').length
+    () => this.tickets().filter((t) => t.status === 'CANCELLED').length,
   );
 
   /** Recent tickets (last 10) sorted by creation date */
   readonly recentTickets = computed(() =>
     [...this.tickets()]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10)
+      .slice(0, 10),
   );
 
   ngOnInit(): void {
     this.loadTickets();
 
-    // Load staff list if user is a department head
-    if (this.isDepartmentHead()) {
+    // Load staff list if user is a department head or admin
+    if (this.isDepartmentHead() || this.isAdmin()) {
       this.loadStaffList();
     }
 
@@ -316,7 +319,7 @@ export class MyTicketsPage implements OnInit {
     interval(60000)
       .pipe(
         switchMap(() => this.getTicketQuery()),
-        takeUntilDestroyed(this.destroyRef)
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: (tickets) => {
@@ -376,17 +379,25 @@ export class MyTicketsPage implements OnInit {
    * MIS_HEAD sees DEVELOPERs, ITS_HEAD sees TECHNICAL staff
    */
   loadStaffList(): void {
-    const role = this.isMISHead() ? 'DEVELOPER' : 'TECHNICAL';
-
-    this.ticketService.getUsersByRole(role).subscribe({
-      next: (users) => {
-        this.staffList.set(users);
-      },
-      error: (error) => {
-        console.error('Failed to load staff list:', error);
-        this.message.error('Failed to load staff list');
-      },
-    });
+    if (this.isAdmin()) {
+      // Admin can assign any DEVELOPER or TECHNICAL staff
+      this.ticketService.getUsersByRoles(['DEVELOPER', 'TECHNICAL']).subscribe({
+        next: (users) => this.staffList.set(users),
+        error: (error) => {
+          console.error('Failed to load staff list:', error);
+          this.message.error('Failed to load staff list');
+        },
+      });
+    } else {
+      const role = this.isMISHead() ? 'DEVELOPER' : 'TECHNICAL';
+      this.ticketService.getUsersByRole(role).subscribe({
+        next: (users) => this.staffList.set(users),
+        error: (error) => {
+          console.error('Failed to load staff list:', error);
+          this.message.error('Failed to load staff list');
+        },
+      });
+    }
   }
 
   // ========================================
@@ -503,18 +514,20 @@ export class MyTicketsPage implements OnInit {
     const targetDateStr = targetDate ? targetDate.toISOString() : undefined;
 
     this.loading.set(true);
-    this.ticketService.updateStatus(ticketId, status, this.statusComment() || undefined, targetDateStr).subscribe({
-      next: () => {
-        this.message.success('Status updated successfully!');
-        this.closeStatusModal();
-        this.loadTickets(); // Refresh list
-      },
-      error: (error) => {
-        console.error('Failed to update status:', error);
-        this.message.error('Failed to update status');
-        this.loading.set(false);
-      },
-    });
+    this.ticketService
+      .updateStatus(ticketId, status, this.statusComment() || undefined, targetDateStr)
+      .subscribe({
+        next: () => {
+          this.message.success('Status updated successfully!');
+          this.closeStatusModal();
+          this.loadTickets(); // Refresh list
+        },
+        error: (error) => {
+          console.error('Failed to update status:', error);
+          this.message.error('Failed to update status');
+          this.loading.set(false);
+        },
+      });
   }
 
   // ========================================
@@ -589,12 +602,13 @@ export class MyTicketsPage implements OnInit {
    * Only show assign button if no staff (DEVELOPER/TECHNICAL) is already assigned
    */
   canAssign(ticket: TicketListItem): boolean {
+    // Only MIS_HEAD and ITS_HEAD can assign (not admin)
     if (!this.isDepartmentHead()) return false;
-    if (ticket.status !== 'ASSIGNED') return false;
+    if (ticket.status !== 'ASSIGNED' && ticket.status !== 'DIRECTOR_APPROVED') return false;
 
     // Check if any staff (DEVELOPER or TECHNICAL) is already assigned
     const hasStaffAssigned = ticket.assignments?.some(
-      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
+      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL',
     );
 
     // Can only assign if no staff is assigned yet
@@ -620,7 +634,11 @@ export class MyTicketsPage implements OnInit {
   }
 
   canReviewAdmin(ticket: TicketListItem): boolean {
-    return this.isAdmin() && ticket.status === 'REVIEWED' && !ticket.directorApprovedAt;
+    return (
+      (this.isAdmin() || this.isDirector() || this.isDepartmentHead()) &&
+      ticket.status === 'REVIEWED' &&
+      !ticket.directorApprovedAt
+    );
   }
 
   /**
@@ -634,7 +652,7 @@ export class MyTicketsPage implements OnInit {
 
     // Check if staff is assigned
     const hasStaffAssigned = ticket.assignments?.some(
-      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL'
+      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL',
     );
 
     // Can schedule if staff is assigned and no visit date set yet
@@ -809,18 +827,22 @@ export class MyTicketsPage implements OnInit {
     this.loading.set(true);
 
     if (action === 'acknowledge') {
-      this.ticketService.acknowledgeSchedule(ticketId, this.acknowledgeComment() || undefined).subscribe({
-        next: () => {
-          this.message.success('Schedule acknowledged! The user will be notified of the visit date.');
-          this.closeAcknowledgeModal();
-          this.loadTickets();
-        },
-        error: (err) => {
-          console.error('Failed to acknowledge schedule:', err);
-          this.message.error(err?.message || 'Failed to acknowledge schedule');
-          this.loading.set(false);
-        },
-      });
+      this.ticketService
+        .acknowledgeSchedule(ticketId, this.acknowledgeComment() || undefined)
+        .subscribe({
+          next: () => {
+            this.message.success(
+              'Schedule acknowledged! The user will be notified of the visit date.',
+            );
+            this.closeAcknowledgeModal();
+            this.loadTickets();
+          },
+          error: (err) => {
+            console.error('Failed to acknowledge schedule:', err);
+            this.message.error(err?.message || 'Failed to acknowledge schedule');
+            this.loading.set(false);
+          },
+        });
     } else {
       const reason = this.rejectReason().trim();
       if (!reason) {
@@ -898,22 +920,19 @@ export class MyTicketsPage implements OnInit {
     }
 
     this.loading.set(true);
-    this.ticketService.addMonitorAndRecommendations(
-      ticketId,
-      notes,
-      recs,
-      this.monitorComment() || undefined
-    ).subscribe({
-      next: () => {
-        this.message.success('Monitor notes and recommendations updated successfully!');
-        this.closeMonitorModal();
-        this.loadTickets();
-      },
-      error: (err) => {
-        console.error('Failed to update monitor notes:', err);
-        this.message.error(err?.message || 'Failed to update monitor notes');
-        this.loading.set(false);
-      },
-    });
+    this.ticketService
+      .addMonitorAndRecommendations(ticketId, notes, recs, this.monitorComment() || undefined)
+      .subscribe({
+        next: () => {
+          this.message.success('Monitor notes and recommendations updated successfully!');
+          this.closeMonitorModal();
+          this.loadTickets();
+        },
+        error: (err) => {
+          console.error('Failed to update monitor notes:', err);
+          this.message.error(err?.message || 'Failed to update monitor notes');
+          this.loading.set(false);
+        },
+      });
   }
 }

@@ -1,15 +1,15 @@
-import { User, Role } from '@prisma/client';
-import argon2 from 'argon2';
-import { UserRepository, userRepository } from './user.repository';
-import { StorageService, storageService } from '../storage/storage.service';
-import { JWTService, jwtService } from '../auth/jwt.service';
+import { User, Role } from "@prisma/client";
+import argon2 from "argon2";
+import { UserRepository, userRepository } from "./user.repository";
+import { StorageService, storageService } from "../storage/storage.service";
+import { JWTService, jwtService } from "../auth/jwt.service";
 import {
   ValidationError,
   UnauthorizedError,
   ConflictError,
   NotFoundError,
-} from '../../lib/errors';
-import { logger } from '../../lib/logger';
+} from "../../lib/errors";
+import { logger } from "../../lib/logger";
 import {
   createUserSchema,
   updateProfileSchema,
@@ -19,13 +19,13 @@ import {
   type UpdateProfileInput,
   type SetPasswordInput,
   type LoginInput,
-} from './user.validators';
+} from "./user.validators";
 
 export class UserService {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly storage: StorageService,
-    private readonly jwt: JWTService
+    private readonly jwt: JWTService,
   ) {}
 
   async getById(id: number): Promise<User | null> {
@@ -33,14 +33,14 @@ export class UserService {
   }
 
   async getAll(): Promise<User[]> {
-    logger.info('Fetching all users');
+    logger.info("Fetching all users");
     return this.userRepo.findAll();
   }
 
   async create(input: CreateUserInput): Promise<User> {
     const validation = createUserSchema.safeParse(input);
     if (!validation.success) {
-      throw new ValidationError('Invalid user data', validation.error.format());
+      throw new ValidationError("Invalid user data", validation.error.format());
     }
 
     const { email, name, password, role } = validation.data;
@@ -48,36 +48,47 @@ export class UserService {
     // Check if user already exists
     const existing = await this.userRepo.findByEmail(email);
     if (existing) {
-      throw new ConflictError('User with this email already exists');
+      throw new ConflictError("User with this email already exists");
     }
 
     logger.info(`Creating new user: ${email}`);
 
+    // Hash password if provided
+    const hashedPassword = password ? await argon2.hash(password) : null;
+
     return this.userRepo.create({
       email,
       name: name ?? null,
-      password: password ?? null,
+      password: hashedPassword,
       role: role as Role | undefined,
     });
   }
 
-  async updateProfile(userId: number, input: UpdateProfileInput): Promise<User> {
+  async updateProfile(
+    userId: number,
+    input: UpdateProfileInput,
+  ): Promise<User> {
     // console.log('UpdateProfile Input:', input);
     const validation = updateProfileSchema.safeParse(input);
     // console.log('Validation Result:', validation);
     if (!validation.success) {
-      throw new ValidationError('Invalid profile data', validation.error.format());
+      throw new ValidationError(
+        "Invalid profile data",
+        validation.error.format(),
+      );
     }
 
     const data: any = {};
 
-    if (typeof input.name !== 'undefined') {
+    if (typeof input.name !== "undefined") {
       data.name = input.name;
     }
 
     if (input.avatarDataUrl) {
       logger.debug(`Processing avatar for user ${userId}`);
-      const avatarUrl = await this.storage.saveAvatarFromDataUrl(input.avatarDataUrl);
+      const avatarUrl = await this.storage.saveAvatarFromDataUrl(
+        input.avatarDataUrl,
+      );
       data.avatarUrl = avatarUrl;
       data.picture = avatarUrl;
       logger.info(`Avatar saved for user ${userId}`);
@@ -89,7 +100,7 @@ export class UserService {
   async setPassword(userId: number, input: SetPasswordInput): Promise<User> {
     const validation = setPasswordSchema.safeParse(input);
     if (!validation.success) {
-      throw new ValidationError('Invalid password', validation.error.format());
+      throw new ValidationError("Invalid password", validation.error.format());
     }
 
     logger.info(`Setting password for user ${userId}`);
@@ -117,14 +128,17 @@ export class UserService {
    * Used for getting staff from multiple categories
    */
   async getByRoles(roles: Role[]): Promise<User[]> {
-    logger.info(`Fetching users with roles: ${roles.join(', ')}`);
+    logger.info(`Fetching users with roles: ${roles.join(", ")}`);
     return this.userRepo.findByRoles(roles);
   }
 
   async login(input: LoginInput): Promise<{ token: string; user: User }> {
     const validation = loginSchema.safeParse(input);
     if (!validation.success) {
-      throw new ValidationError('Invalid login credentials', validation.error.format());
+      throw new ValidationError(
+        "Invalid login credentials",
+        validation.error.format(),
+      );
     }
 
     const { email, password } = validation.data;
@@ -134,18 +148,27 @@ export class UserService {
     const user = await this.userRepo.findByEmail(email);
     if (!user) {
       logger.warn(`Login failed: user not found - ${email}`);
-      throw new UnauthorizedError('Invalid email or password');
+      throw new UnauthorizedError("Invalid email or password");
+    }
+
+    if (!user.isActive) {
+      logger.warn(`Login failed: account deactivated - ${email}`);
+      throw new UnauthorizedError(
+        "Your account has been deactivated. Please contact an administrator.",
+      );
     }
 
     if (!user.password) {
       logger.warn(`Login failed: no password set - ${email}`);
-      throw new UnauthorizedError('This account uses SSO login. Please sign in with CHMSU SSO.');
+      throw new UnauthorizedError(
+        "This account uses SSO login. Please sign in with CHMSU SSO.",
+      );
     }
 
     const valid = await argon2.verify(user.password, password);
     if (!valid) {
       logger.warn(`Login failed: invalid password - ${email}`);
-      throw new UnauthorizedError('Invalid email or password');
+      throw new UnauthorizedError("Invalid email or password");
     }
 
     // Update last login
@@ -161,16 +184,36 @@ export class UserService {
     externalId: string,
     email: string,
     name?: string | null,
-    picture?: string | null
+    picture?: string | null,
   ): Promise<{ user: User; created: boolean }> {
     logger.info(`Upserting user from Auth0: ${externalId}`);
 
     // Download avatar if it's a remote URL
     let avatarUrl: string | null = null;
     const existing = await this.userRepo.findByExternalId(externalId);
-    
+
     if (!existing?.avatarUrl && picture && this.isHttpUrl(picture)) {
       avatarUrl = await this.storage.saveAvatarFromRemoteUrl(picture);
+    }
+
+    // --- SSO Account Linking ---
+    // If no user found by externalId, check if an admin pre-created a user with this email.
+    // If found, link the externalId to that existing user so both SSO and local password work.
+    if (!existing) {
+      const byEmail = await this.userRepo.findByEmail(email);
+      if (byEmail) {
+        logger.info(
+          `Linking SSO externalId ${externalId} to existing user ${byEmail.id} (${email})`,
+        );
+        const updatedUser = await this.userRepo.update(byEmail.id, {
+          externalId,
+          name: name ?? byEmail.name,
+          picture: picture ?? byEmail.picture,
+          avatarUrl: avatarUrl ?? byEmail.avatarUrl,
+          lastLoginAt: new Date(),
+        } as any);
+        return { user: updatedUser, created: false };
+      }
     }
 
     return this.userRepo.upsertByExternalId(
@@ -186,13 +229,54 @@ export class UserService {
         name: name ?? null,
         picture: picture ?? null,
         ...(avatarUrl ? { avatarUrl } : {}),
-      }
+      },
     );
   }
 
   private isHttpUrl(value: string): boolean {
     return /^https?:\/\//i.test(value);
   }
+
+  /**
+   * Toggle user active/inactive status
+   * Admin cannot deactivate themselves
+   */
+  async toggleUserActive(userId: number, adminId: number): Promise<User> {
+    if (userId === adminId) {
+      throw new ValidationError("Cannot deactivate your own account");
+    }
+
+    const user = await this.userRepo.findByIdOrThrow(userId);
+    const isActive = !user.isActive;
+
+    logger.info(
+      `${isActive ? "Activating" : "Deactivating"} user ${userId} by admin ${adminId}`,
+    );
+
+    return this.userRepo.update(userId, {
+      isActive,
+      deactivatedAt: isActive ? null : new Date(),
+      deactivatedById: isActive ? null : adminId,
+    } as any);
+  }
+
+  /**
+   * Delete a user permanently
+   * Admin cannot delete themselves
+   */
+  async deleteUser(userId: number, adminId: number): Promise<void> {
+    if (userId === adminId) {
+      throw new ValidationError("Cannot delete your own account");
+    }
+
+    await this.userRepo.findByIdOrThrow(userId);
+    logger.info(`Deleting user ${userId} by admin ${adminId}`);
+    await this.userRepo.delete(userId);
+  }
 }
 
-export const userService = new UserService(userRepository, storageService, jwtService);
+export const userService = new UserService(
+  userRepository,
+  storageService,
+  jwtService,
+);
