@@ -1,7 +1,7 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** February 25, 2026
+> **Last Updated:** March 10, 2026
 
 ---
 
@@ -47,18 +47,18 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 - [x] Users can reopen cancelled tickets
 - [ ] **AI chatbot for guided ticket creation**
 - [ ] **Natural language ticket input (NLP parsing)**
-- [ ] **Knowledge base / FAQ system**
+- [x] **Knowledge base / FAQ system** — full CRUD, search, categories, metrics, seeded with 6 ICT FAQs
 - [ ] **Smart suggestions (similar past tickets, auto-fill)**
 - [ ] **AI-powered search across tickets**
 
 ### Next Steps (Chunked)
 
-#### Chunk A1: Knowledge Base Foundation
+#### Chunk A1: Knowledge Base Foundation ✅
 
-1. [ ] Create `KnowledgeArticle` model in Prisma schema (id, title, content, category, tags, createdBy, viewCount, helpfulCount)
-2. [ ] Create migration and seed with common ICT FAQs
-3. [ ] Create knowledge-base repository + service + resolvers (CRUD + search)
-4. [ ] Create frontend knowledge-base page with search
+1. [x] Create `KnowledgeArticle` model in Prisma schema (id, title, content, category, tags, createdBy, viewCount, helpfulCount) — with fulltext index
+2. [x] Create migration and seed with common ICT FAQs — 6 articles across 5 categories
+3. [x] Create knowledge-base repository + service + resolvers (CRUD + search)
+4. [x] Create frontend knowledge-base page with search — card grid, category filters, detail modal, editor
 5. [ ] Test: Admin can create/edit articles, users can search and read
 
 #### Chunk A2: Smart Ticket Suggestions
@@ -92,7 +92,7 @@ Tickets are automatically routed to the right department/person and categorized 
 - [x] Manual assignment by department heads (MIS_HEAD assigns DEVELOPER, ITS_HEAD assigns TECHNICAL)
 - [x] Manual unassign capability
 - [ ] **AI-based ticket categorization**
-- [ ] **Priority auto-suggestion based on content**
+- [x] **Priority auto-suggestion based on content** — keyword NLP engine with confidence scoring
 - [ ] **Smart routing based on staff expertise/availability**
 - [x] **Escalation rules (auto-escalate if SLA breach — 2-level cron job)**
 
@@ -106,10 +106,10 @@ Tickets are automatically routed to the right department/person and categorized 
 4. [x] Show escalation badge on overdue tickets in UI
 5. [ ] Test: Create ticket, wait for SLA to pass, verify escalation notification
 
-#### Chunk B2: Smart Priority Suggestion
+#### Chunk B2: Smart Priority Suggestion ✅
 
-1. [ ] Analyze ticket description keywords to suggest priority (e.g., "urgent", "broken", "down" → HIGH)
-2. [ ] Show suggested priority on ticket creation form (user can override)
+1. [x] Analyze ticket description keywords to suggest priority (e.g., "urgent", "broken", "down" → HIGH) — priority-suggestion.ts with weighted keyword rules + category weights
+2. [x] Show suggested priority on ticket creation form (user can override) — priority selector + suggestion badge with confidence indicator
 3. [ ] Test: Type "server is down" → system suggests HIGH priority
 
 #### Chunk B3: AI Categorization (Future)
@@ -139,17 +139,17 @@ Users and staff can see ticket progress in real-time without refreshing the page
 - [x] Force-refresh on notification click (forceTicketRefresh signal)
 - [x] Status history timeline on ticket detail page
 - [x] SLA Processing Time Tracker on ticket detail page (5 steps × 5 min)
-- [x] Dashboard with 60s auto-refresh polling
+- [x] Dashboard with WebSocket-driven real-time refresh (upgraded from 60s polling)
 - [x] SLA reminder banner on login (Processing Time awareness)
+- [x] **Real-time dashboard counters (WebSocket-driven, not polling)** — live indicator, pulse animations, 5-min fallback
 - [ ] **Live activity feed (who's doing what right now)**
-- [ ] **Real-time dashboard counters (WebSocket-driven, not polling)**
 
 ### Next Steps (Chunked)
 
-#### Chunk C1: Real-Time Dashboard
+#### Chunk C1: Real-Time Dashboard ✅
 
-1. [ ] Replace dashboard 60s polling with WebSocket-driven refresh using RealtimeService signals
-2. [ ] Add live counter animations when values change
+1. [x] Replace dashboard 60s polling with WebSocket-driven refresh using RealtimeService signals
+2. [x] Add live counter animations when values change (pulse animation + live dot indicator)
 3. [ ] Test: Create ticket in one tab, dashboard updates instantly in another
 
 #### Chunk C2: Activity Feed
@@ -335,9 +335,9 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 
 ### Phase 4: Intelligence & Knowledge
 
-11. **Chunk A1** — Knowledge base foundation (3-4 hours)
+11. ~~**Chunk A1** — Knowledge base foundation~~ ✅
 12. **Chunk A2** — Smart ticket suggestions (3-4 hours)
-13. **Chunk B2** — Smart priority suggestion (2-3 hours)
+13. ~~**Chunk B2** — Smart priority suggestion~~ ✅
 
 ### Phase 5: Advanced (If time permits)
 
@@ -350,12 +350,12 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 
 ## Summary Matrix
 
-| Feature                              | Status   | Completion                                         |
-| ------------------------------------ | -------- | -------------------------------------------------- |
-| 1a. AI-Powered Self-Service Portal   | Partial  | ~30% (basic portal, no AI)                            |
-| 1b. Automated Ticket Routing         | Partial  | ~70% (rule-based + escalation, no AI)                 |
-| 1c. Real-Time Tracking               | **Done** | ~90% (WebSocket + signals)                            |
-| 1d. Integrated Reporting & Analytics | **Done** | ~90% (analytics + charts + trends + PDF/Excel export) |
-| 1e. SLA Enforcement & Performance    | Partial  | ~85% (cron + escalation + SLA dashboard + compliance) |
+| Feature                              | Status   | Completion                                             |
+| ------------------------------------ | -------- | ------------------------------------------------------ |
+| 1a. AI-Powered Self-Service Portal   | Partial  | ~45% (basic portal + knowledge base, no AI)            |
+| 1b. Automated Ticket Routing         | Partial  | ~75% (rule-based + escalation + smart priority, no AI) |
+| 1c. Real-Time Tracking               | **Done** | ~95% (WebSocket + signals + real-time dashboard)       |
+| 1d. Integrated Reporting & Analytics | **Done** | ~90% (analytics + charts + trends + PDF/Excel export)  |
+| 1e. SLA Enforcement & Performance    | Partial  | ~85% (cron + escalation + SLA dashboard + compliance)  |
 | 1f. Ticket Lifecycle Management      | **Done** | ~97% (full workflow + satisfaction survey)             |
-| Infrastructure                       | **Done** | ~95%                                                  |
+| Infrastructure                       | **Done** | ~95%                                                   |

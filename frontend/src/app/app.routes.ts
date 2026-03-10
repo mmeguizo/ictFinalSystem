@@ -85,6 +85,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/notifications/notifications.page').then((m) => m.NotificationsPage),
       },
+      {
+        path: 'knowledge-base',
+        loadComponent: () =>
+          import('./features/knowledge-base/knowledge-base.page').then((m) => m.KnowledgeBasePage),
+      },
     ],
   },
 ];

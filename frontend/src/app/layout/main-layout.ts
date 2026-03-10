@@ -178,6 +178,22 @@ export class MainLayout {
         path: '/analytics',
         roles: ['ADMIN', 'DIRECTOR', 'MIS_HEAD', 'ITS_HEAD'],
       },
+      // Knowledge Base — available to all authenticated users
+      {
+        icon: 'book',
+        label: 'Knowledge Base',
+        path: '/knowledge-base',
+        roles: [
+          'USER',
+          'ADMIN',
+          'DEVELOPER',
+          'TECHNICAL',
+          'MIS_HEAD',
+          'ITS_HEAD',
+          'SECRETARY',
+          'DIRECTOR',
+        ],
+      },
       // Notifications - available to all authenticated users
       {
         icon: 'bell',

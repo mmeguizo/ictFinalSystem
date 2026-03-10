@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex"]
 }
 
 datasource db {
@@ -75,6 +76,9 @@ model User {
   // Attachments
   uploadedAttachments TicketAttachment[] @relation("AttachmentUploader")
   deletedAttachments  TicketAttachment[] @relation("AttachmentDeleter")
+
+  // Knowledge Base
+  knowledgeArticles KnowledgeArticle[] @relation("ArticleAuthor")
 
   isActive        Boolean   @default(true)
   deactivatedAt   DateTime?
@@ -331,4 +335,40 @@ model Notification {
   @@index([userId, isRead])
   @@index([ticketId])
   @@index([createdAt])
+}
+
+// ========================================
+// KNOWLEDGE BASE
+// ========================================
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model KnowledgeArticle {
+  id       Int           @id @default(autoincrement())
+  title    String
+  content  String        @db.LongText
+  category String // e.g. "NETWORK", "SOFTWARE", "HARDWARE", "ACCOUNT", "GENERAL"
+  tags     String?       @db.Text // comma-separated tags
+  status   ArticleStatus @default(DRAFT)
+
+  // Metrics
+  viewCount    Int @default(0)
+  helpfulCount Int @default(0)
+
+  // Author
+  createdById Int
+  createdBy   User @relation("ArticleAuthor", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([status])
+  @@index([createdById])
+  @@index([createdAt])
+  @@fulltext([title, content])
 }

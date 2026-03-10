@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
@@ -18,27 +18,30 @@ import { NzGridModule } from 'ng-zorro-antd/grid';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './its-form.component.html',
-  styles: [`
-    .section-card {
-      margin-bottom: 16px;
+  styles: [
+    `
+      .section-card {
+        margin-bottom: 16px;
 
-      h4 {
-        font-weight: 600;
-        color: #1890ff;
-        margin-bottom: 12px;
-        font-size: 14px;
+        h4 {
+          font-weight: 600;
+          color: #1890ff;
+          margin-bottom: 12px;
+          font-size: 14px;
+        }
       }
-    }
 
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-  `],
+      .checkbox-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+    `,
+  ],
 })
 export class ITSFormComponent {
   private readonly fb = inject(FormBuilder);
+  readonly contentChanged = output<void>();
 
   private formatDateForInput(d: Date): string {
     const yyyy = d.getFullYear();
@@ -93,6 +96,10 @@ export class ITSFormComponent {
       status: [''],
     }),
   });
+
+  constructor() {
+    this.formGroup.valueChanges.subscribe(() => this.contentChanged.emit());
+  }
 
   borrowGroup = this.formGroup.get('itsBorrow') as FormGroup;
   maintenanceGroup = this.formGroup.get('itsMaintenance') as FormGroup;

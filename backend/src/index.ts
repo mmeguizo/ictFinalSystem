@@ -21,6 +21,7 @@ import { userTypeDefs, userResolvers } from "./modules/users";
 import { ticketTypeDefs, ticketResolvers } from "./modules/tickets";
 import { notificationTypeDefs } from "./modules/notifications/notification.types";
 import { notificationResolvers } from "./modules/notifications/notification.resolvers";
+import { kbTypeDefs, kbResolvers } from "./modules/knowledge-base";
 import {
   ticketAttachmentUpload,
   getAttachmentUrl,
@@ -38,12 +39,14 @@ async function start() {
     userTypeDefs,
     ticketTypeDefs,
     notificationTypeDefs,
+    kbTypeDefs,
   ];
   const resolvers = [
     baseResolvers,
     userResolvers,
     ticketResolvers,
     notificationResolvers,
+    kbResolvers,
   ];
 
   const schema = makeExecutableSchema({ typeDefs, resolvers });

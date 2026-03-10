@@ -1,34 +1,101 @@
 <nz-spin [nzSpinning]="busy()" nzTip="Submitting ticket...">
   <nz-card [nzTitle]="isMIS() ? 'ICT-MIS Support Ticket' : 'Request for ICT Support Services'">
     <div class="ticket-form">
-    <!-- Form Type Selector -->
-    <nz-form-item>
-      <nz-form-label>Form Type</nz-form-label>
-      <nz-form-control>
-        <nz-radio-group [formControl]="formTypeControl">
-          <label nz-radio nzValue="MIS">MIS (Software)</label>
-          <!-- commented for the meantime will focus work with MIS  -->
-          <!-- <label nz-radio nzValue="ITS">ITS (Hardware/Network)</label> -->
-        </nz-radio-group>
-      </nz-form-control>
-    </nz-form-item>
+      <!-- Form Type Selector -->
+      <nz-form-item>
+        <nz-form-label>Form Type</nz-form-label>
+        <nz-form-control>
+          <nz-radio-group [formControl]="formTypeControl">
+            <label nz-radio nzValue="MIS">MIS (Software)</label>
+            <!-- commented for the meantime will focus work with MIS  -->
+            <!-- <label nz-radio nzValue="ITS">ITS (Hardware/Network)</label> -->
+          </nz-radio-group>
+        </nz-form-control>
+      </nz-form-item>
 
-    <!-- Render MIS or ITS form component -->
-    @if (isMIS()) {
-      <app-mis-form />
-    }
+      <!-- Render MIS or ITS form component -->
+      @if (isMIS()) {
+        <app-mis-form (contentChanged)="onFormContentChanged()" />
+      }
 
-    @if (isITS()) {
-      <app-its-form />
-    }
+      @if (isITS()) {
+        <app-its-form (contentChanged)="onFormContentChanged()" />
+      }
 
-    <!-- Actions -->
-    <div class="actions">
-      <button nz-button nzType="primary" [disabled]="busy()" (click)="submit()">
-        Submit Ticket
-      </button>
-      <a nz-button nzType="default" routerLink="/tickets">Cancel</a>
+      <!-- Smart Priority Selection -->
+      <div class="priority-section">
+        <nz-form-item>
+          <nz-form-label>Priority</nz-form-label>
+          <nz-form-control>
+            <div class="priority-row">
+              <nz-select
+                style="width: 200px"
+                [ngModel]="selectedPriority()"
+                (ngModelChange)="onPriorityChange($event)"
+              >
+                @for (opt of priorityOptions; track opt.value) {
+                  <nz-option [nzValue]="opt.value" [nzLabel]="opt.label"></nz-option>
+                }
+              </nz-select>
+
+              <!-- Smart Suggestion Badge -->
+              @if (prioritySuggestion(); as suggestion) {
+                <div class="suggestion-badge" [class.overridden]="priorityOverridden()">
+                  <i nz-icon nzType="bulb" nzTheme="twotone" [nzTwotoneColor]="'#faad14'"></i>
+                  <span class="suggestion-label">Suggested:</span>
+                  <nz-tag [nzColor]="getPriorityColor(suggestion.priority)">
+                    {{ suggestion.priority }}
+                  </nz-tag>
+                  <span class="suggestion-confidence"
+                    >({{ suggestion.confidence }} confidence)</span
+                  >
+
+                  @if (priorityOverridden() && selectedPriority() !== suggestion.priority) {
+                    <button
+                      nz-button
+                      nzType="link"
+                      nzSize="small"
+                      (click)="acceptSuggestion()"
+                      nz-tooltip="Use the suggested priority"
+                    >
+                      Apply
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          </nz-form-control>
+        </nz-form-item>
+
+        <!-- Suggestion Reasons -->
+        @if (prioritySuggestion(); as suggestion) {
+          @if (suggestion.reasons.length > 0 && suggestion.confidence !== 'low') {
+            <nz-alert
+              nzType="info"
+              nzShowIcon
+              [nzMessage]="suggestionMsgTpl"
+              [nzDescription]="suggestionDescTpl"
+              style="margin-bottom: 16px"
+            ></nz-alert>
+            <ng-template #suggestionMsgTpl> Smart Priority Analysis </ng-template>
+            <ng-template #suggestionDescTpl>
+              <ul class="suggestion-reasons">
+                @for (reason of suggestion.reasons; track reason) {
+                  <li>{{ reason }}</li>
+                }
+              </ul>
+            </ng-template>
+          }
+        }
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button nz-button nzType="primary" [disabled]="busy()" (click)="submit()">
+          Submit Ticket
+        </button>
+        <a nz-button nzType="default" routerLink="/tickets">Cancel</a>
+      </div>
     </div>
-  </div>
-</nz-card>
+  </nz-card>
 </nz-spin>
