@@ -90,6 +90,10 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/knowledge-base/knowledge-base.page').then((m) => m.KnowledgeBasePage),
       },
+      {
+        path: 'docs',
+        loadComponent: () => import('./features/docs/docs.page').then((m) => m.DocsPage),
+      },
     ],
   },
 ];

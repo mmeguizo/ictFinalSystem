@@ -126,7 +126,7 @@ export class GeminiService {
       ],
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 2048,
         responseMimeType: "application/json",
       },
     });
@@ -136,20 +136,21 @@ export class GeminiService {
 
     try {
       const parsed = JSON.parse(text);
-      return {
-        cleanTicket: parsed.clean_ticket || "",
-        summary: parsed.summary || "",
-        category: parsed.category || "Other",
-        priority: this.normalizePriority(parsed.priority),
-        possibleRootCause: parsed.possible_root_cause || "",
-        suggestedSolutions: Array.isArray(parsed.suggested_solutions)
-          ? parsed.suggested_solutions
-          : [],
-        keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
-      };
+      return this.mapAnalysis(parsed);
     } catch (parseError) {
-      logger.error("[GeminiService] Failed to parse AI response:", text);
-      throw new Error("Failed to parse AI analysis response");
+      // Attempt to recover from truncated JSON by closing open brackets
+      logger.warn(
+        "[GeminiService] Initial JSON parse failed, attempting recovery...",
+      );
+      try {
+        const repaired = this.repairTruncatedJson(text);
+        const parsed = JSON.parse(repaired);
+        logger.info("[GeminiService] Successfully recovered truncated JSON");
+        return this.mapAnalysis(parsed);
+      } catch {
+        logger.error("[GeminiService] Failed to parse AI response:", text);
+        throw new Error("Failed to parse AI analysis response");
+      }
     }
   }
 
@@ -195,6 +196,67 @@ Description: ${description}`,
     const upper = (raw || "").toUpperCase().trim();
     if (["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(upper)) return upper;
     return "MEDIUM";
+  }
+
+  private mapAnalysis(parsed: any): TicketAnalysis {
+    return {
+      cleanTicket: parsed.clean_ticket || "",
+      summary: parsed.summary || "",
+      category: parsed.category || "Other",
+      priority: this.normalizePriority(parsed.priority),
+      possibleRootCause: parsed.possible_root_cause || "",
+      suggestedSolutions: Array.isArray(parsed.suggested_solutions)
+        ? parsed.suggested_solutions
+        : [],
+      keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+    };
+  }
+
+  /** Try to repair truncated JSON by closing open brackets/braces */
+  private repairTruncatedJson(text: string): string {
+    let repaired = text.trim();
+    // Remove trailing comma if present
+    repaired = repaired.replace(/,\s*$/, "");
+    // Remove incomplete string value (e.g. truncated in the middle of a string)
+    repaired = repaired.replace(/"[^"]*$/, '""');
+
+    // Count open/close brackets and braces
+    let openBraces = 0;
+    let openBrackets = 0;
+    let inString = false;
+    let escape = false;
+
+    for (const ch of repaired) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch === "{") openBraces++;
+      if (ch === "}") openBraces--;
+      if (ch === "[") openBrackets++;
+      if (ch === "]") openBrackets--;
+    }
+
+    // Close any unclosed brackets/braces
+    while (openBrackets > 0) {
+      repaired += "]";
+      openBrackets--;
+    }
+    while (openBraces > 0) {
+      repaired += "}";
+      openBraces--;
+    }
+
+    return repaired;
   }
 }
 

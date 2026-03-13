@@ -210,6 +210,13 @@ export class MainLayout {
           'DIRECTOR',
         ],
       },
+      // Documentation - admin sidebar link (all roles can access via URL)
+      {
+        icon: 'read',
+        label: 'Documentation',
+        path: '/docs',
+        roles: ['ADMIN'],
+      },
     ];
 
     // Filter items based on user role

@@ -165,6 +165,26 @@
         margin-right: 4px;
       }
     }
+
+    .clean-ticket-row {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      border-radius: 6px;
+      padding: 12px;
+
+      .clean-ticket-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .clean-ticket-text {
+        color: #333;
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+    }
   }
 
   .similar-ticket-item {

@@ -118,6 +118,24 @@
             <nz-collapse class="ai-collapse">
               <nz-collapse-panel nzHeader="AI Analysis" [nzActive]="true" [nzExtra]="aiExtraTpl">
                 <div class="ai-analysis">
+                  @if (analysis.cleanTicket) {
+                    <div class="analysis-row clean-ticket-row">
+                      <div class="clean-ticket-header">
+                        <strong>AI-Rewritten Description:</strong>
+                        <button
+                          nz-button
+                          nzType="primary"
+                          nzSize="small"
+                          nz-tooltip="Use this as your ticket description"
+                          (click)="applyCleanTicket(analysis.cleanTicket)"
+                        >
+                          <span nz-icon nzType="check" nzTheme="outline"></span>
+                          Apply to Description
+                        </button>
+                      </div>
+                      <div class="clean-ticket-text">{{ analysis.cleanTicket }}</div>
+                    </div>
+                  }
                   <div class="analysis-row">
                     <strong>Summary:</strong>
                     <span>{{ analysis.summary }}</span>

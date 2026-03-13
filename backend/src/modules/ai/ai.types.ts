@@ -24,8 +24,8 @@ export const aiTypeDefs = gql`
     status: TicketStatus!
     priority: Priority!
     type: TicketType!
-    createdAt: DateTime!
-    resolvedAt: DateTime
+    createdAt: String!
+    resolvedAt: String
   }
 
   """

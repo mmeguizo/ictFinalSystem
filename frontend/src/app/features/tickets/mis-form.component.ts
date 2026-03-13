@@ -311,6 +311,11 @@ export class MISFormComponent {
     return { valid: true };
   }
 
+  /** Set the details/description field value (e.g. from AI clean ticket) */
+  setDetails(text: string): void {
+    this.formGroup.get('details')?.setValue(text);
+  }
+
   getPayload() {
     const values = this.formGroup.value;
     const category = values.category;

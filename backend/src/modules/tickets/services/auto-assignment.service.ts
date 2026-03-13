@@ -1,8 +1,8 @@
-import { PrismaClient, TicketType, Role } from '@prisma/client';
+import { PrismaClient, TicketType, Role } from "@prisma/client";
 
 /**
  * Auto-assignment service to intelligently route tickets to appropriate staff
- * 
+ *
  * Routing Logic:
  * - MIS tickets → MIS_HEAD (who then assigns to DEVELOPERs)
  * - ITS tickets → ITS_HEAD (who then assigns to TECHNICAL staff)
@@ -15,7 +15,10 @@ export class AutoAssignmentService {
    * Routes MIS tickets to MIS_HEAD and ITS tickets to ITS_HEAD
    * Returns the created assignment with userId
    */
-  async assignTicket(ticketId: number, ticketType: TicketType): Promise<{ userId: number }> {
+  async assignTicket(
+    ticketId: number,
+    ticketType: TicketType,
+  ): Promise<{ userId: number }> {
     // Get the appropriate head role for the ticket type
     const targetRole = this.getHeadRoleForTicketType(ticketType);
 
@@ -29,7 +32,7 @@ export class AutoAssignmentService {
           where: {
             ticket: {
               status: {
-                notIn: ['RESOLVED', 'CLOSED', 'CANCELLED'],
+                notIn: ["RESOLVED", "CLOSED", "CANCELLED"],
               },
             },
           },
@@ -55,7 +58,7 @@ export class AutoAssignmentService {
     // Update ticket status to ASSIGNED
     await this.prisma.ticket.update({
       where: { id: ticketId },
-      data: { status: 'ASSIGNED' },
+      data: { status: "ASSIGNED" },
     });
 
     return { userId: assignment.userId };
@@ -82,11 +85,11 @@ export class AutoAssignmentService {
    * Select user with lowest current workload
    */
   private selectUserByWorkload(
-    users: Array<{ id: number; assignedTickets: any[] }>
+    users: Array<{ id: number; assignedTickets: any[] }>,
   ): { id: number } {
     // Sort by number of active assignments (ascending)
     const sortedUsers = users.sort(
-      (a, b) => a.assignedTickets.length - b.assignedTickets.length
+      (a, b) => a.assignedTickets.length - b.assignedTickets.length,
     );
 
     return sortedUsers[0];
@@ -96,14 +99,18 @@ export class AutoAssignmentService {
    * Manually assign ticket to specific user
    * Used by MIS_HEAD/ITS_HEAD to assign tickets to DEVELOPER/TECHNICAL staff
    */
-  async manualAssign(ticketId: number, userId: number, assignedById?: number): Promise<void> {
+  async manualAssign(
+    ticketId: number,
+    userId: number,
+    assignedById?: number,
+  ): Promise<void> {
     // Check if user exists
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     // Check if already assigned
@@ -117,7 +124,7 @@ export class AutoAssignmentService {
     });
 
     if (existingAssignment) {
-      throw new Error('User is already assigned to this ticket');
+      throw new Error("User is already assigned to this ticket");
     }
 
     // Get ticket to check current status
@@ -126,7 +133,7 @@ export class AutoAssignmentService {
     });
 
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw new Error("Ticket not found");
     }
 
     // Create assignment
@@ -137,15 +144,27 @@ export class AutoAssignmentService {
       },
     });
 
-    // Note: We don't create a status history entry for assignments anymore
-    // because it creates confusing "ASSIGNED -> ASSIGNED" entries.
-    // Assignment information is already tracked in the TicketAssignment table.
-
-    // Update ticket status if it's still for review (legacy behavior)
-    if (ticket.status === 'FOR_REVIEW') {
-      await this.prisma.ticket.update({
-        where: { id: ticketId },
-        data: { status: 'ASSIGNED' },
+    // Transition ticket to ASSIGNED if it's in a pre-assignment status
+    // and record the status history for SLA tracking
+    if (
+      ticket.status === "DIRECTOR_APPROVED" ||
+      ticket.status === "FOR_REVIEW"
+    ) {
+      const fromStatus = ticket.status;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.ticket.update({
+          where: { id: ticketId },
+          data: { status: "ASSIGNED" },
+        });
+        await tx.ticketStatusHistory.create({
+          data: {
+            ticketId,
+            userId: assignedById || userId,
+            fromStatus,
+            toStatus: "ASSIGNED",
+            comment: "Staff assigned to ticket",
+          },
+        });
       });
     }
   }
@@ -169,7 +188,7 @@ export class AutoAssignmentService {
     if (remainingAssignments === 0) {
       await this.prisma.ticket.update({
         where: { id: ticketId },
-        data: { status: 'FOR_REVIEW' },
+        data: { status: "FOR_REVIEW" },
       });
     }
   }
@@ -177,7 +196,11 @@ export class AutoAssignmentService {
   /**
    * Reassign ticket to different user
    */
-  async reassign(ticketId: number, fromUserId: number, toUserId: number): Promise<void> {
+  async reassign(
+    ticketId: number,
+    fromUserId: number,
+    toUserId: number,
+  ): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.ticketAssignment.deleteMany({
         where: {

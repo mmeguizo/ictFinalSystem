@@ -291,9 +291,11 @@ export class DashboardPage implements OnInit {
   // SLA REMINDER
   // ========================================
 
-  /** Check if we should show the SLA reminder modal (once per session) */
+  /** Check if we should show the SLA reminder modal (once per session, only for regular users) */
   private checkSlaReminderOnLogin(): void {
     if (!isPlatformBrowser(this.platformId)) return;
+    // Only show the auto-popup for regular users (non-staff)
+    if (!this.authService.isUser()) return;
     const key = 'sla_reminder_shown';
     const shown = sessionStorage.getItem(key);
     if (!shown) {

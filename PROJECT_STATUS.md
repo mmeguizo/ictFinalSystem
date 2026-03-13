@@ -1,7 +1,7 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** March 13, 2026
+> **Last Updated:** March 13, 2026 (Session 3)
 
 ---
 
@@ -351,12 +351,37 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 
 ## Summary Matrix
 
-| Feature                              | Status   | Completion                                            |
-| ------------------------------------ | -------- | ----------------------------------------------------- |
-| 1a. AI-Powered Self-Service Portal   | Partial  | ~55% (portal + knowledge base + AI suggestions)       |
-| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)    |
-| 1c. Real-Time Tracking               | **Done** | ~95% (WebSocket + signals + real-time dashboard)      |
-| 1d. Integrated Reporting & Analytics | **Done** | ~90% (analytics + charts + trends + PDF/Excel export) |
-| 1e. SLA Enforcement & Performance    | Partial  | ~85% (cron + escalation + SLA dashboard + compliance) |
-| 1f. Ticket Lifecycle Management      | **Done** | ~97% (full workflow + satisfaction survey)            |
-| Infrastructure                       | **Done** | ~95%                                                  |
+| Feature                              | Status   | Completion                                                             |
+| ------------------------------------ | -------- | ---------------------------------------------------------------------- |
+| 1a. AI-Powered Self-Service Portal   | Partial  | ~60% (portal + knowledge base + AI suggestions + apply AI description) |
+| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                     |
+| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)   |
+| 1d. Integrated Reporting & Analytics | **Done** | ~90% (analytics + charts + trends + PDF/Excel export)                  |
+| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                 |
+| 1f. Ticket Lifecycle Management      | **Done** | ~97% (full workflow + satisfaction survey)                             |
+| Infrastructure                       | **Done** | ~95%                                                                   |
+
+---
+
+## Recent Fixes & Improvements (March 13, 2026)
+
+### Bug Fixes
+
+- **Gemini JSON truncation** — Increased `maxOutputTokens` from 1024 to 2048; added partial JSON recovery for truncated responses
+- **SLA tracker not updating on assignment** — `manualAssign()` now properly records `DIRECTOR_APPROVED → ASSIGNED` status history entry (was missing, causing SLA tracker Step 3 to appear stuck)
+- **Real-time SLA tracker for ticket creator** — `assignUser()` now publishes `TICKET_STATUS_CHANGED` event (was only publishing `TICKET_ASSIGNED` per-user), so the ticket creator's SLA tracker updates without page reload
+- **Developer can't start work on SCHEDULED tickets** — Added `SCHEDULED` to `canUpdateStatus` workable statuses; added "Start Work" button for `SCHEDULED` status in ticket detail
+
+### Improvements
+
+- **AI clean_ticket actionable** — Added "Apply to Description" button that copies AI-rewritten description into the form's Additional Notes field
+- **SLA reminder popup scoped** — Auto-popup now only shows for regular users (USER role); "Learn More" button remains for all roles
+- **Status transition `SCHEDULED → IN_PROGRESS`** — Added default comment in repository
+
+### Documentation (Session 3)
+
+- **In-app Documentation page** — Created `/docs` route with Changelog and User Manual tabs rendered as styled HTML
+- **Admin sidebar link** — "Documentation" menu item with book icon visible to ADMIN role (all roles can access via URL)
+- **CHANGELOG.md updated** — Added v2.2.0, v2.1.0, v2.0.0 entries covering all work since December 2025
+- **User Manual created** — Comprehensive `docs/USER_MANUAL.md` with 19 sections covering all features, roles, and workflows
+- **Interactive navigation** — Table of Contents links scroll smoothly to sections; "Back to TOC" buttons after each section; floating back-to-top button (appears after scrolling 300px)

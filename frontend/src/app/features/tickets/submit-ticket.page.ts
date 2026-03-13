@@ -178,6 +178,21 @@ export class SubmitTicketPage {
     return map[status] || 'default';
   }
 
+  /** Apply AI-rewritten description to the ticket form */
+  applyCleanTicket(cleanTicket: string): void {
+    const misForm = this.misFormRef();
+    if (misForm) {
+      misForm.setDetails(cleanTicket);
+      this.message.success('AI description applied to Additional Notes');
+      return;
+    }
+    const itsForm = this.itsFormRef();
+    if (itsForm) {
+      itsForm.setDetails(cleanTicket);
+      this.message.success('AI description applied to Additional Notes');
+    }
+  }
+
   /** Fetch AI smart suggestions based on current form content */
   fetchSmartSuggestions(): void {
     const formType = this.formType();

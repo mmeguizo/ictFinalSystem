@@ -403,6 +403,9 @@
             <!-- Helpful hint about what the staff can do based on current status -->
             <p class="action-hint">
               @switch (ticket()?.status) {
+                @case ('SCHEDULED') {
+                  This ticket is scheduled and assigned to you. Click "Start Work" to begin.
+                }
                 @case ('ASSIGNED') {
                   This ticket is assigned to you. Click "Start Work" to begin.
                 }
@@ -417,6 +420,22 @@
 
             <div class="action-buttons">
               @switch (ticket()?.status) {
+                @case ('SCHEDULED') {
+                  <button
+                    nz-button
+                    nzType="primary"
+                    nzSize="large"
+                    [nzLoading]="updatingStatus()"
+                    (click)="quickStatusUpdate('IN_PROGRESS', 'Started working on this ticket')"
+                  >
+                    <i nz-icon nzType="play-circle" nzTheme="outline"></i>
+                    Start Work
+                  </button>
+                  <button nz-button nzType="default" nzSize="large" (click)="openStatusModal()">
+                    <i nz-icon nzType="edit" nzTheme="outline"></i>
+                    Update Status & Details
+                  </button>
+                }
                 @case ('ASSIGNED') {
                   <button
                     nz-button

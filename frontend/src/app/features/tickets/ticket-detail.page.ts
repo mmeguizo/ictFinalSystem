@@ -596,7 +596,7 @@ export class TicketDetailPage implements OnInit {
     const t = this.ticket();
     if (!t) return false;
     // Staff can update if assigned to them and status allows updates
-    const workableStatuses = ['ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'];
+    const workableStatuses = ['SCHEDULED', 'ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'];
     return this.isStaff() && this.isAssignedToMe() && workableStatuses.includes(t.status);
   });
 

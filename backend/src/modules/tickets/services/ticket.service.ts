@@ -407,6 +407,23 @@ export class TicketService {
       },
     });
 
+    // Also publish TICKET_STATUS_CHANGED so ALL users (including ticket creator) get real-time updates
+    // The TICKET_ASSIGNED event above is per-user (only for the assigned staff)
+    const updatedTicket = await this.repository.findById(ticketId);
+    if (updatedTicket && updatedTicket.status !== ticket.status) {
+      pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
+        ticketStatusChanged: {
+          ticketId,
+          ticketNumber: ticket.ticketNumber,
+          title: ticket.title,
+          oldStatus: ticket.status,
+          newStatus: updatedTicket.status,
+          changedBy: assigner?.name || "Department Head",
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
     return result;
   }
 

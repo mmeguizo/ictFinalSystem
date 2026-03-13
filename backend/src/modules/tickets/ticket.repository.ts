@@ -415,6 +415,7 @@ export class TicketRepository {
       "REVIEWED->DIRECTOR_APPROVED": "Approved by director",
       "DIRECTOR_APPROVED->ASSIGNED": "Assigned to department",
       "ASSIGNED->IN_PROGRESS": "Work started",
+      "SCHEDULED->IN_PROGRESS": "Work started",
       "IN_PROGRESS->ON_HOLD": "Work paused",
       "ON_HOLD->IN_PROGRESS": "Work resumed",
       "IN_PROGRESS->RESOLVED": "Issue resolved",

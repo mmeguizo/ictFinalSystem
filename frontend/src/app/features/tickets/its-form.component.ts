@@ -140,6 +140,11 @@ export class ITSFormComponent {
     return { valid: true };
   }
 
+  /** Set the details/description field value (e.g. from AI clean ticket) */
+  setDetails(text: string): void {
+    this.formGroup.get('details')?.setValue(text);
+  }
+
   getPayload() {
     return {
       ...this.formGroup.value,
