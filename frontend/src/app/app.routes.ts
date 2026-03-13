@@ -94,6 +94,11 @@ export const routes: Routes = [
         path: 'docs',
         loadComponent: () => import('./features/docs/docs.page').then((m) => m.DocsPage),
       },
+      {
+        path: 'analytics',
+        loadComponent: () => import('./features/analytics/analytics.page').then(m => m.AnalyticsPage),
+        canActivate: [approverGuard],
+      },
     ],
   },
 ];
