@@ -1,0 +1,243 @@
+<div class="analytics-container">
+  <div class="analytics-header">
+    <h1>Analytics & Reports</h1>
+    <div class="date-filter">
+      <nz-range-picker
+        [ngModel]="dateRange()"
+        (ngModelChange)="onDateRangeChange($event)"
+        nzFormat="yyyy-MM-dd"
+      ></nz-range-picker>
+      @if (dateRange()) {
+        <button nz-button nzType="default" nzSize="small" (click)="clearDateRange()" nz-tooltip="Clear filter">
+          <i nz-icon nzType="close" nzTheme="outline"></i>
+          Clear
+        </button>
+      }
+      <button nz-button nzType="primary" (click)="loadData()" nz-tooltip="Refresh data">
+        <i nz-icon nzType="reload" nzTheme="outline"></i>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <nz-spin [nzSpinning]="loading()">
+    <!-- Overview Stats Row -->
+    <div nz-row [nzGutter]="16" class="stats-row">
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="total()"
+            [nzTitle]="'Total Tickets'"
+            [nzPrefix]="totalTpl"
+          />
+          <ng-template #totalTpl>
+            <i nz-icon nzType="inbox" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="openCount()"
+            [nzTitle]="'Open / Active'"
+            [nzPrefix]="openTpl"
+            [nzValueStyle]="{ color: '#1890ff' }"
+          />
+          <ng-template #openTpl>
+            <i nz-icon nzType="folder-open" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="resolvedCount()"
+            [nzTitle]="'Resolved / Closed'"
+            [nzPrefix]="resolvedTpl"
+            [nzValueStyle]="{ color: '#52c41a' }"
+          />
+          <ng-template #resolvedTpl>
+            <i nz-icon nzType="check-circle" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="6">
+        <nz-card>
+          <nz-statistic
+            [nzValue]="overdue()"
+            [nzTitle]="'Overdue'"
+            [nzPrefix]="overdueTpl"
+            [nzValueStyle]="{ color: overdue() > 0 ? '#ff4d4f' : '#52c41a' }"
+          />
+          <ng-template #overdueTpl>
+            <i nz-icon nzType="warning" nzTheme="outline"></i>
+          </ng-template>
+        </nz-card>
+      </div>
+    </div>
+
+    <!-- SLA Metrics Row -->
+    <div nz-row [nzGutter]="16" class="stats-row">
+      <div nz-col [nzXs]="24" [nzMd]="8">
+        <nz-card nzTitle="SLA Compliance" class="sla-card">
+          <div class="sla-compliance-center">
+            <nz-progress
+              [nzPercent]="slaCompliancePercent()"
+              nzType="circle"
+              [nzWidth]="120"
+              [nzStrokeColor]="slaCompliancePercent() >= 80 ? '#52c41a' : slaCompliancePercent() >= 50 ? '#faad14' : '#ff4d4f'"
+            ></nz-progress>
+            <p class="sla-label">On-Time Rate</p>
+          </div>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzMd]="8">
+        <nz-card nzTitle="SLA Status" class="sla-card">
+          <div class="sla-status-list">
+            <div class="sla-status-item">
+              <span class="sla-status-dot overdue"></span>
+              <span class="sla-status-label">Overdue</span>
+              <span class="sla-status-value danger">{{ overdue() }}</span>
+            </div>
+            <div class="sla-status-item">
+              <span class="sla-status-dot today"></span>
+              <span class="sla-status-label">Due Today</span>
+              <span class="sla-status-value warning">{{ dueToday() }}</span>
+            </div>
+            <div class="sla-status-item">
+              <span class="sla-status-dot soon"></span>
+              <span class="sla-status-label">Due Soon (3 days)</span>
+              <span class="sla-status-value info">{{ dueSoon() }}</span>
+            </div>
+          </div>
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzMd]="8">
+        <nz-card nzTitle="Ticket Types" class="sla-card">
+          @if (byType().length > 0) {
+            <div class="type-breakdown">
+              @for (item of byType(); track item.type) {
+                <div class="type-item">
+                  <div class="type-item-header">
+                    <nz-tag [nzColor]="getTypeColor(item.type)">{{ item.type }}</nz-tag>
+                    <span class="type-count">{{ item.count }}</span>
+                  </div>
+                  <nz-progress
+                    [nzPercent]="total() > 0 ? (item.count / total() * 100) : 0"
+                    [nzShowInfo]="false"
+                    [nzStrokeColor]="item.type === 'MIS' ? '#1890ff' : '#52c41a'"
+                    nzSize="small"
+                  ></nz-progress>
+                </div>
+              }
+            </div>
+          } @else {
+            <nz-empty nzNotFoundContent="No data"></nz-empty>
+          }
+        </nz-card>
+      </div>
+    </div>
+
+    <nz-divider nzText="Detailed Breakdown"></nz-divider>
+
+    <!-- Breakdown Tables -->
+    <div nz-row [nzGutter]="16" class="stats-row">
+      <!-- Status Breakdown -->
+      <div nz-col [nzXs]="24" [nzMd]="12">
+        <nz-card nzTitle="Tickets by Status">
+          @if (byStatus().length > 0) {
+            <nz-table
+              [nzData]="byStatus()"
+              [nzShowPagination]="false"
+              [nzSize]="'small'"
+              nzBordered
+            >
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th nzWidth="80px" nzAlign="center">Count</th>
+                  <th>Distribution</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of byStatus(); track item.status) {
+                  <tr>
+                    <td>
+                      <nz-tag [nzColor]="getStatusColor(item.status)">
+                        {{ getStatusLabel(item.status) }}
+                      </nz-tag>
+                    </td>
+                    <td nzAlign="center">
+                      <strong>{{ item.count }}</strong>
+                    </td>
+                    <td>
+                      <nz-progress
+                        [nzPercent]="getStatusPercent(item.count)"
+                        [nzShowInfo]="false"
+                        nzSize="small"
+                        [nzStrokeColor]="getStatusColor(item.status) === 'success' ? '#52c41a' : getStatusColor(item.status) === 'error' ? '#ff4d4f' : '#1890ff'"
+                      ></nz-progress>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </nz-table>
+          } @else {
+            <nz-empty nzNotFoundContent="No ticket data available"></nz-empty>
+          }
+        </nz-card>
+      </div>
+
+      <!-- Priority Breakdown -->
+      <div nz-col [nzXs]="24" [nzMd]="12">
+        <nz-card nzTitle="Tickets by Priority">
+          @if (byPriority().length > 0) {
+            <nz-table
+              [nzData]="byPriority()"
+              [nzShowPagination]="false"
+              [nzSize]="'small'"
+              nzBordered
+            >
+              <thead>
+                <tr>
+                  <th>Priority</th>
+                  <th nzWidth="80px" nzAlign="center">Count</th>
+                  <th>Distribution</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of byPriority(); track item.priority) {
+                  <tr>
+                    <td>
+                      <nz-tag [nzColor]="getPriorityColor(item.priority)">
+                        {{ item.priority }}
+                      </nz-tag>
+                    </td>
+                    <td nzAlign="center">
+                      <strong>{{ item.count }}</strong>
+                    </td>
+                    <td>
+                      <nz-progress
+                        [nzPercent]="total() > 0 ? (item.count / total() * 100) : 0"
+                        [nzShowInfo]="false"
+                        nzSize="small"
+                        [nzStrokeColor]="getPriorityColor(item.priority) === 'red' ? '#ff4d4f' : getPriorityColor(item.priority) === 'orange' ? '#fa8c16' : '#1890ff'"
+                      ></nz-progress>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </nz-table>
+          } @else {
+            <nz-empty nzNotFoundContent="No ticket data available"></nz-empty>
+          }
+        </nz-card>
+      </div>
+    </div>
+  </nz-spin>
+</div>

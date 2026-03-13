@@ -1,7 +1,7 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** February 23, 2026
+> **Last Updated:** March 12, 2026
 
 ---
 
@@ -160,21 +160,21 @@ Dashboards and reports with charts, graphs, trends, and exportable data for ICT 
 - [x] Backend: `slaMetrics` query (overdue, dueToday, dueSoon counts)
 - [x] Dashboard page with basic stat cards (total, ongoing, in-progress, resolved, etc.)
 - [x] Recent tickets table on dashboard
-- [ ] **Dedicated Analytics page with charts**
+- [x] **Dedicated Analytics page with charts**
 - [ ] **Trend analysis (tickets over time)**
 - [ ] **Staff performance metrics (avg resolution time per staff)**
 - [ ] **Department comparison reports**
 - [ ] **Export to PDF/Excel**
-- [ ] **Date range picker for reports**
+- [x] **Date range picker for reports**
 
 ### Next Steps (Chunked)
 
 #### Chunk D1: Analytics Page Foundation
-1. [ ] Install chart library (ng2-charts or ngx-echarts)
-2. [ ] Create analytics feature module with route /analytics
-3. [ ] Add navigation link for admin/head roles
-4. [ ] Create basic layout with date range picker calling `ticketAnalytics` query
-5. [ ] Test: Navigate to /analytics, see raw data from API
+1. [x] Install chart library (ng2-charts or ngx-echarts)
+2. [x] Create analytics feature module with route /analytics
+3. [x] Add navigation link for admin/head roles
+4. [x] Create basic layout with date range picker calling `ticketAnalytics` query
+5. [x] Test: Navigate to /analytics, see raw data from API
 
 #### Chunk D2: Charts — Tickets Overview
 1. [ ] Pie chart: Tickets by Status
@@ -210,7 +210,7 @@ Service Level Agreements are enforced automatically — the system tracks proces
 - [x] Backend: `slaMetrics` query (overdue, dueToday, dueSoon)
 - [x] Frontend: SLA Processing Time Tracker on ticket detail (5-step timeline with progress)
 - [x] Frontend: SLA reminder banner/modal on login (awareness for users)
-- [~] Backend: `actualDuration` field exists but is never written to
+- [~] Backend: `actualDuration` field — now automatically calculated on RESOLVED/CLOSED status
 - [ ] **SLA dashboard page (overdue tickets list, SLA compliance rate)**
 - [ ] **SLA breach notifications (scheduled cron job)**
 - [ ] **SLA breach escalation (auto-assign to manager)**
@@ -220,8 +220,8 @@ Service Level Agreements are enforced automatically — the system tracks proces
 ### Next Steps (Chunked)
 
 #### Chunk E1: actualDuration Tracking
-1. [ ] When ticket status changes to RESOLVED or CLOSED, calculate and save `actualDuration` (time from creation to resolution in hours)
-2. [ ] Test: Resolve ticket, verify actualDuration is populated in DB
+1. [x] When ticket status changes to RESOLVED or CLOSED, calculate and save `actualDuration` (time from creation to resolution in hours)
+2. [x] Test: Resolve ticket, verify actualDuration is populated in DB
 
 #### Chunk E2: SLA Breach Cron Job
 1. [ ] Create scheduled task (node-cron or similar) that runs every 5 minutes
@@ -325,7 +325,7 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 | 1a. AI-Powered Self-Service Portal | Partial | ~30% (basic portal, no AI) |
 | 1b. Automated Ticket Routing | Partial | ~60% (rule-based, no AI) |
 | 1c. Real-Time Tracking | **Done** | ~90% (WebSocket + signals) |
-| 1d. Integrated Reporting & Analytics | Partial | ~25% (backend APIs, no charts) |
-| 1e. SLA Enforcement & Performance | Partial | ~40% (utils + tracker, no dashboard) |
+| 1d. Integrated Reporting & Analytics | Partial | ~40% (analytics page, date filter, no charts/export) |
+| 1e. SLA Enforcement & Performance | Partial | ~50% (utils + tracker + actualDuration, no dashboard) |
 | 1f. Ticket Lifecycle Management | **Done** | ~95% (full workflow) |
 | Infrastructure | **Done** | ~95% |
