@@ -21,6 +21,9 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
+import { NzCollapseModule } from 'ng-zorro-antd/collapse';
+import { NzListModule } from 'ng-zorro-antd/list';
+import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
@@ -36,6 +39,7 @@ import {
   PrioritySuggestion,
   Priority,
 } from '../../core/utils/priority-suggestion';
+import { AIService, SmartSuggestions } from '../../core/services/ai.service';
 import { firstValueFrom } from 'rxjs';
 
 type RequestCategory = 'WEBSITE' | 'SOFTWARE';
@@ -58,6 +62,9 @@ type RequestCategory = 'WEBSITE' | 'SOFTWARE';
     NzToolTipModule,
     NzIconModule,
     NzAlertModule,
+    NzCollapseModule,
+    NzListModule,
+    NzBadgeModule,
     MISFormComponent,
     ITSFormComponent,
   ],
@@ -71,6 +78,7 @@ export class SubmitTicketPage {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
   private readonly ticketService = inject(TicketService);
+  private readonly aiService = inject(AIService);
 
   readonly today = new Date();
   readonly busy = signal(false);
@@ -107,6 +115,15 @@ export class SubmitTicketPage {
 
   /** Show/hide the suggestion details popover */
   readonly showSuggestionDetails = signal(false);
+
+  // ========================================
+  // AI SMART SUGGESTIONS
+  // ========================================
+
+  /** Smart suggestion results from AI + similar search */
+  readonly smartSuggestions = signal<SmartSuggestions | null>(null);
+  readonly loadingSuggestions = signal(false);
+  readonly suggestionsRequested = signal(false);
 
   /** Priority options for the selector */
   readonly priorityOptions: { value: Priority; label: string; color: string }[] = [
@@ -146,6 +163,66 @@ export class SubmitTicketPage {
       CRITICAL: 'red',
     };
     return map[priority] || 'default';
+  }
+
+  /** Get status color for similar tickets */
+  getStatusColor(status: string): string {
+    const map: Record<string, string> = {
+      RESOLVED: 'green',
+      CLOSED: 'default',
+      IN_PROGRESS: 'blue',
+      ASSIGNED: 'cyan',
+      FOR_REVIEW: 'orange',
+      CANCELLED: 'red',
+    };
+    return map[status] || 'default';
+  }
+
+  /** Fetch AI smart suggestions based on current form content */
+  fetchSmartSuggestions(): void {
+    const formType = this.formType();
+    let title = '';
+    let description = '';
+
+    if (formType === 'MIS') {
+      const misForm = this.misFormRef();
+      if (misForm) {
+        const payload = misForm.getPayload();
+        title = this.generateMISTitle(payload);
+        description = payload.details || '';
+      }
+    } else {
+      const itsForm = this.itsFormRef();
+      if (itsForm) {
+        const payload = itsForm.getPayload();
+        title = this.generateITSTitle(payload);
+        description = payload.details || '';
+      }
+    }
+
+    if (!title && !description) {
+      this.message.info('Please fill in some details first before requesting AI analysis.');
+      return;
+    }
+
+    this.loadingSuggestions.set(true);
+    this.suggestionsRequested.set(true);
+
+    this.aiService.getSmartSuggestions(title, description).subscribe({
+      next: (result) => {
+        this.smartSuggestions.set(result);
+        this.loadingSuggestions.set(false);
+
+        // If AI returned a priority, auto-apply if user hasn't overridden
+        if (result.analysis?.priority && !this.priorityOverridden()) {
+          this.selectedPriority.set(result.analysis.priority as Priority);
+        }
+      },
+      error: (err) => {
+        this.message.error(err?.message || 'Failed to get AI suggestions');
+        this.loadingSuggestions.set(false);
+      },
+    });
   }
 
   /** Recalculate the suggestion based on current form state */

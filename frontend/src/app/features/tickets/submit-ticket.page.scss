@@ -112,3 +112,101 @@
     }
   }
 }
+
+/* ── AI Smart Suggestions Section ────────────────────────── */
+.ai-section {
+  margin-bottom: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f9f0ff 0%, #e6f7ff 100%);
+  border: 1px solid #d3adf7;
+  border-radius: 6px;
+
+  .ai-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .ai-hint {
+    font-size: 12px;
+    color: #8c8c8c;
+  }
+
+  .ai-loading-placeholder {
+    height: 80px;
+    width: 100%;
+  }
+
+  .ai-collapse {
+    margin-bottom: 8px;
+  }
+
+  .ai-analysis {
+    .analysis-row {
+      margin-bottom: 10px;
+      line-height: 1.6;
+
+      strong {
+        margin-right: 6px;
+        color: #262626;
+      }
+
+      .solutions-list {
+        margin: 4px 0 0 18px;
+        padding: 0;
+        li {
+          margin-bottom: 2px;
+        }
+      }
+
+      nz-tag {
+        margin-right: 4px;
+      }
+    }
+  }
+
+  .similar-ticket-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+
+    .similar-ticket-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ticket-number {
+      font-size: 12px;
+      color: #8c8c8c;
+      margin-left: auto;
+    }
+
+    .ticket-title {
+      font-size: 13px;
+      color: #595959;
+    }
+  }
+
+  .related-article-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+
+    .article-title {
+      flex: 1;
+      font-size: 13px;
+      color: #595959;
+    }
+
+    .article-stats {
+      font-size: 12px;
+      color: #bfbfbf;
+      white-space: nowrap;
+    }
+  }
+}

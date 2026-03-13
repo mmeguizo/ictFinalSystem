@@ -1,7 +1,7 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** March 10, 2026
+> **Last Updated:** March 13, 2026
 
 ---
 
@@ -48,7 +48,7 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 - [ ] **AI chatbot for guided ticket creation**
 - [ ] **Natural language ticket input (NLP parsing)**
 - [x] **Knowledge base / FAQ system** — full CRUD, search, categories, metrics, seeded with 6 ICT FAQs
-- [ ] **Smart suggestions (similar past tickets, auto-fill)**
+- [x] **Smart suggestions (similar past tickets, auto-fill)** — Gemini AI analysis + fulltext similar ticket search + related KB articles
 - [ ] **AI-powered search across tickets**
 
 ### Next Steps (Chunked)
@@ -61,12 +61,13 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 4. [x] Create frontend knowledge-base page with search — card grid, category filters, detail modal, editor
 5. [ ] Test: Admin can create/edit articles, users can search and read
 
-#### Chunk A2: Smart Ticket Suggestions
+#### Chunk A2: Smart Ticket Suggestions ✅
 
-1. [ ] Add backend endpoint that searches existing resolved tickets by keyword similarity
-2. [ ] On ticket creation form, add "Similar Issues" panel that queries as user types
-3. [ ] Show matched knowledge base articles alongside similar tickets
-4. [ ] Test: Typing a description shows relevant past tickets/articles
+1. [x] Add backend endpoint that searches existing resolved tickets by keyword similarity — fulltext index on Ticket(title, description), MySQL BOOLEAN MODE search
+2. [x] On ticket creation form, add "Similar Issues" panel that queries as user types — "Analyze with AI" button triggers Gemini analysis
+3. [x] Show matched knowledge base articles alongside similar tickets — collapse panels with similar tickets + related KB articles
+4. [x] Gemini AI integration — analyzes tickets for clean_ticket, summary, category, priority, root cause, solutions, keywords
+5. [ ] Test: Typing a description shows relevant past tickets/articles
 
 #### Chunk A3: AI Chatbot (Future — requires AI service)
 
@@ -91,8 +92,8 @@ Tickets are automatically routed to the right department/person and categorized 
 - [x] Auto-assign after director approval (approveAsDirector → autoAssignment.assignTicket)
 - [x] Manual assignment by department heads (MIS_HEAD assigns DEVELOPER, ITS_HEAD assigns TECHNICAL)
 - [x] Manual unassign capability
-- [ ] **AI-based ticket categorization**
-- [x] **Priority auto-suggestion based on content** — keyword NLP engine with confidence scoring
+- [x] **AI-based ticket categorization** — Gemini AI classifies into Network/Hardware/Software/Account Access/Printer/Security/Other
+- [x] **Priority auto-suggestion based on content** — keyword NLP engine with confidence scoring + Gemini AI priority analysis
 - [ ] **Smart routing based on staff expertise/availability**
 - [x] **Escalation rules (auto-escalate if SLA breach — 2-level cron job)**
 
@@ -112,10 +113,10 @@ Tickets are automatically routed to the right department/person and categorized 
 2. [x] Show suggested priority on ticket creation form (user can override) — priority selector + suggestion badge with confidence indicator
 3. [ ] Test: Type "server is down" → system suggests HIGH priority
 
-#### Chunk B3: AI Categorization (Future)
+#### Chunk B3: AI Categorization ✅ (via Gemini)
 
-1. [ ] Train/integrate text classifier for ticket type/category
-2. [ ] Auto-suggest category based on description
+1. [x] Train/integrate text classifier for ticket type/category — Gemini AI analyzes and classifies tickets
+2. [x] Auto-suggest category based on description — shown in AI Analysis panel on ticket creation form
 3. [ ] Test: Describe network issue → system suggests ITS/NETWORK_MAINTENANCE
 
 ---
@@ -336,7 +337,7 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 ### Phase 4: Intelligence & Knowledge
 
 11. ~~**Chunk A1** — Knowledge base foundation~~ ✅
-12. **Chunk A2** — Smart ticket suggestions (3-4 hours)
+12. ~~**Chunk A2** — Smart ticket suggestions~~ ✅
 13. ~~**Chunk B2** — Smart priority suggestion~~ ✅
 
 ### Phase 5: Advanced (If time permits)
@@ -344,18 +345,18 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 14. **Chunk C2** — Activity feed (2-3 hours)
 15. **Chunk F2** — Ticket templates (2-3 hours)
 16. **Chunk A3** — AI chatbot (8-12 hours, requires AI API)
-17. **Chunk B3** — AI categorization (6-8 hours, requires ML model)
+17. ~~**Chunk B3** — AI categorization~~ ✅ (via Gemini)
 
 ---
 
 ## Summary Matrix
 
-| Feature                              | Status   | Completion                                             |
-| ------------------------------------ | -------- | ------------------------------------------------------ |
-| 1a. AI-Powered Self-Service Portal   | Partial  | ~45% (basic portal + knowledge base, no AI)            |
-| 1b. Automated Ticket Routing         | Partial  | ~75% (rule-based + escalation + smart priority, no AI) |
-| 1c. Real-Time Tracking               | **Done** | ~95% (WebSocket + signals + real-time dashboard)       |
-| 1d. Integrated Reporting & Analytics | **Done** | ~90% (analytics + charts + trends + PDF/Excel export)  |
-| 1e. SLA Enforcement & Performance    | Partial  | ~85% (cron + escalation + SLA dashboard + compliance)  |
-| 1f. Ticket Lifecycle Management      | **Done** | ~97% (full workflow + satisfaction survey)             |
-| Infrastructure                       | **Done** | ~95%                                                   |
+| Feature                              | Status   | Completion                                            |
+| ------------------------------------ | -------- | ----------------------------------------------------- |
+| 1a. AI-Powered Self-Service Portal   | Partial  | ~55% (portal + knowledge base + AI suggestions)       |
+| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)    |
+| 1c. Real-Time Tracking               | **Done** | ~95% (WebSocket + signals + real-time dashboard)      |
+| 1d. Integrated Reporting & Analytics | **Done** | ~90% (analytics + charts + trends + PDF/Excel export) |
+| 1e. SLA Enforcement & Performance    | Partial  | ~85% (cron + escalation + SLA dashboard + compliance) |
+| 1f. Ticket Lifecycle Management      | **Done** | ~97% (full workflow + satisfaction survey)            |
+| Infrastructure                       | **Done** | ~95%                                                  |

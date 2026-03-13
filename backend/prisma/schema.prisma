@@ -161,6 +161,7 @@ model Ticket {
   @@index([escalationLevel])
   @@index([type, status])
   @@index([dueDate, status])
+  @@fulltext([title, description])
 }
 
 model MISTicket {

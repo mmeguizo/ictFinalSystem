@@ -89,6 +89,153 @@
         }
       </div>
 
+      <!-- AI Smart Suggestions -->
+      <div class="ai-section">
+        <div class="ai-header">
+          <button
+            nz-button
+            nzType="dashed"
+            [nzLoading]="loadingSuggestions()"
+            (click)="fetchSmartSuggestions()"
+          >
+            <span nz-icon nzType="robot" nzTheme="outline"></span>
+            {{ suggestionsRequested() ? 'Re-analyze with AI' : 'Analyze with AI' }}
+          </button>
+          <span class="ai-hint"
+            >Get AI-powered suggestions, similar tickets, and related articles</span
+          >
+        </div>
+
+        @if (loadingSuggestions()) {
+          <nz-spin nzTip="AI is analyzing your ticket...">
+            <div class="ai-loading-placeholder"></div>
+          </nz-spin>
+        }
+
+        @if (smartSuggestions(); as suggestions) {
+          <!-- AI Analysis Results -->
+          @if (suggestions.analysis; as analysis) {
+            <nz-collapse class="ai-collapse">
+              <nz-collapse-panel nzHeader="AI Analysis" [nzActive]="true" [nzExtra]="aiExtraTpl">
+                <div class="ai-analysis">
+                  <div class="analysis-row">
+                    <strong>Summary:</strong>
+                    <span>{{ analysis.summary }}</span>
+                  </div>
+                  <div class="analysis-row">
+                    <strong>Category:</strong>
+                    <nz-tag nzColor="blue">{{ analysis.category }}</nz-tag>
+                    <strong style="margin-left: 12px">AI Priority:</strong>
+                    <nz-tag [nzColor]="getPriorityColor(analysis.priority)">{{
+                      analysis.priority
+                    }}</nz-tag>
+                  </div>
+                  <div class="analysis-row">
+                    <strong>Possible Root Cause:</strong>
+                    <span>{{ analysis.possibleRootCause }}</span>
+                  </div>
+                  <div class="analysis-row">
+                    <strong>Suggested Solutions:</strong>
+                    <ol class="solutions-list">
+                      @for (solution of analysis.suggestedSolutions; track solution) {
+                        <li>{{ solution }}</li>
+                      }
+                    </ol>
+                  </div>
+                  <div class="analysis-row">
+                    <strong>Keywords:</strong>
+                    @for (kw of analysis.keywords; track kw) {
+                      <nz-tag>{{ kw }}</nz-tag>
+                    }
+                  </div>
+                </div>
+              </nz-collapse-panel>
+            </nz-collapse>
+            <ng-template #aiExtraTpl>
+              <nz-tag nzColor="purple">
+                <span nz-icon nzType="thunderbolt"></span>
+                Gemini AI
+              </nz-tag>
+            </ng-template>
+          }
+
+          <!-- Similar Tickets -->
+          @if (suggestions.similarTickets.length > 0) {
+            <nz-collapse class="ai-collapse">
+              <nz-collapse-panel
+                [nzHeader]="'Similar Tickets (' + suggestions.similarTickets.length + ')'"
+                [nzActive]="true"
+              >
+                <nz-list nzSize="small">
+                  @for (ticket of suggestions.similarTickets; track ticket.id) {
+                    <nz-list-item>
+                      <div class="similar-ticket-item">
+                        <div class="similar-ticket-row">
+                          <nz-tag [nzColor]="getStatusColor(ticket.status)">{{
+                            ticket.status
+                          }}</nz-tag>
+                          <nz-tag [nzColor]="getPriorityColor(ticket.priority)">{{
+                            ticket.priority
+                          }}</nz-tag>
+                          <span class="ticket-number">{{ ticket.ticketNumber }}</span>
+                        </div>
+                        <span class="ticket-title">{{ ticket.title }}</span>
+                      </div>
+                    </nz-list-item>
+                  }
+                </nz-list>
+              </nz-collapse-panel>
+            </nz-collapse>
+          }
+
+          <!-- Related KB Articles -->
+          @if (suggestions.relatedArticles.length > 0) {
+            <nz-collapse class="ai-collapse">
+              <nz-collapse-panel
+                [nzHeader]="'Related Articles (' + suggestions.relatedArticles.length + ')'"
+                [nzActive]="true"
+              >
+                <nz-list nzSize="small">
+                  @for (article of suggestions.relatedArticles; track article.id) {
+                    <nz-list-item>
+                      <div class="related-article-item">
+                        <nz-tag nzColor="blue">{{ article.category }}</nz-tag>
+                        <span class="article-title">{{ article.title }}</span>
+                        <span class="article-stats">
+                          <span nz-icon nzType="eye" nzTheme="outline"></span>
+                          {{ article.viewCount }}
+                          <span
+                            nz-icon
+                            nzType="like"
+                            nzTheme="outline"
+                            style="margin-left: 8px"
+                          ></span>
+                          {{ article.helpfulCount }}
+                        </span>
+                      </div>
+                    </nz-list-item>
+                  }
+                </nz-list>
+              </nz-collapse-panel>
+            </nz-collapse>
+          }
+
+          <!-- No results message -->
+          @if (
+            !suggestions.analysis &&
+            suggestions.similarTickets.length === 0 &&
+            suggestions.relatedArticles.length === 0
+          ) {
+            <nz-alert
+              nzType="info"
+              nzShowIcon
+              nzMessage="No suggestions found"
+              nzDescription="No similar tickets or related articles were found. The AI service may not be configured."
+            ></nz-alert>
+          }
+        }
+      </div>
+
       <!-- Actions -->
       <div class="actions">
         <button nz-button nzType="primary" [disabled]="busy()" (click)="submit()">
