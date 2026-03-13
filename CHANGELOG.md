@@ -5,6 +5,46 @@ All notable changes to the ICT Support Ticketing System will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-12
+
+### Added - Analytics Page & SLA Tracking
+
+This release implements Phase 1 of the SLA & Analytics roadmap.
+
+#### actualDuration Tracking (Chunk E1)
+- **Backend**: When a ticket status changes to `RESOLVED`, the system now automatically calculates and saves `actualDuration` (hours from creation to resolution)
+- **Backend**: When a ticket status changes to `CLOSED` without a prior resolution, `actualDuration` is also calculated
+- This enables future SLA compliance reporting and staff performance metrics
+
+#### Analytics Page Foundation (Chunk D1)
+- **New Route**: `/analytics` — Dedicated analytics page accessible to ADMIN, DIRECTOR, MIS_HEAD, ITS_HEAD, SECRETARY roles
+- **Date Range Filter**: Date range picker to filter analytics by time period
+- **Overview Statistics**: Total tickets, open/active, resolved/closed, and overdue counts
+- **SLA Compliance**: Visual compliance rate with circular progress indicator
+- **SLA Status**: Overdue, Due Today, and Due Soon metrics with color-coded indicators
+- **Ticket Type Breakdown**: MIS vs ITS distribution with progress bars
+- **Status Breakdown**: Table showing ticket counts per status with visual distribution bars
+- **Priority Breakdown**: Table showing ticket counts per priority level
+- **Navigation**: Analytics menu item added to sidebar for authorized roles
+
+#### Frontend GraphQL Queries
+- Added `TICKET_ANALYTICS` query with date range filter support
+- Added `SLA_METRICS` query for real-time SLA compliance data
+- Added `TicketAnalytics`, `SLAMetrics`, `StatusCount`, `TypeCount`, `PriorityCount` interfaces
+
+### Files Modified
+- `backend/src/modules/tickets/ticket.repository.ts` — actualDuration calculation on status change
+- `frontend/src/app/core/services/ticket.service.ts` — Analytics GraphQL queries and interfaces
+- `frontend/src/app/features/analytics/analytics.page.ts` — New analytics component
+- `frontend/src/app/features/analytics/analytics.page.html` — Analytics page template
+- `frontend/src/app/features/analytics/analytics.page.scss` — Analytics page styles
+- `frontend/src/app/app.routes.ts` — Analytics route with approverGuard
+- `frontend/src/app/layout/main-layout.ts` — Analytics navigation menu item
+- `PROJECT_STATUS.md` — Updated completion status for Chunks E1 and D1
+- `CHANGELOG.md` — This entry
+
+---
+
 ## [1.3.0] - 2025-12-19
 
 ### Added - Department Head Assignment Workflow

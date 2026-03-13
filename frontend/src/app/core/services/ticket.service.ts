@@ -681,7 +681,39 @@ const DELETE_TICKET_ATTACHMENT = gql`
   }
 `;
 
+// ========================================
+// ANALYTICS QUERIES
+// ========================================
 
+const TICKET_ANALYTICS = gql`
+  query TicketAnalytics($filter: AnalyticsFilterInput) {
+    ticketAnalytics(filter: $filter) {
+      total
+      byStatus {
+        status
+        count
+      }
+      byType {
+        type
+        count
+      }
+      byPriority {
+        priority
+        count
+      }
+    }
+  }
+`;
+
+const SLA_METRICS = gql`
+  query SLAMetrics {
+    slaMetrics {
+      overdue
+      dueToday
+      dueSoon
+    }
+  }
+`;
 
 // Type definitions matching backend GraphQL schema
 export interface CreateMISTicketInput {
@@ -874,6 +906,35 @@ export interface TicketDetail extends TicketListItem {
       role: string;
     };
   }>;
+}
+
+// Analytics interfaces
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+export interface TypeCount {
+  type: string;
+  count: number;
+}
+
+export interface PriorityCount {
+  priority: string;
+  count: number;
+}
+
+export interface TicketAnalytics {
+  total: number;
+  byStatus: StatusCount[];
+  byType: TypeCount[];
+  byPriority: PriorityCount[];
+}
+
+export interface SLAMetrics {
+  overdue: number;
+  dueToday: number;
+  dueSoon: number;
 }
 
 @Injectable({
@@ -1476,6 +1537,49 @@ export class TicketService {
             throw new Error('Failed to delete attachment');
           }
           return result.data.deleteTicketAttachment;
+        })
+      );
+  }
+
+  // ========================================
+  // ANALYTICS METHODS
+  // ========================================
+
+  /**
+   * Get ticket analytics data with optional date range filter
+   */
+  getTicketAnalytics(filter?: { startDate?: string; endDate?: string }): Observable<TicketAnalytics> {
+    return this.apollo
+      .query<{ ticketAnalytics: TicketAnalytics }>({
+        query: TICKET_ANALYTICS,
+        variables: { filter: filter || null },
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.ticketAnalytics) {
+            throw new Error('Failed to fetch ticket analytics');
+          }
+          return result.data.ticketAnalytics;
+        })
+      );
+  }
+
+  /**
+   * Get SLA compliance metrics (overdue, dueToday, dueSoon)
+   */
+  getSLAMetrics(): Observable<SLAMetrics> {
+    return this.apollo
+      .query<{ slaMetrics: SLAMetrics }>({
+        query: SLA_METRICS,
+        fetchPolicy: 'network-only',
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.slaMetrics) {
+            throw new Error('Failed to fetch SLA metrics');
+          }
+          return result.data.slaMetrics;
         })
       );
   }

@@ -64,6 +64,11 @@ export const routes: Routes = [
         path: 'notifications',
         loadComponent: () => import('./features/notifications/notifications.page').then(m => m.NotificationsPage),
       },
+      {
+        path: 'analytics',
+        loadComponent: () => import('./features/analytics/analytics.page').then(m => m.AnalyticsPage),
+        canActivate: [approverGuard],
+      },
     ],
   },
 ];
