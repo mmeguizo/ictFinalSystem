@@ -1,5 +1,15 @@
-import { Component, ChangeDetectionStrategy, computed, inject, OnInit, signal, DestroyRef, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser, CommonModule } from '@angular/common';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  computed,
+  effect,
+  inject,
+  OnInit,
+  signal,
+  DestroyRef,
+  PLATFORM_ID,
+} from '@angular/core';
+import { isPlatformBrowser, CommonModule, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { interval } from 'rxjs';
@@ -17,14 +27,17 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { TicketService, TicketListItem } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
+import { RealtimeService } from '../../core/services/realtime.service';
 
 @Component({
   selector: 'app-dashboard',
   imports: [
     CommonModule,
     RouterLink,
+    DatePipe,
     NzCardModule,
     NzStatisticModule,
     NzGridModule,
@@ -38,6 +51,7 @@ import { AuthService } from '../../core/services/auth.service';
     NzDividerModule,
     NzButtonModule,
     NzToolTipModule,
+    NzBadgeModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.page.html',
@@ -46,11 +60,21 @@ import { AuthService } from '../../core/services/auth.service';
 export class DashboardPage implements OnInit {
   private readonly ticketService = inject(TicketService);
   private readonly authService = inject(AuthService);
+  private readonly realtimeService = inject(RealtimeService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly platformId = inject(PLATFORM_ID);
 
   readonly loading = signal(false);
   readonly tickets = signal<TicketListItem[]>([]);
+
+  /** Timestamp of last data refresh for display */
+  readonly lastUpdated = signal<Date | null>(null);
+
+  /** Tracks whether the WebSocket connection is live */
+  readonly wsConnected = computed(() => this.realtimeService.connected());
+
+  /** CSS class trigger — toggles to pulse stat cards on update */
+  readonly refreshPulse = signal(false);
 
   // SLA Reminder Modal
   readonly showSlaModal = signal(false);
@@ -58,11 +82,41 @@ export class DashboardPage implements OnInit {
 
   /** SLA processing steps for display */
   readonly slaSteps = [
-    { step: 1, name: 'Secretary Review', description: 'Secretary endorses and reviews the service request', expectedMinutes: 5, icon: '📋' },
-    { step: 2, name: 'Director Endorsement', description: 'Director reviews and approves the request', expectedMinutes: 5, icon: '✅' },
-    { step: 3, name: 'Assignment', description: 'Request is assigned to the appropriate department', expectedMinutes: 5, icon: '👤' },
-    { step: 4, name: 'Schedule Visit', description: 'Department head schedules a service visit', expectedMinutes: 5, icon: '📅' },
-    { step: 5, name: 'Acknowledgment', description: 'Admin acknowledges the schedule for service delivery', expectedMinutes: 5, icon: '🤝' },
+    {
+      step: 1,
+      name: 'Secretary Review',
+      description: 'Secretary endorses and reviews the service request',
+      expectedMinutes: 5,
+      icon: '📋',
+    },
+    {
+      step: 2,
+      name: 'Director Endorsement',
+      description: 'Director reviews and approves the request',
+      expectedMinutes: 5,
+      icon: '✅',
+    },
+    {
+      step: 3,
+      name: 'Assignment',
+      description: 'Request is assigned to the appropriate department',
+      expectedMinutes: 5,
+      icon: '👤',
+    },
+    {
+      step: 4,
+      name: 'Schedule Visit',
+      description: 'Department head schedules a service visit',
+      expectedMinutes: 5,
+      icon: '📅',
+    },
+    {
+      step: 5,
+      name: 'Acknowledgment',
+      description: 'Admin acknowledges the schedule for service delivery',
+      expectedMinutes: 5,
+      icon: '🤝',
+    },
   ];
 
   readonly totalSlaMinutes = 25;
@@ -75,80 +129,121 @@ export class DashboardPage implements OnInit {
   readonly totalTickets = computed(() => this.tickets().length);
 
   /** Count of tickets for review */
-  readonly forReviewCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'FOR_REVIEW').length
+  readonly forReviewCount = computed(
+    () => this.tickets().filter((t) => t.status === 'FOR_REVIEW').length,
   );
 
   /** Count of reviewed tickets */
-  readonly reviewedCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'REVIEWED').length
+  readonly reviewedCount = computed(
+    () => this.tickets().filter((t) => t.status === 'REVIEWED').length,
   );
 
   /** Count of assigned tickets */
-  readonly assignedCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'ASSIGNED').length
+  readonly assignedCount = computed(
+    () => this.tickets().filter((t) => t.status === 'ASSIGNED').length,
   );
 
   /** Count of in progress tickets */
-  readonly inProgressCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'IN_PROGRESS').length
+  readonly inProgressCount = computed(
+    () => this.tickets().filter((t) => t.status === 'IN_PROGRESS').length,
   );
 
   /** Count of on hold tickets */
-  readonly onHoldCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'ON_HOLD').length
+  readonly onHoldCount = computed(
+    () => this.tickets().filter((t) => t.status === 'ON_HOLD').length,
   );
 
   /** Count of resolved tickets */
-  readonly resolvedCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'RESOLVED').length
+  readonly resolvedCount = computed(
+    () => this.tickets().filter((t) => t.status === 'RESOLVED').length,
   );
 
   /** Count of closed tickets */
-  readonly closedCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'CLOSED').length
-  );
+  readonly closedCount = computed(() => this.tickets().filter((t) => t.status === 'CLOSED').length);
 
   /** Count of cancelled tickets */
-  readonly cancelledCount = computed(() =>
-    this.tickets().filter((t) => t.status === 'CANCELLED').length
+  readonly cancelledCount = computed(
+    () => this.tickets().filter((t) => t.status === 'CANCELLED').length,
   );
 
   /** Count of ongoing tickets (FOR_REVIEW + REVIEWED + ASSIGNED + IN_PROGRESS + ON_HOLD) */
-  readonly ongoingCount = computed(() =>
-    this.forReviewCount() +
-    this.reviewedCount() +
-    this.assignedCount() +
-    this.inProgressCount() +
-    this.onHoldCount()
+  readonly ongoingCount = computed(
+    () =>
+      this.forReviewCount() +
+      this.reviewedCount() +
+      this.assignedCount() +
+      this.inProgressCount() +
+      this.onHoldCount(),
   );
 
   /** Recent tickets (last 10) sorted by creation date */
   readonly recentTickets = computed(() =>
     [...this.tickets()]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10)
+      .slice(0, 10),
   );
+
+  /**
+   * WebSocket-driven real-time refresh.
+   * Reacts to RealtimeService signals (ticketCreated, statusChanged, assigned)
+   * and silently reloads dashboard data within ~1s of the event.
+   */
+  private readonly realtimeEffect = effect(() => {
+    // Read all three signals — effect re-runs when ANY changes
+    const created = this.realtimeService.lastTicketCreated();
+    const statusChange = this.realtimeService.lastStatusChange();
+    const assignment = this.realtimeService.lastAssignment();
+
+    // Skip the initial null values (no event yet)
+    if (!created && !statusChange && !assignment) return;
+
+    // Debounce: avoid hammering the API if multiple events fire at once
+    this.silentRefresh();
+  });
+
+  /** Simple debounce timer for WebSocket-triggered refreshes */
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.loadTickets();
     this.checkSlaReminderOnLogin();
 
-    // Set up auto-refresh polling every 60 seconds (1 minute)
-    interval(60000) // 60000ms = 1 minute
+    // Fallback: poll every 5 minutes as a safety net if WebSocket disconnects
+    // This is a resilience measure, NOT the primary refresh mechanism
+    interval(300000) // 300000ms = 5 minutes
       .pipe(
         switchMap(() => this.getTicketQuery()),
-        takeUntilDestroyed(this.destroyRef)
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: (tickets) => {
-          // Silently update tickets without showing loading spinner
           this.tickets.set(tickets);
+          this.lastUpdated.set(new Date());
         },
         error: (error) => {
-          console.error('Auto-refresh failed:', error);
+          console.error('Fallback poll failed:', error);
         },
       });
+  }
+
+  /**
+   * Debounced silent refresh — waits 500ms before fetching to batch
+   * rapid-fire WebSocket events (e.g., bulk assignment triggers multiple events).
+   */
+  private silentRefresh(): void {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.getTicketQuery().subscribe({
+        next: (tickets) => {
+          this.tickets.set(tickets);
+          this.lastUpdated.set(new Date());
+          // Trigger pulse animation on stat cards
+          this.refreshPulse.set(true);
+          setTimeout(() => this.refreshPulse.set(false), 600);
+        },
+        error: (err) => console.error('Real-time refresh failed:', err),
+      });
+    }, 500);
   }
 
   /**
@@ -159,7 +254,11 @@ export class DashboardPage implements OnInit {
     if (this.authService.isAdmin() || this.authService.isSecretary()) {
       // Admin/Secretary sees all tickets
       return this.ticketService.getAllTickets();
-    } else if (this.authService.isOfficeHead() || this.authService.isDeveloper() || this.authService.isTechnical()) {
+    } else if (
+      this.authService.isOfficeHead() ||
+      this.authService.isDeveloper() ||
+      this.authService.isTechnical()
+    ) {
       // Office heads see tickets of their type, developers/technical see their assigned tickets
       // Backend myTickets resolver handles the role-specific logic
       return this.ticketService.getMyAssignedTickets();
@@ -178,6 +277,7 @@ export class DashboardPage implements OnInit {
     this.getTicketQuery().subscribe({
       next: (tickets) => {
         this.tickets.set(tickets);
+        this.lastUpdated.set(new Date());
         this.loading.set(false);
       },
       error: (error) => {
@@ -191,9 +291,11 @@ export class DashboardPage implements OnInit {
   // SLA REMINDER
   // ========================================
 
-  /** Check if we should show the SLA reminder modal (once per session) */
+  /** Check if we should show the SLA reminder modal (once per session, only for regular users) */
   private checkSlaReminderOnLogin(): void {
     if (!isPlatformBrowser(this.platformId)) return;
+    // Only show the auto-popup for regular users (non-staff)
+    if (!this.authService.isUser()) return;
     const key = 'sla_reminder_shown';
     const shown = sessionStorage.getItem(key);
     if (!shown) {

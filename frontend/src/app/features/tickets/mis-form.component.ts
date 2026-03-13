@@ -1,5 +1,19 @@
-import { ChangeDetectionStrategy, Component, signal, computed, effect, inject } from '@angular/core';
-import { FormBuilder, FormGroup, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  signal,
+  computed,
+  effect,
+  inject,
+  output,
+} from '@angular/core';
+import {
+  FormBuilder,
+  FormGroup,
+  FormControl,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -46,7 +60,12 @@ import { TicketService } from '../../core/services/ticket.service';
           <nz-form-item>
             <nz-form-label>Date</nz-form-label>
             <nz-form-control>
-              <input nz-input type="date" formControlName="requestedDate" aria-label="Request date" />
+              <input
+                nz-input
+                type="date"
+                formControlName="requestedDate"
+                aria-label="Request date"
+              />
             </nz-form-control>
           </nz-form-item>
         </div>
@@ -100,7 +119,9 @@ import { TicketService } from '../../core/services/ticket.service';
               <label nz-checkbox formControlName="userTraining">User Training</label>
               <label nz-checkbox formControlName="backupDatabase">Back Up Database</label>
               <label nz-checkbox formControlName="installExisting">Install Existing IS</label>
-              <label nz-checkbox formControlName="isImplementationSupport">IS Implementation Support</label>
+              <label nz-checkbox formControlName="isImplementationSupport"
+                >IS Implementation Support</label
+              >
             </div>
             <div class="others">
               <span>Others:</span>
@@ -124,29 +145,34 @@ import { TicketService } from '../../core/services/ticket.service';
       </nz-form-item>
     </div>
   `,
-  styles: [`
-    .others {
-      margin-top: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+  styles: [
+    `
+      .others {
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
 
-      span {
-        min-width: 56px;
-        color: #555;
+        span {
+          min-width: 56px;
+          color: #555;
+        }
       }
-    }
 
-    .checkbox-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 8px 16px;
-      margin-bottom: 8px;
-    }
-  `],
+      .checkbox-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 8px 16px;
+        margin-bottom: 8px;
+      }
+    `,
+  ],
 })
 export class MISFormComponent {
   private readonly fb = inject(FormBuilder);
+
+  /** Emits when form content changes (for priority suggestion recalculation) */
+  readonly contentChanged = output<void>();
 
   private formatDateForInput(d: Date): string {
     const yyyy = d.getFullYear();
@@ -199,7 +225,7 @@ export class MISFormComponent {
     }
 
     // Subscribe to category changes
-    this.categoryControl.valueChanges.subscribe(cat => {
+    this.categoryControl.valueChanges.subscribe((cat) => {
       this.category.set(cat);
       if (cat === 'WEBSITE') {
         this.softwareGroup?.reset({
@@ -220,9 +246,14 @@ export class MISFormComponent {
           others: '',
         });
       }
+      this.contentChanged.emit();
+    });
+
+    // Emit on any form value change (debounced naturally by Angular)
+    this.formGroup.valueChanges.subscribe(() => {
+      this.contentChanged.emit();
     });
   }
-
 
   validate(): { valid: boolean; error?: string } {
     const fg = this.formGroup;
@@ -250,23 +281,39 @@ export class MISFormComponent {
 
     if (cat === 'WEBSITE') {
       const web = this.websiteGroup.value;
-      const hasChoice = web.addRemoveContent || web.addRemoveFeatures ||
-                        web.addRemovePage || web.others?.trim();
+      const hasChoice =
+        web.addRemoveContent || web.addRemoveFeatures || web.addRemovePage || web.others?.trim();
       if (!hasChoice) {
-        return { valid: false, error: 'Please select at least one Website option or fill in Others.' };
+        return {
+          valid: false,
+          error: 'Please select at least one Website option or fill in Others.',
+        };
       }
     } else if (cat === 'SOFTWARE') {
       const soft = this.softwareGroup.value;
-      const hasChoice = soft.fixError || soft.enhancement || soft.newIS ||
-                        soft.userTraining || soft.backupDatabase ||
-                        soft.installExisting || soft.isImplementationSupport ||
-                        soft.others?.trim();
+      const hasChoice =
+        soft.fixError ||
+        soft.enhancement ||
+        soft.newIS ||
+        soft.userTraining ||
+        soft.backupDatabase ||
+        soft.installExisting ||
+        soft.isImplementationSupport ||
+        soft.others?.trim();
       if (!hasChoice) {
-        return { valid: false, error: 'Please select at least one Software option or fill in Others.' };
+        return {
+          valid: false,
+          error: 'Please select at least one Software option or fill in Others.',
+        };
       }
     }
 
     return { valid: true };
+  }
+
+  /** Set the details/description field value (e.g. from AI clean ticket) */
+  setDetails(text: string): void {
+    this.formGroup.get('details')?.setValue(text);
   }
 
   getPayload() {

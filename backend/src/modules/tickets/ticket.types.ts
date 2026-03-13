@@ -1,4 +1,4 @@
-import { gql } from 'apollo-server-express';
+import { gql } from "apollo-server-express";
 
 export const ticketTypeDefs = gql`
   enum TicketType {
@@ -60,6 +60,12 @@ export const ticketTypeDefs = gql`
     recommendations: String
     monitoredById: Int
     monitoredAt: String
+    # Escalation
+    escalatedAt: String
+    escalationLevel: Int!
+    # Satisfaction survey
+    satisfactionRating: Int
+    satisfactionComment: String
     createdBy: User!
     createdById: Int!
     misTicket: MISTicket
@@ -171,6 +177,31 @@ export const ticketTypeDefs = gql`
     overdue: Int!
     dueToday: Int!
     dueSoon: Int!
+    complianceRate: Float!
+    totalResolved: Int!
+    resolvedWithinSLA: Int!
+    averageResolutionHours: Float
+    overdueTickets: [Ticket!]!
+  }
+
+  type TicketTrendPoint {
+    date: String!
+    count: Int!
+  }
+
+  type StaffPerformance {
+    userId: Int!
+    name: String!
+    role: String!
+    totalAssigned: Int!
+    totalResolved: Int!
+    averageResolutionHours: Float
+    slaComplianceRate: Float!
+  }
+
+  type TicketTrends {
+    createdPerDay: [TicketTrendPoint!]!
+    resolvedPerDay: [TicketTrendPoint!]!
   }
 
   input CreateMISTicketInput {
@@ -235,11 +266,33 @@ export const ticketTypeDefs = gql`
     comment: String
   }
 
+  input SubmitSatisfactionInput {
+    rating: Int!
+    comment: String
+  }
+
   input TicketFilterInput {
     status: TicketStatus
     type: TicketType
     createdById: Int
     assignedToUserId: Int
+  }
+
+  input PaginationInput {
+    page: Int
+    pageSize: Int
+    sortField: String
+    sortOrder: String
+  }
+
+  type PaginatedTickets {
+    items: [Ticket!]!
+    totalCount: Int!
+    page: Int!
+    pageSize: Int!
+    totalPages: Int!
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
   }
 
   input AnalyticsFilterInput {
@@ -250,15 +303,20 @@ export const ticketTypeDefs = gql`
   extend type Query {
     ticket(id: Int!): Ticket
     ticketByNumber(ticketNumber: String!): Ticket
-    tickets(filter: TicketFilterInput): [Ticket!]!
-    myTickets: [Ticket!]!
-    myCreatedTickets: [Ticket!]!
+    tickets(
+      filter: TicketFilterInput
+      pagination: PaginationInput
+    ): PaginatedTickets!
+    myTickets(pagination: PaginationInput): PaginatedTickets!
+    myCreatedTickets(pagination: PaginationInput): PaginatedTickets!
     ticketsForSecretaryReview: [Ticket!]!
     ticketsPendingDirectorApproval: [Ticket!]!
     ticketsPendingAcknowledgment: [Ticket!]!
-    allSecretaryTickets: [Ticket!]!
+    allSecretaryTickets(pagination: PaginationInput): PaginatedTickets!
     ticketAnalytics(filter: AnalyticsFilterInput): TicketAnalytics!
     slaMetrics: SLAMetrics!
+    ticketTrends(filter: AnalyticsFilterInput): TicketTrends!
+    staffPerformance(filter: AnalyticsFilterInput): [StaffPerformance!]!
   }
 
   extend type Mutation {
@@ -269,7 +327,11 @@ export const ticketTypeDefs = gql`
     rejectTicketAsSecretary(ticketId: Int!, reason: String!): Ticket!
     approveTicketAsDirector(ticketId: Int!, comment: String): Ticket!
     disapproveTicketAsDirector(ticketId: Int!, reason: String!): Ticket!
-    assignTicket(ticketId: Int!, userId: Int!, input: AssignTicketInput): Ticket!
+    assignTicket(
+      ticketId: Int!
+      userId: Int!
+      input: AssignTicketInput
+    ): Ticket!
     unassignTicket(ticketId: Int!, userId: Int!): Ticket!
     addTicketNote(ticketId: Int!, input: CreateTicketNoteInput!): TicketNote!
     reopenTicket(ticketId: Int!, input: ReopenTicketInput): Ticket!
@@ -279,8 +341,13 @@ export const ticketTypeDefs = gql`
     acknowledgeSchedule(ticketId: Int!, comment: String): Ticket!
     rejectSchedule(ticketId: Int!, reason: String!): Ticket!
     # Monitor workflow (for Heads after visit)
-    addMonitorAndRecommendations(ticketId: Int!, input: AddMonitorInput!): Ticket!
+    addMonitorAndRecommendations(
+      ticketId: Int!
+      input: AddMonitorInput!
+    ): Ticket!
     # Attachment management
     deleteTicketAttachment(attachmentId: Int!): Boolean!
+    # Satisfaction survey
+    submitSatisfaction(ticketId: Int!, input: SubmitSatisfactionInput!): Ticket!
   }
 `;

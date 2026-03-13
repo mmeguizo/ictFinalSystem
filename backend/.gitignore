@@ -5,3 +5,4 @@ uploads/
 /.cache
 *.log
 prisma/dev.db
+certs/

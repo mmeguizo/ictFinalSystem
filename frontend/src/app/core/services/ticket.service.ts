@@ -132,180 +132,204 @@ const USERS_BY_ROLES = gql`
  * Query to get tickets assigned to the current user (for DEVELOPER/TECHNICAL)
  */
 const MY_ASSIGNED_TICKETS = gql`
-  query MyTickets {
-    myTickets {
-      id
-      ticketNumber
-      type
-      title
-      description
-      status
-      priority
-      dueDate
-      dateToVisit
-      targetCompletionDate
-      headScheduledAt
-      adminAcknowledgedAt
-      monitorNotes
-      recommendations
-      monitoredAt
-      createdAt
-      updatedAt
-      createdBy {
+  query MyTickets($pagination: PaginationInput) {
+    myTickets(pagination: $pagination) {
+      items {
         id
-        name
-        email
-      }
-      assignments {
-        user {
-          id
-          name
-          role
-        }
-        assignedAt
-      }
-      notes {
-        id
-        content
-        isInternal
+        ticketNumber
+        type
+        title
+        description
+        status
+        priority
+        dueDate
+        dateToVisit
+        targetCompletionDate
+        headScheduledAt
+        adminAcknowledgedAt
+        monitorNotes
+        recommendations
+        monitoredAt
         createdAt
-        user {
+        updatedAt
+        createdBy {
           id
           name
-          role
+          email
         }
-      }
-      statusHistory {
-        id
-        fromStatus
-        toStatus
-        comment
-        createdAt
-        user {
+        assignments {
+          user {
+            id
+            name
+            role
+          }
+          assignedAt
+        }
+        notes {
           id
-          name
-          role
+          content
+          isInternal
+          createdAt
+          user {
+            id
+            name
+            role
+          }
+        }
+        statusHistory {
+          id
+          fromStatus
+          toStatus
+          comment
+          createdAt
+          user {
+            id
+            name
+            role
+          }
         }
       }
+      totalCount
+      page
+      pageSize
+      totalPages
+      hasNextPage
+      hasPreviousPage
     }
   }
 `;
 
 const ALL_TICKETS = gql`
-  query AllTickets {
-    tickets {
-      id
-      ticketNumber
-      type
-      title
-      description
-      status
-      priority
-      dueDate
-      dateToVisit
-      targetCompletionDate
-      secretaryReviewedAt
-      directorApprovedAt
-      headScheduledAt
-      adminAcknowledgedAt
-      monitorNotes
-      recommendations
-      monitoredAt
-      createdAt
-      updatedAt
-      resolvedAt
-      closedAt
-      createdBy {
+  query AllTickets($pagination: PaginationInput) {
+    tickets(pagination: $pagination) {
+      items {
         id
-        name
-        email
-      }
-      assignments {
-        user {
+        ticketNumber
+        type
+        title
+        description
+        status
+        priority
+        dueDate
+        dateToVisit
+        targetCompletionDate
+        secretaryReviewedAt
+        directorApprovedAt
+        headScheduledAt
+        adminAcknowledgedAt
+        monitorNotes
+        recommendations
+        monitoredAt
+        createdAt
+        updatedAt
+        resolvedAt
+        closedAt
+        createdBy {
           id
           name
           email
-          role
         }
-        assignedAt
-      }
-      notes {
-        id
-        content
-        isInternal
-        createdAt
-        user {
+        assignments {
+          user {
+            id
+            name
+            email
+            role
+          }
+          assignedAt
+        }
+        notes {
           id
-          name
-          role
+          content
+          isInternal
+          createdAt
+          user {
+            id
+            name
+            role
+          }
         }
-      }
-      statusHistory {
-        id
-        fromStatus
-        toStatus
-        comment
-        createdAt
-        user {
+        statusHistory {
           id
-          name
-          role
+          fromStatus
+          toStatus
+          comment
+          createdAt
+          user {
+            id
+            name
+            role
+          }
         }
       }
+      totalCount
+      page
+      pageSize
+      totalPages
+      hasNextPage
+      hasPreviousPage
     }
   }
 `;
 
 const MY_CREATED_TICKETS = gql`
-  query MyCreatedTickets {
-    myCreatedTickets {
-      id
-      ticketNumber
-      type
-      title
-      description
-      status
-      priority
-      dueDate
-      dateToVisit
-      targetCompletionDate
-      secretaryReviewedAt
-      directorApprovedAt
-      headScheduledAt
-      adminAcknowledgedAt
-      monitorNotes
-      recommendations
-      monitoredAt
-      createdAt
-      updatedAt
-      resolvedAt
-      closedAt
-      createdBy {
+  query MyCreatedTickets($pagination: PaginationInput) {
+    myCreatedTickets(pagination: $pagination) {
+      items {
         id
-        name
-        email
-      }
-      assignments {
-        user {
+        ticketNumber
+        type
+        title
+        description
+        status
+        priority
+        dueDate
+        dateToVisit
+        targetCompletionDate
+        secretaryReviewedAt
+        directorApprovedAt
+        headScheduledAt
+        adminAcknowledgedAt
+        monitorNotes
+        recommendations
+        monitoredAt
+        createdAt
+        updatedAt
+        resolvedAt
+        closedAt
+        createdBy {
           id
           name
           email
-          role
         }
-        assignedAt
-      }
-      statusHistory {
-        id
-        fromStatus
-        toStatus
-        comment
-        createdAt
-        user {
+        assignments {
+          user {
+            id
+            name
+            email
+            role
+          }
+          assignedAt
+        }
+        statusHistory {
           id
-          name
-          role
+          fromStatus
+          toStatus
+          comment
+          createdAt
+          user {
+            id
+            name
+            role
+          }
         }
       }
+      totalCount
+      page
+      pageSize
+      totalPages
+      hasNextPage
+      hasPreviousPage
     }
   }
 `;
@@ -333,55 +357,63 @@ const TICKETS_FOR_SECRETARY_REVIEW = gql`
 `;
 
 const ALL_SECRETARY_TICKETS = gql`
-  query AllSecretaryTickets {
-    allSecretaryTickets {
-      id
-      ticketNumber
-      type
-      title
-      description
-      status
-      priority
-      dueDate
-      dateToVisit
-      targetCompletionDate
-      secretaryReviewedAt
-      secretaryReviewedById
-      directorApprovedAt
-      directorApprovedById
-      headScheduledAt
-      adminAcknowledgedAt
-      monitorNotes
-      recommendations
-      monitoredAt
-      createdAt
-      updatedAt
-      createdBy {
+  query AllSecretaryTickets($pagination: PaginationInput) {
+    allSecretaryTickets(pagination: $pagination) {
+      items {
         id
-        name
-        email
-      }
-      assignments {
-        user {
+        ticketNumber
+        type
+        title
+        description
+        status
+        priority
+        dueDate
+        dateToVisit
+        targetCompletionDate
+        secretaryReviewedAt
+        secretaryReviewedById
+        directorApprovedAt
+        directorApprovedById
+        headScheduledAt
+        adminAcknowledgedAt
+        monitorNotes
+        recommendations
+        monitoredAt
+        createdAt
+        updatedAt
+        createdBy {
           id
           name
           email
-          role
         }
-        assignedAt
-      }
-      statusHistory {
-        id
-        fromStatus
-        toStatus
-        comment
-        createdAt
-        user {
+        assignments {
+          user {
+            id
+            name
+            email
+            role
+          }
+          assignedAt
+        }
+        statusHistory {
           id
-          name
-          role
+          fromStatus
+          toStatus
+          comment
+          createdAt
+          user {
+            id
+            name
+            role
+          }
         }
       }
+      totalCount
+      page
+      pageSize
+      totalPages
+      hasNextPage
+      hasPreviousPage
     }
   }
 `;
@@ -591,6 +623,10 @@ const TICKET_BY_NUMBER = gql`
       recommendations
       monitoredById
       monitoredAt
+      escalatedAt
+      escalationLevel
+      satisfactionRating
+      satisfactionComment
       createdAt
       updatedAt
       resolvedAt
@@ -858,6 +894,30 @@ export interface TicketListItem {
   }>;
 }
 
+/**
+ * Paginated response from the backend.
+ * Matches the PaginatedTickets GraphQL type.
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+/**
+ * Pagination parameters for list queries.
+ */
+export interface PaginationParams {
+  page?: number;
+  pageSize?: number;
+  sortField?: string;
+  sortOrder?: string;
+}
+
 export interface TicketDetail extends TicketListItem {
   estimatedDuration?: number;
   actualDuration?: number;
@@ -866,6 +926,10 @@ export interface TicketDetail extends TicketListItem {
   headScheduledById?: number;
   adminAcknowledgedById?: number;
   monitoredById?: number;
+  escalatedAt?: string;
+  escalationLevel?: number;
+  satisfactionRating?: number;
+  satisfactionComment?: string;
   misTicket?: {
     category: string;
     websiteNewRequest: boolean;
@@ -964,7 +1028,7 @@ export class TicketService {
             throw new Error('Failed to create MIS ticket');
           }
           return result.data.createMISTicket;
-        })
+        }),
       );
   }
 
@@ -980,14 +1044,15 @@ export class TicketService {
             throw new Error('Failed to create ITS ticket');
           }
           return result.data.createITSTicket;
-        })
+        }),
       );
   }
 
   getMyCreatedTickets(): Observable<TicketListItem[]> {
     return this.apollo
-      .query<{ myCreatedTickets: TicketListItem[] }>({
+      .query<{ myCreatedTickets: PaginatedResponse<TicketListItem> }>({
         query: MY_CREATED_TICKETS,
+        variables: { pagination: { page: 1, pageSize: 100 } },
         fetchPolicy: 'network-only', // Always fetch fresh data
       })
       .pipe(
@@ -995,8 +1060,8 @@ export class TicketService {
           if (!result.data?.myCreatedTickets) {
             throw new Error('Failed to fetch tickets');
           }
-          return result.data.myCreatedTickets;
-        })
+          return result.data.myCreatedTickets.items;
+        }),
       );
   }
 
@@ -1005,8 +1070,9 @@ export class TicketService {
    */
   getAllTickets(): Observable<TicketListItem[]> {
     return this.apollo
-      .query<{ tickets: TicketListItem[] }>({
+      .query<{ tickets: PaginatedResponse<TicketListItem> }>({
         query: ALL_TICKETS,
+        variables: { pagination: { page: 1, pageSize: 100 } },
         fetchPolicy: 'network-only',
       })
       .pipe(
@@ -1014,8 +1080,8 @@ export class TicketService {
           if (!result.data?.tickets) {
             throw new Error('Failed to fetch all tickets');
           }
-          return result.data.tickets;
-        })
+          return result.data.tickets.items;
+        }),
       );
   }
 
@@ -1032,14 +1098,11 @@ export class TicketService {
             throw new Error('Ticket not found');
           }
           return result.data.ticketByNumber;
-        })
+        }),
       );
   }
 
-  addTicketNote(
-    ticketId: number,
-    input: CreateTicketNoteInput
-  ): Observable<TicketNote> {
+  addTicketNote(ticketId: number, input: CreateTicketNoteInput): Observable<TicketNote> {
     return this.apollo
       .mutate<{ addTicketNote: TicketNote }>({
         mutation: ADD_TICKET_NOTE,
@@ -1051,7 +1114,7 @@ export class TicketService {
             throw new Error('Failed to add note');
           }
           return result.data.addTicketNote;
-        })
+        }),
       );
   }
 
@@ -1070,7 +1133,7 @@ export class TicketService {
             throw new Error('Failed to fetch tickets for secretary review');
           }
           return result.data.ticketsForSecretaryReview;
-        })
+        }),
       );
   }
 
@@ -1080,8 +1143,9 @@ export class TicketService {
    */
   getAllSecretaryTickets(): Observable<TicketListItem[]> {
     return this.apollo
-      .query<{ allSecretaryTickets: TicketListItem[] }>({
+      .query<{ allSecretaryTickets: PaginatedResponse<TicketListItem> }>({
         query: ALL_SECRETARY_TICKETS,
+        variables: { pagination: { page: 1, pageSize: 100 } },
         fetchPolicy: 'network-only',
       })
       .pipe(
@@ -1089,8 +1153,8 @@ export class TicketService {
           if (!result.data?.allSecretaryTickets) {
             throw new Error('Failed to fetch all secretary tickets');
           }
-          return result.data.allSecretaryTickets;
-        })
+          return result.data.allSecretaryTickets.items;
+        }),
       );
   }
 
@@ -1109,14 +1173,17 @@ export class TicketService {
             throw new Error('Failed to fetch tickets pending director approval');
           }
           return result.data.ticketsPendingDirectorApproval;
-        })
+        }),
       );
   }
 
   /**
    * Review ticket as secretary
    */
-  reviewAsSecretary(ticketId: number, comment?: string): Observable<{ id: number; status: string }> {
+  reviewAsSecretary(
+    ticketId: number,
+    comment?: string,
+  ): Observable<{ id: number; status: string }> {
     return this.apollo
       .mutate<{ reviewTicketAsSecretary: { id: number; ticketNumber: string; status: string } }>({
         mutation: REVIEW_TICKET_AS_SECRETARY,
@@ -1128,7 +1195,7 @@ export class TicketService {
             throw new Error('Failed to review ticket');
           }
           return result.data.reviewTicketAsSecretary;
-        })
+        }),
       );
   }
 
@@ -1148,14 +1215,17 @@ export class TicketService {
             throw new Error('Failed to reject ticket');
           }
           return result.data.rejectTicketAsSecretary;
-        })
+        }),
       );
   }
 
   /**
    * Approve ticket as director
    */
-  approveAsDirector(ticketId: number, comment?: string): Observable<{ id: number; status: string }> {
+  approveAsDirector(
+    ticketId: number,
+    comment?: string,
+  ): Observable<{ id: number; status: string }> {
     return this.apollo
       .mutate<{ approveTicketAsDirector: { id: number; ticketNumber: string; status: string } }>({
         mutation: APPROVE_TICKET_AS_DIRECTOR,
@@ -1167,7 +1237,7 @@ export class TicketService {
             throw new Error('Failed to approve ticket');
           }
           return result.data.approveTicketAsDirector;
-        })
+        }),
       );
   }
 
@@ -1175,19 +1245,24 @@ export class TicketService {
    * Disapprove/Reject ticket as director
    * Requires a reason for the rejection
    */
-  disapproveAsDirector(ticketId: number, reason: string): Observable<{ id: number; status: string }> {
+  disapproveAsDirector(
+    ticketId: number,
+    reason: string,
+  ): Observable<{ id: number; status: string }> {
     return this.apollo
-      .mutate<{ disapproveTicketAsDirector: { id: number; ticketNumber: string; status: string } }>({
-        mutation: DISAPPROVE_TICKET_AS_DIRECTOR,
-        variables: { ticketId, reason },
-      })
+      .mutate<{ disapproveTicketAsDirector: { id: number; ticketNumber: string; status: string } }>(
+        {
+          mutation: DISAPPROVE_TICKET_AS_DIRECTOR,
+          variables: { ticketId, reason },
+        },
+      )
       .pipe(
         map((result) => {
           if (!result.data?.disapproveTicketAsDirector) {
             throw new Error('Failed to disapprove ticket');
           }
           return result.data.disapproveTicketAsDirector;
-        })
+        }),
       );
   }
 
@@ -1197,7 +1272,7 @@ export class TicketService {
    */
   reopenTicket(
     ticketId: number,
-    input?: { updatedDescription?: string; comment?: string }
+    input?: { updatedDescription?: string; comment?: string },
   ): Observable<{ id: number; status: string }> {
     return this.apollo
       .mutate<{ reopenTicket: { id: number; ticketNumber: string; status: string } }>({
@@ -1210,7 +1285,7 @@ export class TicketService {
             throw new Error('Failed to reopen ticket');
           }
           return result.data.reopenTicket;
-        })
+        }),
       );
   }
 
@@ -1229,15 +1304,17 @@ export class TicketService {
   assignTicketToUser(
     ticketId: number,
     userId: number,
-    options?: { dateToVisit?: string; targetCompletionDate?: string; comment?: string }
+    options?: { dateToVisit?: string; targetCompletionDate?: string; comment?: string },
   ): Observable<TicketListItem> {
     // Build the input object only if options are provided (dateToVisit, targetCompletionDate, comment)
     // Note: userId is passed as a separate parameter, not inside input
-    const input = options ? {
-      dateToVisit: options.dateToVisit || undefined,
-      targetCompletionDate: options.targetCompletionDate || undefined,
-      comment: options.comment || undefined,
-    } : undefined;
+    const input = options
+      ? {
+          dateToVisit: options.dateToVisit || undefined,
+          targetCompletionDate: options.targetCompletionDate || undefined,
+          comment: options.comment || undefined,
+        }
+      : undefined;
 
     return this.apollo
       .mutate<{ assignTicket: TicketListItem }>({
@@ -1250,7 +1327,7 @@ export class TicketService {
             throw new Error('Failed to assign ticket');
           }
           return result.data.assignTicket;
-        })
+        }),
       );
   }
 
@@ -1266,7 +1343,7 @@ export class TicketService {
     ticketId: number,
     status: string,
     comment?: string,
-    targetCompletionDate?: string
+    targetCompletionDate?: string,
   ): Observable<{ id: number; status: string }> {
     // Build input - only include targetCompletionDate if provided
     const input: any = { status, comment };
@@ -1285,7 +1362,7 @@ export class TicketService {
             throw new Error('Failed to update ticket status');
           }
           return result.data.updateTicketStatus;
-        })
+        }),
       );
   }
 
@@ -1293,7 +1370,9 @@ export class TicketService {
    * Get users by a specific role (for assignment dropdown)
    * e.g., getDevelopersList() for MIS_HEAD
    */
-  getUsersByRole(role: string): Observable<{ id: number; name: string; email: string; role: string }[]> {
+  getUsersByRole(
+    role: string,
+  ): Observable<{ id: number; name: string; email: string; role: string }[]> {
     return this.apollo
       .query<{ usersByRole: { id: number; name: string; email: string; role: string }[] }>({
         query: USERS_BY_ROLE,
@@ -1306,14 +1385,16 @@ export class TicketService {
             throw new Error('Failed to fetch users');
           }
           return result.data.usersByRole;
-        })
+        }),
       );
   }
 
   /**
    * Get users by multiple roles
    */
-  getUsersByRoles(roles: string[]): Observable<{ id: number; name: string; email: string; role: string }[]> {
+  getUsersByRoles(
+    roles: string[],
+  ): Observable<{ id: number; name: string; email: string; role: string }[]> {
     return this.apollo
       .query<{ usersByRoles: { id: number; name: string; email: string; role: string }[] }>({
         query: USERS_BY_ROLES,
@@ -1326,7 +1407,7 @@ export class TicketService {
             throw new Error('Failed to fetch users');
           }
           return result.data.usersByRoles;
-        })
+        }),
       );
   }
 
@@ -1336,8 +1417,9 @@ export class TicketService {
    */
   getMyAssignedTickets(): Observable<TicketListItem[]> {
     return this.apollo
-      .query<{ myTickets: TicketListItem[] }>({
+      .query<{ myTickets: PaginatedResponse<TicketListItem> }>({
         query: MY_ASSIGNED_TICKETS,
+        variables: { pagination: { page: 1, pageSize: 100 } },
         fetchPolicy: 'network-only',
       })
       .pipe(
@@ -1345,8 +1427,8 @@ export class TicketService {
           if (!result.data?.myTickets) {
             throw new Error('Failed to fetch assigned tickets');
           }
-          return result.data.myTickets;
-        })
+          return result.data.myTickets.items;
+        }),
       );
   }
 
@@ -1369,7 +1451,7 @@ export class TicketService {
             throw new Error('Failed to fetch pending acknowledgment tickets');
           }
           return result.data.ticketsPendingAcknowledgment;
-        })
+        }),
       );
   }
 
@@ -1381,7 +1463,7 @@ export class TicketService {
     ticketId: number,
     dateToVisit: string,
     targetCompletionDate: string,
-    comment?: string
+    comment?: string,
   ): Observable<{ id: number; ticketNumber: string; status: string }> {
     return this.apollo
       .mutate<{ scheduleVisit: { id: number; ticketNumber: string; status: string } }>({
@@ -1397,7 +1479,7 @@ export class TicketService {
             throw new Error('Failed to schedule visit');
           }
           return result.data.scheduleVisit;
-        })
+        }),
       );
   }
 
@@ -1406,7 +1488,7 @@ export class TicketService {
    */
   acknowledgeSchedule(
     ticketId: number,
-    comment?: string
+    comment?: string,
   ): Observable<{ id: number; ticketNumber: string; status: string }> {
     return this.apollo
       .mutate<{ acknowledgeSchedule: { id: number; ticketNumber: string; status: string } }>({
@@ -1419,7 +1501,7 @@ export class TicketService {
             throw new Error('Failed to acknowledge schedule');
           }
           return result.data.acknowledgeSchedule;
-        })
+        }),
       );
   }
 
@@ -1428,7 +1510,7 @@ export class TicketService {
    */
   rejectSchedule(
     ticketId: number,
-    reason: string
+    reason: string,
   ): Observable<{ id: number; ticketNumber: string; status: string }> {
     return this.apollo
       .mutate<{ rejectSchedule: { id: number; ticketNumber: string; status: string } }>({
@@ -1441,7 +1523,7 @@ export class TicketService {
             throw new Error('Failed to reject schedule');
           }
           return result.data.rejectSchedule;
-        })
+        }),
       );
   }
 
@@ -1452,10 +1534,12 @@ export class TicketService {
     ticketId: number,
     monitorNotes: string,
     recommendations: string,
-    comment?: string
+    comment?: string,
   ): Observable<{ id: number; ticketNumber: string; status: string }> {
     return this.apollo
-      .mutate<{ addMonitorAndRecommendations: { id: number; ticketNumber: string; status: string } }>({
+      .mutate<{
+        addMonitorAndRecommendations: { id: number; ticketNumber: string; status: string };
+      }>({
         mutation: ADD_MONITOR_AND_RECOMMENDATIONS,
         variables: {
           ticketId,
@@ -1468,7 +1552,7 @@ export class TicketService {
             throw new Error('Failed to add monitor notes');
           }
           return result.data.addMonitorAndRecommendations;
-        })
+        }),
       );
   }
 
@@ -1487,7 +1571,7 @@ export class TicketService {
   uploadAttachments(
     ticketId: number,
     files: File[],
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
   ): Observable<{ success: boolean; attachments: TicketAttachment[] }> {
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
@@ -1498,27 +1582,35 @@ export class TicketService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    return this.http.post<{ success: boolean; attachments: TicketAttachment[] }>(
-      `${this.apiBaseUrl}/upload/ticket-attachments?ticketId=${ticketId}`,
-      formData,
-      { headers, reportProgress: true, observe: 'events' }
-    ).pipe(
-      map((event) => {
-        if (event.type === HttpEventType.UploadProgress && event.total) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          if (onProgress) onProgress(percent);
-          // Return null for progress events (will be filtered out)
+    return this.http
+      .post<{
+        success: boolean;
+        attachments: TicketAttachment[];
+      }>(`${this.apiBaseUrl}/upload/ticket-attachments?ticketId=${ticketId}`, formData, {
+        headers,
+        reportProgress: true,
+        observe: 'events',
+      })
+      .pipe(
+        map((event) => {
+          if (event.type === HttpEventType.UploadProgress && event.total) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            if (onProgress) onProgress(percent);
+            // Return null for progress events (will be filtered out)
+            return null as any;
+          }
+          if (event.type === HttpEventType.Response) {
+            if (onProgress) onProgress(100);
+            return event.body as { success: boolean; attachments: TicketAttachment[] };
+          }
           return null as any;
-        }
-        if (event.type === HttpEventType.Response) {
-          if (onProgress) onProgress(100);
-          return event.body as { success: boolean; attachments: TicketAttachment[] };
-        }
-        return null as any;
-      }),
-      // Filter out null progress events, only emit the final response
-      filter((result): result is { success: boolean; attachments: TicketAttachment[] } => result !== null)
-    );
+        }),
+        // Filter out null progress events, only emit the final response
+        filter(
+          (result): result is { success: boolean; attachments: TicketAttachment[] } =>
+            result !== null,
+        ),
+      );
   }
 
   /**
@@ -1537,7 +1629,26 @@ export class TicketService {
             throw new Error('Failed to delete attachment');
           }
           return result.data.deleteTicketAttachment;
-        })
+        }),
+      );
+  }
+
+  /**
+   * Submit satisfaction survey for a resolved/closed ticket
+   */
+  submitSatisfaction(ticketId: number, rating: number, comment?: string): Observable<any> {
+    return this.apollo
+      .mutate<{ submitSatisfaction: any }>({
+        mutation: SUBMIT_SATISFACTION,
+        variables: { ticketId, input: { rating, comment: comment || null } },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.submitSatisfaction) {
+            throw new Error('Failed to submit satisfaction survey');
+          }
+          return result.data.submitSatisfaction;
+        }),
       );
   }
 

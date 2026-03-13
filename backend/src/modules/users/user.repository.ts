@@ -1,6 +1,6 @@
-import { User, Role } from '@prisma/client';
-import { prisma } from '../../lib/prisma';
-import { NotFoundError } from '../../lib/errors';
+import { User, Role } from "@prisma/client";
+import { prisma } from "../../lib/prisma";
+import { NotFoundError } from "../../lib/errors";
 
 export class UserRepository {
   async findById(id: number): Promise<User | null> {
@@ -10,7 +10,7 @@ export class UserRepository {
   async findByIdOrThrow(id: number): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
-      throw new NotFoundError('User');
+      throw new NotFoundError("User");
     }
     return user;
   }
@@ -27,7 +27,7 @@ export class UserRepository {
 
   async findAll(): Promise<User[]> {
     return prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -58,7 +58,11 @@ export class UserRepository {
       picture: string | null;
       avatarUrl: string | null;
       lastLoginAt: Date;
-    }>
+      externalId: string;
+      isActive: boolean;
+      deactivatedAt: Date | null;
+      deactivatedById: number | null;
+    }>,
   ): Promise<User> {
     return prisma.user.update({
       where: { id },
@@ -80,7 +84,7 @@ export class UserRepository {
       picture: string | null;
       avatarUrl: string | null;
       lastLoginAt: Date;
-    }>
+    }>,
   ): Promise<{ user: User; created: boolean }> {
     const existing = await this.findByExternalId(externalId);
 
@@ -107,7 +111,7 @@ export class UserRepository {
   async findByRole(role: Role): Promise<User[]> {
     return prisma.user.findMany({
       where: { role },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
   }
 
@@ -117,7 +121,7 @@ export class UserRepository {
   async findByRoles(roles: Role[]): Promise<User[]> {
     return prisma.user.findMany({
       where: { role: { in: roles } },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
   }
 

@@ -1,0 +1,1154 @@
+<div class="docs-container">
+  <h2 nz-typography>
+    <span nz-icon nzType="read" nzTheme="outline"></span>
+    System Documentation
+  </h2>
+  <p nz-typography nzType="secondary">
+    Changelog, user manual, and system reference for the ICT Support Ticketing System.
+  </p>
+
+  <nz-tabset
+    [nzSelectedIndex]="activeTab()"
+    (nzSelectedIndexChange)="onTabChange($event)"
+    nzSize="large"
+  >
+    <!-- ==================== CHANGELOG TAB ==================== -->
+    <nz-tab nzTitle="Changelog">
+      <div class="doc-content">
+        <div class="version-header">
+          <nz-tag nzColor="green">Latest</nz-tag>
+          <h3>Version 2.2.0 <small>— March 13, 2026</small></h3>
+        </div>
+        <h4>Fixed — SLA Tracker &amp; Real-Time Updates</h4>
+        <h5>Bug Fixes</h5>
+        <ul>
+          <li>
+            <strong>SLA tracker stuck on Assignment step</strong> — When MIS head assigns a staff
+            member, the DIRECTOR_APPROVED → ASSIGNED transition now properly records a status
+            history entry.
+          </li>
+          <li>
+            <strong>Ticket creator's SLA tracker not updating in real-time</strong> —
+            <code>assignUser()</code> now publishes <code>TICKET_STATUS_CHANGED</code> event in
+            addition to <code>TICKET_ASSIGNED</code>.
+          </li>
+          <li>
+            <strong>Gemini AI JSON truncation</strong> — Increased <code>maxOutputTokens</code> from
+            1024 → 2048 with partial JSON recovery logic.
+          </li>
+          <li>
+            <strong>Developer can't start work on SCHEDULED tickets</strong> — Added SCHEDULED to
+            the workable statuses. Developers now see "Start Work" and "Update Status" buttons.
+          </li>
+        </ul>
+        <h5>Improvements</h5>
+        <ul>
+          <li>
+            <strong>AI clean_ticket actionable</strong> — Added "Apply to Description" button in the
+            AI Analysis panel on the submit-ticket page.
+          </li>
+          <li>
+            <strong>SLA reminder popup scoped to regular users</strong> — Auto-popup SLA modal now
+            only appears for USER role.
+          </li>
+          <li>
+            <strong>SCHEDULED → IN_PROGRESS transition</strong> — Added default status comment in
+            repository transition map.
+          </li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 2.1.0 <small>— March 12, 2026</small></h3>
+        </div>
+        <h4>Added — AI-Powered Ticket Analysis (Gemini Integration)</h4>
+        <ul>
+          <li>
+            <strong>Gemini AI ticket analysis</strong> — Analyzes ticket descriptions using Google
+            Gemini 2.0 Flash to provide: clean rewritten description, summary, category, priority,
+            root cause, solutions, and keywords.
+          </li>
+          <li>
+            <strong>Smart Suggestions on ticket creation</strong> — "Analyze with AI" button that
+            queries AI + searches similar resolved tickets + finds related KB articles.
+          </li>
+          <li>
+            <strong>Similar tickets search</strong> — MySQL fulltext search in BOOLEAN MODE on
+            Ticket(title, description).
+          </li>
+          <li>
+            <strong>Related KB articles</strong> — Searches Knowledge Base articles by keywords
+            extracted from the ticket description.
+          </li>
+          <li>
+            <strong>AI priority auto-apply</strong> — If AI returns a priority and user hasn't
+            manually overridden, the suggested priority is auto-applied.
+          </li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 2.0.0 <small>— March 1, 2026</small></h3>
+        </div>
+        <h4>Added — Knowledge Base, Analytics, SLA, Real-Time Dashboard</h4>
+        <div class="feature-grid">
+          <nz-card nzSize="small" nzTitle="Knowledge Base">
+            <ul>
+              <li>Full CRUD for articles with WYSIWYG editor</li>
+              <li>Category-based browsing and fulltext search</li>
+              <li>View count and helpful count tracking</li>
+              <li>Seeded with 6 common ICT FAQ articles</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="Analytics & Reporting">
+            <ul>
+              <li>
+                Pie charts (by status, by type), Bar charts (by priority, staff workload), Line
+                charts (trends)
+              </li>
+              <li>Date range picker for filtering</li>
+              <li>Export to PDF and Excel</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="SLA Enforcement">
+            <ul>
+              <li>5-step × 5-min processing time tracker</li>
+              <li>SLA breach cron job with 2-level escalation</li>
+              <li>SLA dashboard: overdue list, compliance rate</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="Real-Time Dashboard">
+            <ul>
+              <li>WebSocket-driven dashboard refresh</li>
+              <li>Live connection indicator + pulse animations</li>
+              <li>5-minute fallback polling as safety net</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="Satisfaction Survey">
+            <ul>
+              <li>Star rating (1-5) + comment</li>
+              <li>Available on RESOLVED/CLOSED tickets</li>
+              <li>Only for ticket creator</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="Smart Priority Suggestion">
+            <ul>
+              <li>Keyword NLP engine with weighted rules</li>
+              <li>Auto-suggest priority on ticket creation</li>
+              <li>Override option for users</li>
+            </ul>
+          </nz-card>
+        </div>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 1.3.0 <small>— December 19, 2025</small></h3>
+        </div>
+        <h4>Added — Department Head Assignment Workflow</h4>
+        <ul>
+          <li>
+            <strong>MIS_HEAD/ITS_HEAD assignment modal</strong> — Dropdown list of staff with
+            "Assign" button
+          </li>
+          <li>
+            <strong>DEVELOPER/TECHNICAL status update modal</strong> — In Progress, On Hold,
+            Resolved with comments
+          </li>
+          <li>
+            <strong>Smart button visibility</strong> — Context-aware buttons based on role and
+            ticket state
+          </li>
+          <li><strong>Role-based navigation</strong> — Each role sees relevant menu items</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 1.2.0 <small>— December 19, 2025</small></h3>
+        </div>
+        <h4>Changed — Role Structure Update</h4>
+        <ul>
+          <li>
+            Restructured roles: removed OFFICE_HEAD, added MIS_HEAD, ITS_HEAD, DEVELOPER, TECHNICAL
+          </li>
+          <li>Auto-assignment: MIS tickets → MIS_HEAD, ITS tickets → ITS_HEAD</li>
+          <li>Department heads manually assign to their staff</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 1.1.0 <small>— December 19, 2025</small></h3>
+        </div>
+        <h4>Changed — Review Workflow Update</h4>
+        <ul>
+          <li>Changed terminology from "approval" to "review" for secretary role</li>
+          <li>PENDING → FOR_REVIEW, SECRETARY_APPROVED → REVIEWED</li>
+          <li>Only director has approval authority</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 1.0.0 <small>— December 18, 2025</small></h3>
+        </div>
+        <h4>Initial Release</h4>
+        <ul>
+          <li>MIS and ITS ticket creation</li>
+          <li>Secretary and Director approval workflow</li>
+          <li>Auto-incrementing control numbers (YYYY-MM-NNN)</li>
+          <li>Dual authentication: Auth0 SSO + local email/password with JWT</li>
+          <li>Role-based access control (8 roles)</li>
+          <li>Profile management with avatar upload</li>
+          <li>Status tracking and history</li>
+        </ul>
+      </div>
+    </nz-tab>
+
+    <!-- ==================== USER MANUAL TAB ==================== -->
+    <nz-tab nzTitle="User Manual">
+      <div class="doc-content manual-content">
+        <!-- Table of Contents -->
+        <nz-card id="toc" nzSize="small" class="toc-card">
+          <h4>Table of Contents</h4>
+          <ol>
+            <li><a (click)="scrollToSection('section-1')">System Overview</a></li>
+            <li>
+              <a (click)="scrollToSection('section-2')">Getting Started — Login &amp; Navigation</a>
+            </li>
+            <li><a (click)="scrollToSection('section-3')">Dashboard</a></li>
+            <li><a (click)="scrollToSection('section-4')">Submitting a Ticket</a></li>
+            <li><a (click)="scrollToSection('section-5')">Tracking Your Tickets</a></li>
+            <li><a (click)="scrollToSection('section-6')">Ticket Detail Page</a></li>
+            <li><a (click)="scrollToSection('section-7')">SLA Processing Time Tracker</a></li>
+            <li><a (click)="scrollToSection('section-8')">Approval Workflow</a></li>
+            <li><a (click)="scrollToSection('section-9')">Assignment &amp; Scheduling</a></li>
+            <li><a (click)="scrollToSection('section-10')">Working on Tickets</a></li>
+            <li><a (click)="scrollToSection('section-11')">Admin Functions</a></li>
+            <li><a (click)="scrollToSection('section-12')">Analytics &amp; Reports</a></li>
+            <li><a (click)="scrollToSection('section-13')">Knowledge Base</a></li>
+            <li><a (click)="scrollToSection('section-14')">Notifications</a></li>
+            <li><a (click)="scrollToSection('section-15')">AI-Powered Smart Suggestions</a></li>
+            <li><a (click)="scrollToSection('section-16')">Satisfaction Survey</a></li>
+            <li>
+              <a (click)="scrollToSection('section-17')">Roles &amp; Ticket Status Reference</a>
+            </li>
+          </ol>
+        </nz-card>
+
+        <!-- 1. System Overview -->
+        <h3 id="section-1">1. System Overview</h3>
+        <p>
+          The ICT Support Ticketing System is a web-based service request platform designed for the
+          ICT Department of CHMSU. It enables employees to submit service requests, which are routed
+          through a structured approval and assignment workflow, tracked with SLA enforcement, and
+          enhanced by AI-powered analysis.
+        </p>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ticket Management</strong></td>
+                <td>Submit, track, and resolve IT service requests (MIS and ITS)</td>
+              </tr>
+              <tr>
+                <td><strong>Approval Workflow</strong></td>
+                <td>Multi-level review: Secretary → Director → Department Head</td>
+              </tr>
+              <tr>
+                <td><strong>SLA Enforcement</strong></td>
+                <td>5-step, 25-minute processing time target with automated breach alerts</td>
+              </tr>
+              <tr>
+                <td><strong>AI Analysis</strong></td>
+                <td>Google Gemini-powered ticket analysis with smart suggestions</td>
+              </tr>
+              <tr>
+                <td><strong>Knowledge Base</strong></td>
+                <td>Self-service FAQ library to resolve common issues</td>
+              </tr>
+              <tr>
+                <td><strong>Real-Time Updates</strong></td>
+                <td>WebSocket-driven live dashboard and notifications</td>
+              </tr>
+              <tr>
+                <td><strong>Analytics</strong></td>
+                <td>Charts, trends, SLA compliance, staff performance, PDF/Excel export</td>
+              </tr>
+              <tr>
+                <td><strong>Satisfaction Survey</strong></td>
+                <td>Star rating feedback after ticket resolution</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 2. Getting Started -->
+        <h3 id="section-2">2. Getting Started — Login &amp; Navigation</h3>
+        <h4>Logging In</h4>
+        <p>The system supports two login methods:</p>
+        <ul>
+          <li>
+            <strong>Social Login (Auth0)</strong> — Click "Login with Google" or "Login with
+            Microsoft"
+          </li>
+          <li>
+            <strong>Email &amp; Password</strong> — Enter your registered email and password, click
+            "Login"
+          </li>
+        </ul>
+        <h4>Navigation</h4>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Menu Item</th>
+                <th>Who Can Access</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Dashboard</td>
+                <td>All users</td>
+              </tr>
+              <tr>
+                <td>My Tickets</td>
+                <td>All users</td>
+              </tr>
+              <tr>
+                <td>Submit New Ticket</td>
+                <td>USER, SECRETARY, ADMIN</td>
+              </tr>
+              <tr>
+                <td>Approvals / Review Queue</td>
+                <td>SECRETARY, DIRECTOR, MIS_HEAD, ITS_HEAD, ADMIN</td>
+              </tr>
+              <tr>
+                <td>Analytics</td>
+                <td>ADMIN, DIRECTOR, MIS_HEAD, ITS_HEAD</td>
+              </tr>
+              <tr>
+                <td>Knowledge Base</td>
+                <td>All users</td>
+              </tr>
+              <tr>
+                <td>Notifications</td>
+                <td>All users</td>
+              </tr>
+              <tr>
+                <td>Admin Panel</td>
+                <td>ADMIN only</td>
+              </tr>
+              <tr>
+                <td>Documentation (this page)</td>
+                <td>ADMIN (sidebar) / All users (via URL)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 3. Dashboard -->
+        <h3 id="section-3">3. Dashboard</h3>
+        <p>
+          The Dashboard is the first page after login. It provides a real-time overview of ticket
+          activity.
+        </p>
+        <h4>Statistics Cards</h4>
+        <p>
+          Live-updating stat cards: Total Tickets, For Review, Reviewed, Assigned, In Progress, On
+          Hold, Resolved, Closed, Cancelled, Ongoing.
+        </p>
+        <ul>
+          <li>
+            Cards update in <strong>real-time</strong> via WebSocket — no manual refresh needed
+          </li>
+          <li>
+            A green <strong>Live</strong> indicator appears when the WebSocket connection is active
+          </li>
+          <li>Cards <strong>pulse</strong> briefly when their values change</li>
+        </ul>
+        <h4>SLA Reminder</h4>
+        <p>
+          On login, regular users (USER role) see a popup explaining the 5-step SLA processing time
+          (25 minutes total). The "Learn More" button on the banner is available to all roles.
+        </p>
+        <h4>Recent Tickets</h4>
+        <p>
+          Table showing the last 10 tickets created. Click any row to navigate to the ticket detail
+          page.
+        </p>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 4. Submitting a Ticket -->
+        <h3 id="section-4">4. Submitting a Ticket</h3>
+        <p><strong>Who can submit:</strong> USER, SECRETARY, ADMIN</p>
+        <h4>Choose Ticket Type</h4>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Purpose</th>
+                <th>Routed To</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><nz-tag nzColor="blue">MIS</nz-tag></td>
+                <td>Website and software development requests</td>
+                <td>MIS_HEAD → DEVELOPER</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="orange">ITS</nz-tag></td>
+                <td>Equipment borrowing and maintenance requests</td>
+                <td>ITS_HEAD → TECHNICAL</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h4>Common Fields</h4>
+        <ul>
+          <li>
+            <strong>Title</strong> (required) — Brief description of the issue (min 5 characters)
+          </li>
+          <li>
+            <strong>Description</strong> (required) — Detailed explanation (min 10 characters)
+          </li>
+          <li>
+            <strong>Priority</strong> (optional) — LOW, MEDIUM, HIGH, or CRITICAL (default: MEDIUM)
+          </li>
+        </ul>
+        <h4>MIS-Specific Fields</h4>
+        <p>
+          Category (WEBSITE or SOFTWARE), checkboxes for New Request / Update / Install, Website
+          URL, Estimated Duration, Additional Notes.
+        </p>
+        <h4>ITS-Specific Fields</h4>
+        <p>
+          Device Type, Device Model, Serial Number, Borrow Request + Details, Maintenance checkboxes
+          + Details.
+        </p>
+        <h4>Auto-Generated Fields</h4>
+        <ul>
+          <li>
+            <strong>Ticket Number</strong>: <code>TKT-YYYYMMDD-NNN</code> (e.g., TKT-20260313-001)
+          </li>
+          <li><strong>Control Number</strong>: <code>YYYY-MM-NNN</code> (e.g., 2026-03-001)</li>
+          <li><strong>Due Date</strong>: CRITICAL=4h, HIGH=24h, MEDIUM=72h, LOW=168h (7 days)</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 5. Tracking Your Tickets -->
+        <h3 id="section-5">5. Tracking Your Tickets</h3>
+        <p>Navigate to <strong>My Tickets</strong> to see all tickets you've created.</p>
+        <ul>
+          <li><strong>Status Filter</strong> — Dropdown to filter by status</li>
+          <li><strong>Color-coded Tags</strong> — Status and priority are color-coded</li>
+          <li><strong>Real-Time Updates</strong> — List updates automatically via WebSocket</li>
+          <li>Click any row to open the full ticket detail page</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 6. Ticket Detail -->
+        <h3 id="section-6">6. Ticket Detail Page</h3>
+        <h4>Sections</h4>
+        <ul>
+          <li>
+            <strong>Ticket Information</strong> — Number, title, description, type, status,
+            priority, dates, assigned staff
+          </li>
+          <li>
+            <strong>Status History Timeline</strong> — Every status transition with who, when, and
+            comments
+          </li>
+          <li><strong>SLA Processing Time Tracker</strong> — 5-step visual progress</li>
+          <li>
+            <strong>Notes &amp; Comments</strong> — Add notes (with "Internal Note" checkbox for
+            staff), view all notes
+          </li>
+          <li><strong>Attachments</strong> — Upload, download, and delete files</li>
+          <li>
+            <strong>Action Buttons</strong> — Varies by role and current status (see table below)
+          </li>
+        </ul>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Available Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>SECRETARY</td>
+                <td>FOR_REVIEW</td>
+                <td>Review, Reject (with reason)</td>
+              </tr>
+              <tr>
+                <td>DIRECTOR</td>
+                <td>REVIEWED</td>
+                <td>Approve, Disapprove (with reason)</td>
+              </tr>
+              <tr>
+                <td>MIS_HEAD / ITS_HEAD</td>
+                <td>ASSIGNED</td>
+                <td>Assign to staff, Schedule visit</td>
+              </tr>
+              <tr>
+                <td>ADMIN</td>
+                <td>PENDING_ACK</td>
+                <td>Acknowledge schedule</td>
+              </tr>
+              <tr>
+                <td>DEVELOPER / TECHNICAL</td>
+                <td>SCHEDULED</td>
+                <td>Start Work</td>
+              </tr>
+              <tr>
+                <td>DEVELOPER / TECHNICAL</td>
+                <td>IN_PROGRESS</td>
+                <td>Update Status, Put On Hold, Resolve</td>
+              </tr>
+              <tr>
+                <td>USER (creator)</td>
+                <td>CANCELLED</td>
+                <td>Reopen ticket</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 7. SLA Tracker -->
+        <h3 id="section-7">7. SLA Processing Time Tracker</h3>
+        <p>
+          Located on the Ticket Detail Page. Target: <strong>25 minutes total</strong> (5 min per
+          step).
+        </p>
+        <div class="sla-steps">
+          <div class="sla-step">
+            <div class="step-number">1</div>
+            <div class="step-info">
+              <strong>Secretary Review</strong>
+              <span>Secretary reviews and endorses the ticket (5 min)</span>
+            </div>
+          </div>
+          <div class="sla-step">
+            <div class="step-number">2</div>
+            <div class="step-info">
+              <strong>Director Endorsement</strong>
+              <span>Director reviews and approves the request (5 min)</span>
+            </div>
+          </div>
+          <div class="sla-step">
+            <div class="step-number">3</div>
+            <div class="step-info">
+              <strong>Assignment</strong>
+              <span>Auto-assigned to department head, then to specific staff (5 min)</span>
+            </div>
+          </div>
+          <div class="sla-step">
+            <div class="step-number">4</div>
+            <div class="step-info">
+              <strong>Schedule Visit</strong>
+              <span>Head sets visit date and target completion (5 min)</span>
+            </div>
+          </div>
+          <div class="sla-step">
+            <div class="step-number">5</div>
+            <div class="step-info">
+              <strong>Acknowledgment</strong>
+              <span>Admin acknowledges the schedule, staff starts work (5 min)</span>
+            </div>
+          </div>
+        </div>
+        <h4>SLA Breach Alerts</h4>
+        <ul>
+          <li>A cron job runs every 5 minutes to detect overdue tickets</li>
+          <li><strong>Level 1</strong>: Notifies assigned staff + department head</li>
+          <li><strong>Level 2</strong>: Notifies ADMIN + DIRECTOR</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 8. Approval Workflow -->
+        <h3 id="section-8">8. Approval Workflow</h3>
+        <h4>Secretary Workflow</h4>
+        <ol>
+          <li>
+            View tickets with status <nz-tag nzColor="default">FOR_REVIEW</nz-tag> on the Approvals
+            page
+          </li>
+          <li>
+            Click <strong>"Review"</strong> to endorse → status becomes
+            <nz-tag nzColor="cyan">REVIEWED</nz-tag>
+          </li>
+          <li>
+            Or click <strong>"Reject"</strong> with reason → status becomes
+            <nz-tag nzColor="red">CANCELLED</nz-tag>
+          </li>
+        </ol>
+        <h4>Director Workflow</h4>
+        <ol>
+          <li>View tickets with status <nz-tag nzColor="cyan">REVIEWED</nz-tag></li>
+          <li>
+            Click <strong>"Approve"</strong> → status becomes
+            <nz-tag nzColor="green">DIRECTOR_APPROVED</nz-tag>
+          </li>
+          <li>
+            Or click <strong>"Disapprove"</strong> with reason → status becomes
+            <nz-tag nzColor="red">CANCELLED</nz-tag>
+          </li>
+        </ol>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 9. Assignment & Scheduling -->
+        <h3 id="section-9">9. Assignment &amp; Scheduling</h3>
+        <h4>Assigning Staff (MIS_HEAD / ITS_HEAD)</h4>
+        <ol>
+          <li>After director approval, the ticket auto-arrives in the department head's queue</li>
+          <li>Open the ticket and click <strong>"Assign to Staff"</strong></li>
+          <li>Select a staff member from the dropdown (sorted by workload)</li>
+        </ol>
+        <h4>Scheduling a Visit</h4>
+        <ol>
+          <li>Click <strong>"Schedule Visit"</strong></li>
+          <li>
+            Set the <strong>Date to Visit</strong> and <strong>Target Completion Date</strong>
+          </li>
+          <li>
+            Add monitor notes (optional) → status becomes <nz-tag>PENDING_ACKNOWLEDGMENT</nz-tag>
+          </li>
+        </ol>
+        <h4>Admin Acknowledgment</h4>
+        <p>
+          Admin reviews scheduled visits and clicks <strong>"Acknowledge"</strong> → status becomes
+          <nz-tag nzColor="blue">SCHEDULED</nz-tag>.
+        </p>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 10. Working on Tickets -->
+        <h3 id="section-10">10. Working on Tickets (DEVELOPER / TECHNICAL)</h3>
+        <ol>
+          <li>
+            <strong>Start Work</strong> — When ticket is SCHEDULED, click "Start Work" →
+            <nz-tag nzColor="processing">IN_PROGRESS</nz-tag>
+          </li>
+          <li><strong>Add Notes</strong> — Document progress, troubleshooting steps, findings</li>
+          <li><strong>Upload Attachments</strong> — Screenshots, logs, documents</li>
+          <li>
+            <strong>Put On Hold</strong> — If waiting for parts/info →
+            <nz-tag nzColor="warning">ON_HOLD</nz-tag>
+          </li>
+          <li>
+            <strong>Resume</strong> — When ready → back to
+            <nz-tag nzColor="processing">IN_PROGRESS</nz-tag>
+          </li>
+          <li>
+            <strong>Resolve</strong> — Work complete, add final comment →
+            <nz-tag nzColor="success">RESOLVED</nz-tag>
+          </li>
+        </ol>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 11. Admin Functions -->
+        <h3 id="section-11">11. Admin Functions</h3>
+        <ul>
+          <li>
+            <strong>User Management</strong> — Create, edit, delete user accounts and assign roles
+          </li>
+          <li><strong>Acknowledge Schedules</strong> — Process PENDING_ACKNOWLEDGMENT tickets</li>
+          <li>
+            <strong>Knowledge Base Management</strong> — Create, edit, publish, archive articles
+          </li>
+          <li><strong>Ticket Oversight</strong> — View all tickets across all departments</li>
+          <li><strong>Close Tickets</strong> — Finalize resolved tickets</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 12. Analytics -->
+        <h3 id="section-12">12. Analytics &amp; Reports</h3>
+        <p><strong>Who can access:</strong> ADMIN, DIRECTOR, MIS_HEAD, ITS_HEAD</p>
+        <div class="feature-grid">
+          <nz-card nzSize="small" nzTitle="Overview Tab">
+            <ul>
+              <li>Stat cards: Total, Open, Resolved, Overdue</li>
+              <li>Pie: Tickets by Status, by Type</li>
+              <li>Bar: Tickets by Priority</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="SLA Tab">
+            <ul>
+              <li>SLA Compliance Rate (progress circle)</li>
+              <li>Average Resolution Time</li>
+              <li>Overdue Tickets Table</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="Trends Tab">
+            <ul>
+              <li>Tickets created per day (line chart)</li>
+              <li>Avg resolution time trend</li>
+            </ul>
+          </nz-card>
+          <nz-card nzSize="small" nzTitle="Staff Performance Tab">
+            <ul>
+              <li>Staff workload bar chart</li>
+              <li>Per-staff metrics table</li>
+            </ul>
+          </nz-card>
+        </div>
+        <h4>Exporting</h4>
+        <ul>
+          <li><strong>PDF</strong> — Formatted PDF with charts and data tables</li>
+          <li><strong>Excel</strong> — Multi-sheet workbook ready for analysis</li>
+        </ul>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 13. Knowledge Base -->
+        <h3 id="section-13">13. Knowledge Base</h3>
+        <p><strong>Access:</strong> All authenticated users can read. ADMIN can manage articles.</p>
+        <ul>
+          <li>
+            <strong>Card Grid</strong> — Articles displayed as cards with title, category, view
+            count
+          </li>
+          <li><strong>Search</strong> — Full-text search across titles and content</li>
+          <li>
+            <strong>Category Filters</strong> — NETWORK, SOFTWARE, HARDWARE, ACCOUNT, GENERAL,
+            PRINTER, SECURITY
+          </li>
+          <li>
+            <strong>Detail Modal</strong> — Full article content with "Mark as Helpful" button
+          </li>
+          <li>
+            <strong>Admin Editor</strong> — Rich text WYSIWYG editor (Quill) for creating/editing
+            articles
+          </li>
+          <li>System comes pre-loaded with <strong>6 ICT FAQ articles</strong></li>
+        </ul>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 14. Notifications -->
+        <h3 id="section-14">14. Notifications</h3>
+        <h4>Notification Bell</h4>
+        <p>
+          Bell icon in the navigation bar shows unread count badge. Click to see last 5
+          notifications. Click a notification to navigate to the related ticket.
+        </p>
+        <h4>Notification Events</h4>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Who Gets Notified</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>New ticket submitted</td>
+                <td>Secretary, Admin</td>
+              </tr>
+              <tr>
+                <td>Ticket reviewed</td>
+                <td>Ticket creator, Director</td>
+              </tr>
+              <tr>
+                <td>Ticket rejected/disapproved</td>
+                <td>Ticket creator</td>
+              </tr>
+              <tr>
+                <td>Ticket approved</td>
+                <td>Department Head, Ticket creator</td>
+              </tr>
+              <tr>
+                <td>Staff assigned</td>
+                <td>Assigned staff, Ticket creator</td>
+              </tr>
+              <tr>
+                <td>Status changed</td>
+                <td>All ticket participants</td>
+              </tr>
+              <tr>
+                <td>Note/attachment added</td>
+                <td>All ticket participants</td>
+              </tr>
+              <tr>
+                <td>SLA breach</td>
+                <td>Staff, Head, Admin</td>
+              </tr>
+              <tr>
+                <td>SLA escalation</td>
+                <td>Director, Admin</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Notifications are delivered in <strong>real-time</strong> via WebSocket with 30-second
+          polling fallback.
+        </p>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 15. AI -->
+        <h3 id="section-15">15. AI-Powered Smart Suggestions</h3>
+        <p>Powered by <strong>Google Gemini 2.0 Flash</strong>.</p>
+        <h4>How to Use</h4>
+        <ol>
+          <li>On the Submit Ticket page, fill in Title and Description</li>
+          <li>Click <strong>"Analyze with AI"</strong></li>
+          <li>Wait for AI processing</li>
+        </ol>
+        <h4>What You Get</h4>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Output</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Clean Ticket</strong></td>
+                <td>AI-rewritten, professional version of your description</td>
+              </tr>
+              <tr>
+                <td><strong>Summary</strong></td>
+                <td>Brief one-sentence summary</td>
+              </tr>
+              <tr>
+                <td><strong>Category</strong></td>
+                <td>Suggested category (Network, Software, Hardware, etc.)</td>
+              </tr>
+              <tr>
+                <td><strong>Priority</strong></td>
+                <td>Suggested priority with confidence score</td>
+              </tr>
+              <tr>
+                <td><strong>Root Cause</strong></td>
+                <td>Analysis of the underlying problem</td>
+              </tr>
+              <tr>
+                <td><strong>Solutions</strong></td>
+                <td>Suggested next steps or solutions</td>
+              </tr>
+              <tr>
+                <td><strong>Keywords</strong></td>
+                <td>Extracted keywords for searching similar issues</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Click <strong>"Apply to Description"</strong> to use the AI-rewritten description. The
+          system also shows similar resolved tickets and related Knowledge Base articles.
+        </p>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 16. Satisfaction Survey -->
+        <h3 id="section-16">16. Satisfaction Survey</h3>
+        <p>
+          After your ticket is <nz-tag nzColor="success">RESOLVED</nz-tag> or
+          <nz-tag>CLOSED</nz-tag>, a survey prompt appears on the ticket detail page.
+        </p>
+        <ol>
+          <li>Select a <strong>star rating</strong> (1 to 5 stars)</li>
+          <li>Optionally add a <strong>comment</strong></li>
+          <li>Click Submit</li>
+        </ol>
+
+        <nz-divider></nz-divider>
+        <div class="back-to-toc">
+          <button nz-button nzType="link" (click)="scrollToSection('toc')">
+            <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+            Back to Table of Contents
+          </button>
+        </div>
+
+        <!-- 17. Role & Status Reference -->
+        <h3 id="section-17">17. Roles &amp; Ticket Status Reference</h3>
+        <h4>System Roles</h4>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Responsibility</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><nz-tag nzColor="default">USER</nz-tag></td>
+                <td>Submit tickets, track progress, rate satisfaction</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="purple">SECRETARY</nz-tag></td>
+                <td>Review and endorse incoming tickets</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="gold">DIRECTOR</nz-tag></td>
+                <td>Approve or disapprove reviewed tickets</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="blue">MIS_HEAD</nz-tag></td>
+                <td>Assign MIS tickets to developers, schedule visits</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="orange">ITS_HEAD</nz-tag></td>
+                <td>Assign ITS tickets to technicians, schedule visits</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="geekblue">DEVELOPER</nz-tag></td>
+                <td>Work on MIS tickets (software/web development)</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="cyan">TECHNICAL</nz-tag></td>
+                <td>Work on ITS tickets (hardware/network support)</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="red">ADMIN</nz-tag></td>
+                <td>Full system access, user management, acknowledge schedules</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Ticket Statuses</h4>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Meaning</th>
+                <th>Who Acts Next</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><nz-tag nzColor="default">FOR_REVIEW</nz-tag></td>
+                <td>Newly submitted, awaiting secretary</td>
+                <td>SECRETARY</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="cyan">REVIEWED</nz-tag></td>
+                <td>Secretary endorsed, awaiting director</td>
+                <td>DIRECTOR</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="green">DIRECTOR_APPROVED</nz-tag></td>
+                <td>Director approved, being auto-assigned</td>
+                <td>System</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="blue">ASSIGNED</nz-tag></td>
+                <td>Assigned to department head/staff</td>
+                <td>MIS_HEAD / ITS_HEAD</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="purple">PENDING_ACK</nz-tag></td>
+                <td>Visit scheduled, awaiting admin confirmation</td>
+                <td>ADMIN</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="geekblue">SCHEDULED</nz-tag></td>
+                <td>Schedule confirmed, staff can begin</td>
+                <td>DEVELOPER / TECHNICAL</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="processing">IN_PROGRESS</nz-tag></td>
+                <td>Staff actively working on it</td>
+                <td>DEVELOPER / TECHNICAL</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="warning">ON_HOLD</nz-tag></td>
+                <td>Temporarily paused</td>
+                <td>DEVELOPER / TECHNICAL</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="success">RESOLVED</nz-tag></td>
+                <td>Work completed</td>
+                <td>USER (survey) / ADMIN</td>
+              </tr>
+              <tr>
+                <td><nz-tag>CLOSED</nz-tag></td>
+                <td>Finalized and archived</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="red">CANCELLED</nz-tag></td>
+                <td>Rejected</td>
+                <td>USER (can reopen)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Priority Levels</h4>
+        <div class="info-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Auto Due Date</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><nz-tag nzColor="red">CRITICAL</nz-tag></td>
+                <td>4 hours</td>
+                <td>System down, service outage</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="orange">HIGH</nz-tag></td>
+                <td>24 hours</td>
+                <td>Major impact, urgent attention needed</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="blue">MEDIUM</nz-tag></td>
+                <td>72 hours (3 days)</td>
+                <td>Standard request, normal processing</td>
+              </tr>
+              <tr>
+                <td><nz-tag nzColor="default">LOW</nz-tag></td>
+                <td>168 hours (7 days)</td>
+                <td>Minor request, no urgency</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <nz-divider></nz-divider>
+
+        <p nz-typography nzType="secondary" style="text-align: center">
+          ICT Support Ticketing System v2.2.0 — Carlos Hilado Memorial State University
+        </p>
+      </div>
+    </nz-tab>
+  </nz-tabset>
+
+  <!-- Floating Back to Top Button -->
+  <nz-back-top [nzVisibilityHeight]="300">
+    <div class="back-to-top-button">
+      <span nz-icon nzType="arrow-up" nzTheme="outline"></span>
+    </div>
+  </nz-back-top>
+</div>

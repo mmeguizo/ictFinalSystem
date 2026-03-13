@@ -1,37 +1,251 @@
 <div class="admin-page">
-  <h1>Admin Panel</h1>
-  <nz-card nzTitle="System Overview">
-    <nz-table #basicTable [nzData]="userDataSource()">
+  <div class="page-header">
+    <h1><nz-icon nzType="team" nzTheme="outline"></nz-icon> User Management</h1>
+    <button nz-button nzType="primary" (click)="openCreateModal()">
+      <nz-icon nzType="user-add" nzTheme="outline"></nz-icon>
+      Add User
+    </button>
+  </div>
+
+  <!-- Search -->
+  <nz-card class="search-card">
+    <nz-input-group nzSearch [nzAddOnBefore]="searchPrefix">
+      <ng-template #searchPrefix>
+        <nz-icon nzType="search"></nz-icon>
+      </ng-template>
+      <input
+        type="text"
+        nz-input
+        placeholder="Search by name, email, or role..."
+        [ngModel]="searchText()"
+        (ngModelChange)="onSearchChange($event)"
+      />
+    </nz-input-group>
+  </nz-card>
+
+  <!-- Users Table -->
+  <nz-card nzTitle="All Users" [nzExtra]="userCountTpl">
+    <ng-template #userCountTpl>
+      <nz-tag nzColor="blue">{{ filteredUsers().length }} users</nz-tag>
+    </ng-template>
+
+    <nz-table
+      #usersTable
+      [nzData]="filteredUsers()"
+      [nzLoading]="loading()"
+      nzSize="middle"
+      [nzPageSize]="10"
+      [nzShowSizeChanger]="true"
+      [nzPageSizeOptions]="[10, 25, 50, 100]"
+    >
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Name</th>
+          <th nzWidth="60px">ID</th>
+          <th>User</th>
           <th>Email</th>
-          <th>Role</th>
-          <!-- <th>Picture</th> -->
-          <th>Action</th>
+          <th nzWidth="160px">Role</th>
+          <th nzWidth="90px">Status</th>
+          <th nzWidth="90px">Auth</th>
+          <th nzWidth="220px">Actions</th>
         </tr>
       </thead>
       <tbody>
-        @for (user of userDataSource(); track user.id) {
-        <tr>
-          <td>{{ user.id }}</td>
-          <td><nz-avatar nzIcon="user" [nzSrc]="user.avatarUrl || user.picture || undefined"></nz-avatar> {{ user.name }}</td>
-          <td>{{ user.email }}</td>
-          <td>{{ user.role }}</td>
-          <td>
-            <a>Action</a>
-            <nz-divider nzType="vertical"></nz-divider>
-            <a>Delete</a>
-          </td>
-        </tr>
+        @for (user of usersTable.data; track user.id) {
+          <tr [class.inactive-row]="!user.isActive">
+            <td>{{ user.id }}</td>
+            <td>
+              <div class="user-cell">
+                <nz-avatar
+                  nzIcon="user"
+                  [nzSrc]="user.avatarUrl || user.picture || undefined"
+                  [nzSize]="32"
+                ></nz-avatar>
+                <span class="user-name">{{ user.name || '—' }}</span>
+              </div>
+            </td>
+            <td>{{ user.email }}</td>
+            <td>
+              <nz-select
+                [ngModel]="user.role"
+                (ngModelChange)="onRoleChange(user, $event)"
+                nzSize="small"
+                style="width: 140px"
+              >
+                @for (role of allRoles; track role) {
+                  <nz-option [nzValue]="role" [nzLabel]="roleLabels[role]"></nz-option>
+                }
+              </nz-select>
+            </td>
+            <td>
+              <nz-badge
+                [nzStatus]="user.isActive ? 'success' : 'error'"
+                [nzText]="user.isActive ? 'Active' : 'Inactive'"
+              ></nz-badge>
+            </td>
+            <td>
+              <nz-tag>{{ user.externalId ? 'SSO' : 'Local' }}</nz-tag>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button
+                  nz-button
+                  nzType="default"
+                  nzSize="small"
+                  nz-tooltip
+                  nzTooltipTitle="Set Password"
+                  (click)="openPasswordModal(user)"
+                >
+                  <nz-icon nzType="key" nzTheme="outline"></nz-icon>
+                </button>
+                <button
+                  nz-button
+                  [nzType]="user.isActive ? 'default' : 'primary'"
+                  nzSize="small"
+                  nz-tooltip
+                  [nzTooltipTitle]="user.isActive ? 'Deactivate' : 'Activate'"
+                  nz-popconfirm
+                  [nzPopconfirmTitle]="
+                    user.isActive ? 'Deactivate this user?' : 'Activate this user?'
+                  "
+                  (nzOnConfirm)="onToggleActive(user)"
+                >
+                  <nz-icon
+                    [nzType]="user.isActive ? 'stop' : 'check-circle'"
+                    nzTheme="outline"
+                  ></nz-icon>
+                </button>
+                <button
+                  nz-button
+                  nzType="default"
+                  nzDanger
+                  nzSize="small"
+                  nz-tooltip
+                  nzTooltipTitle="Delete User"
+                  nz-popconfirm
+                  nzPopconfirmTitle="Permanently delete this user? This cannot be undone."
+                  (nzOnConfirm)="onDeleteUser(user)"
+                >
+                  <nz-icon nzType="delete" nzTheme="outline"></nz-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
         } @empty {
-        <tr>
-          <td colspan="6">There are no items.</td>
-        </tr>
+          <tr>
+            <td colspan="7" class="empty-cell">No users found.</td>
+          </tr>
         }
       </tbody>
     </nz-table>
   </nz-card>
 </div>
- <!-- <nz-avatar nzIcon="user" [nzSrc]="user.avatarUrl || user.picture"></nz-avatar> -->
+
+<!-- Create User Modal -->
+<nz-modal
+  [nzVisible]="isCreateModalVisible()"
+  (nzVisibleChange)="isCreateModalVisible.set($event)"
+  nzTitle="Create New User"
+  [nzOkLoading]="createLoading()"
+  nzOkText="Create"
+  (nzOnOk)="submitCreateUser()"
+  (nzOnCancel)="closeCreateModal()"
+  nzWidth="480px"
+>
+  <ng-container *nzModalContent>
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Email</nz-form-label>
+      <nz-form-control [nzSpan]="18">
+        <input
+          nz-input
+          placeholder="user@example.com"
+          [ngModel]="createForm().email"
+          (ngModelChange)="updateCreateField('email', $event)"
+        />
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6">Name</nz-form-label>
+      <nz-form-control [nzSpan]="18">
+        <input
+          nz-input
+          placeholder="Full name (optional)"
+          [ngModel]="createForm().name"
+          (ngModelChange)="updateCreateField('name', $event)"
+        />
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6">Password</nz-form-label>
+      <nz-form-control [nzSpan]="18" nzExtra="Leave empty if user will only use SSO login">
+        <nz-input-group [nzSuffix]="createPwSuffix">
+          <input
+            nz-input
+            [type]="showCreatePassword() ? 'text' : 'password'"
+            placeholder="Min 8 characters (optional)"
+            [ngModel]="createForm().password"
+            (ngModelChange)="updateCreateField('password', $event)"
+          />
+        </nz-input-group>
+        <ng-template #createPwSuffix>
+          <nz-icon
+            [nzType]="showCreatePassword() ? 'eye' : 'eye-invisible'"
+            nzTheme="outline"
+            style="cursor: pointer; color: #aaa"
+            (click)="showCreatePassword.set(!showCreatePassword())"
+          ></nz-icon>
+        </ng-template>
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Role</nz-form-label>
+      <nz-form-control [nzSpan]="18">
+        <nz-select
+          [ngModel]="createForm().role"
+          (ngModelChange)="updateCreateField('role', $event)"
+          style="width: 100%"
+        >
+          @for (role of allRoles; track role) {
+            <nz-option [nzValue]="role" [nzLabel]="roleLabels[role]"></nz-option>
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+  </ng-container>
+</nz-modal>
+
+<!-- Set Password Modal -->
+<nz-modal
+  [nzVisible]="isPasswordModalVisible()"
+  (nzVisibleChange)="isPasswordModalVisible.set($event)"
+  [nzTitle]="'Set Password for ' + passwordForm().userName"
+  [nzOkLoading]="passwordLoading()"
+  nzOkText="Set Password"
+  (nzOnOk)="submitSetPassword()"
+  (nzOnCancel)="closePasswordModal()"
+  nzWidth="420px"
+>
+  <ng-container *nzModalContent>
+    <nz-form-item>
+      <nz-form-label [nzSpan]="8" nzRequired>New Password</nz-form-label>
+      <nz-form-control [nzSpan]="16">
+        <nz-input-group [nzSuffix]="setPwSuffix">
+          <input
+            nz-input
+            [type]="showSetPassword() ? 'text' : 'password'"
+            placeholder="Min 8 characters"
+            [ngModel]="passwordForm().password"
+            (ngModelChange)="updatePasswordField($event)"
+          />
+        </nz-input-group>
+        <ng-template #setPwSuffix>
+          <nz-icon
+            [nzType]="showSetPassword() ? 'eye' : 'eye-invisible'"
+            nzTheme="outline"
+            style="cursor: pointer; color: #aaa"
+            (click)="showSetPassword.set(!showSetPassword())"
+          ></nz-icon>
+        </ng-template>
+      </nz-form-control>
+    </nz-form-item>
+  </ng-container>
+</nz-modal>

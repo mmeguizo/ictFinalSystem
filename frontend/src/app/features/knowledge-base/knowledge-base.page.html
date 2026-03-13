@@ -1,0 +1,265 @@
+<!-- Knowledge Base Header -->
+<div class="kb-header">
+  <div class="kb-title-row">
+    <h2>
+      <span nz-icon nzType="book" nzTheme="outline"></span>
+      Knowledge Base
+    </h2>
+    @if (isStaff()) {
+      <button nz-button nzType="primary" (click)="openEditor()">
+        <span nz-icon nzType="plus"></span>
+        New Article
+      </button>
+    }
+  </div>
+  <p class="kb-subtitle">Find answers to common ICT questions and troubleshooting guides.</p>
+</div>
+
+<!-- Search & Filter Bar -->
+<nz-card class="search-card">
+  <div class="search-row">
+    <nz-input-group [nzPrefix]="prefixIcon" nzSize="large" class="search-input">
+      <input
+        nz-input
+        placeholder="Search articles..."
+        [ngModel]="searchTerm()"
+        (ngModelChange)="onSearchInput($event)"
+      />
+    </nz-input-group>
+    <ng-template #prefixIcon>
+      <span nz-icon nzType="search"></span>
+    </ng-template>
+
+    <div class="category-filters">
+      <nz-tag
+        [nzColor]="selectedCategory() === null ? 'processing' : 'default'"
+        class="filter-tag"
+        (click)="onCategoryFilter(null)"
+      >
+        All
+      </nz-tag>
+      @for (cat of allCategories; track cat) {
+        <nz-tag
+          [nzColor]="selectedCategory() === cat ? getCategoryColor(cat) : 'default'"
+          class="filter-tag"
+          (click)="onCategoryFilter(cat)"
+        >
+          {{ cat }}
+        </nz-tag>
+      }
+    </div>
+  </div>
+</nz-card>
+
+<!-- Articles Grid -->
+<nz-spin [nzSpinning]="loading()">
+  @if (articles().length === 0 && !loading()) {
+    <nz-empty
+      nzNotFoundContent="No articles found"
+      [nzNotFoundFooter]="
+        searchTerm() ? 'Try a different search term' : 'No articles have been published yet'
+      "
+    ></nz-empty>
+  } @else {
+    <div nz-row [nzGutter]="[16, 16]">
+      @for (article of articles(); track article.id) {
+        <div nz-col [nzXs]="24" [nzSm]="12" [nzLg]="8">
+          <nz-card class="article-card" [nzHoverable]="true" (click)="openArticle(article)">
+            <div class="article-card-body">
+              <div class="article-meta">
+                <nz-tag [nzColor]="getCategoryColor(article.category)">
+                  {{ article.category }}
+                </nz-tag>
+                @if (article.status !== 'PUBLISHED' && isStaff()) {
+                  <nz-tag [nzColor]="article.status === 'DRAFT' ? 'warning' : 'default'">
+                    {{ article.status }}
+                  </nz-tag>
+                }
+              </div>
+              <h3 class="article-title">{{ article.title }}</h3>
+              <p class="article-preview">
+                {{
+                  (extractPlainText(article.content) | slice: 0 : 120) +
+                    (extractPlainText(article.content).length > 120 ? '...' : '')
+                }}
+              </p>
+              <div class="article-footer">
+                <span class="article-stat" nz-tooltip nzTooltipTitle="Views">
+                  <span nz-icon nzType="eye" nzTheme="outline"></span>
+                  {{ article.viewCount }}
+                </span>
+                <span class="article-stat" nz-tooltip nzTooltipTitle="Helpful">
+                  <span nz-icon nzType="like" nzTheme="outline"></span>
+                  {{ article.helpfulCount }}
+                </span>
+              </div>
+            </div>
+          </nz-card>
+        </div>
+      }
+    </div>
+
+    @if (totalCount() > pageSize()) {
+      <div class="pagination-row">
+        <nz-pagination
+          [nzPageIndex]="currentPage()"
+          [nzPageSize]="pageSize()"
+          [nzTotal]="totalCount()"
+          (nzPageIndexChange)="onPageChange($event)"
+          nzShowSizeChanger
+        ></nz-pagination>
+      </div>
+    }
+  }
+</nz-spin>
+
+<!-- Article Detail Modal -->
+<nz-modal
+  [nzVisible]="detailVisible()"
+  [nzTitle]="selectedArticle()?.title || 'Article'"
+  [nzWidth]="720"
+  [nzFooter]="detailFooter"
+  (nzOnCancel)="closeDetail()"
+>
+  <ng-container *nzModalContent>
+    @if (selectedArticle(); as article) {
+      <div class="article-detail">
+        <div class="detail-meta">
+          <nz-tag [nzColor]="getCategoryColor(article.category)">{{ article.category }}</nz-tag>
+          <span class="detail-author">by {{ article.createdBy.name || 'Unknown' }}</span>
+          <span class="detail-date">{{ article.createdAt | date: 'mediumDate' }}</span>
+        </div>
+
+        @if (getTagList(article.tags).length > 0) {
+          <div class="detail-tags">
+            @for (tag of getTagList(article.tags); track tag) {
+              <nz-tag>{{ tag }}</nz-tag>
+            }
+          </div>
+        }
+
+        <nz-divider></nz-divider>
+
+        <div class="detail-content" [innerHTML]="article.content"></div>
+
+        <nz-divider></nz-divider>
+
+        <div class="detail-stats">
+          <span> <span nz-icon nzType="eye"></span> {{ article.viewCount }} views </span>
+          <span>
+            <span nz-icon nzType="like"></span> {{ article.helpfulCount }} found helpful
+          </span>
+        </div>
+      </div>
+    }
+  </ng-container>
+
+  <ng-template #detailFooter>
+    @if (selectedArticle(); as article) {
+      <div class="detail-footer-row">
+        <button nz-button nzType="default" (click)="markHelpful(article)">
+          <span nz-icon nzType="like" nzTheme="outline"></span>
+          Helpful
+        </button>
+        @if (isStaff()) {
+          <button nz-button (click)="closeDetail(); openEditor(article)">
+            <span nz-icon nzType="edit"></span>
+            Edit
+          </button>
+          <button
+            nz-button
+            nzDanger
+            nz-popconfirm
+            nzPopconfirmTitle="Delete this article?"
+            (nzOnConfirm)="deleteArticle(article.id); closeDetail()"
+          >
+            <span nz-icon nzType="delete"></span>
+            Delete
+          </button>
+        }
+      </div>
+    }
+  </ng-template>
+</nz-modal>
+
+<!-- Create/Edit Article Modal -->
+<nz-modal
+  [nzVisible]="editorVisible()"
+  [nzTitle]="editingArticle() ? 'Edit Article' : 'New Article'"
+  [nzWidth]="720"
+  [nzOkText]="editingArticle() ? 'Update' : 'Create'"
+  [nzOkLoading]="saving()"
+  (nzOnOk)="saveArticle()"
+  (nzOnCancel)="closeEditor()"
+>
+  <ng-container *nzModalContent>
+    <div class="editor-form-scroll">
+      <nz-form-item>
+        <nz-form-label [nzSpan]="4">Title</nz-form-label>
+        <nz-form-control [nzSpan]="20">
+          <input
+            nz-input
+            placeholder="Article title"
+            [ngModel]="editorForm().title"
+            (ngModelChange)="updateFormField('title', $event)"
+          />
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label [nzSpan]="4">Category</nz-form-label>
+        <nz-form-control [nzSpan]="20">
+          <nz-select
+            [ngModel]="editorForm().category"
+            (ngModelChange)="updateFormField('category', $event)"
+            style="width: 200px"
+          >
+            @for (cat of allCategories; track cat) {
+              <nz-option [nzValue]="cat" [nzLabel]="cat"></nz-option>
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label [nzSpan]="4">Tags</nz-form-label>
+        <nz-form-control [nzSpan]="20">
+          <input
+            nz-input
+            placeholder="Comma-separated tags (e.g. wifi, internet, connection)"
+            [ngModel]="editorForm().tags"
+            (ngModelChange)="updateFormField('tags', $event)"
+          />
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label [nzSpan]="4">Status</nz-form-label>
+        <nz-form-control [nzSpan]="20">
+          <nz-select
+            [ngModel]="editorForm().status"
+            (ngModelChange)="updateFormField('status', $event)"
+            style="width: 160px"
+          >
+            <nz-option nzValue="DRAFT" nzLabel="Draft"></nz-option>
+            <nz-option nzValue="PUBLISHED" nzLabel="Published"></nz-option>
+            <nz-option nzValue="ARCHIVED" nzLabel="Archived"></nz-option>
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+
+      <nz-form-item>
+        <nz-form-label [nzSpan]="4">Content</nz-form-label>
+        <nz-form-control [nzSpan]="20">
+          <quill-editor
+            [(ngModel)]="editorFormModel().content"
+            (onEditorCreated)="onQuillEditorCreated($event)"
+            [styles]="{ minHeight: '220px' }"
+            placeholder="Write your article content here..."
+            [modules]="quillModules"
+          ></quill-editor>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+  </ng-container>
+</nz-modal>

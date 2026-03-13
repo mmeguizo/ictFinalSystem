@@ -5,6 +5,7 @@ import {
   inject,
   signal,
   viewChild,
+  effect,
 } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -15,11 +16,30 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { NzSelectModule } from 'ng-zorro-antd/select';
+import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzAlertModule } from 'ng-zorro-antd/alert';
+import { NzCollapseModule } from 'ng-zorro-antd/collapse';
+import { NzListModule } from 'ng-zorro-antd/list';
+import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
-import { TicketService, CreateMISTicketInput, CreateITSTicketInput } from '../../core/services/ticket.service';
+import {
+  TicketService,
+  CreateMISTicketInput,
+  CreateITSTicketInput,
+} from '../../core/services/ticket.service';
 import { MISFormComponent } from './mis-form.component';
 import { ITSFormComponent } from './its-form.component';
+import {
+  suggestPriority,
+  PrioritySuggestion,
+  Priority,
+} from '../../core/utils/priority-suggestion';
+import { AIService, SmartSuggestions } from '../../core/services/ai.service';
 import { firstValueFrom } from 'rxjs';
 
 type RequestCategory = 'WEBSITE' | 'SOFTWARE';
@@ -28,6 +48,7 @@ type RequestCategory = 'WEBSITE' | 'SOFTWARE';
   selector: 'app-submit-ticket',
   imports: [
     ReactiveFormsModule,
+    FormsModule,
     RouterLink,
     NzCardModule,
     NzFormModule,
@@ -36,6 +57,14 @@ type RequestCategory = 'WEBSITE' | 'SOFTWARE';
     NzRadioModule,
     NzGridModule,
     NzSpinModule,
+    NzSelectModule,
+    NzTagModule,
+    NzToolTipModule,
+    NzIconModule,
+    NzAlertModule,
+    NzCollapseModule,
+    NzListModule,
+    NzBadgeModule,
     MISFormComponent,
     ITSFormComponent,
   ],
@@ -49,6 +78,7 @@ export class SubmitTicketPage {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
   private readonly ticketService = inject(TicketService);
+  private readonly aiService = inject(AIService);
 
   readonly today = new Date();
   readonly busy = signal(false);
@@ -64,6 +94,213 @@ export class SubmitTicketPage {
   // Get reference to child form components
   private readonly misFormRef = viewChild(MISFormComponent);
   private readonly itsFormRef = viewChild(ITSFormComponent);
+
+  // ========================================
+  // SMART PRIORITY SUGGESTION
+  // ========================================
+
+  /** User-selected priority (can override suggestion) */
+  readonly selectedPriority = signal<Priority>('MEDIUM');
+
+  /** Whether the user has manually overridden the suggestion */
+  readonly priorityOverridden = signal(false);
+
+  /** Current suggestion from the analysis engine */
+  readonly prioritySuggestion = signal<PrioritySuggestion>({
+    priority: 'MEDIUM',
+    score: 0,
+    reasons: ['No specific urgency indicators detected \u2014 defaulting to Medium'],
+    confidence: 'low',
+  });
+
+  /** Show/hide the suggestion details popover */
+  readonly showSuggestionDetails = signal(false);
+
+  // ========================================
+  // AI SMART SUGGESTIONS
+  // ========================================
+
+  /** Smart suggestion results from AI + similar search */
+  readonly smartSuggestions = signal<SmartSuggestions | null>(null);
+  readonly loadingSuggestions = signal(false);
+  readonly suggestionsRequested = signal(false);
+
+  /** Priority options for the selector */
+  readonly priorityOptions: { value: Priority; label: string; color: string }[] = [
+    { value: 'LOW', label: 'Low', color: '#8c8c8c' },
+    { value: 'MEDIUM', label: 'Medium', color: '#1890ff' },
+    { value: 'HIGH', label: 'High', color: '#fa8c16' },
+    { value: 'CRITICAL', label: 'Critical', color: '#f5222d' },
+  ];
+
+  /**
+   * Recalculate priority suggestion.
+   * Called by child forms when their content changes.
+   */
+  onFormContentChanged(): void {
+    this.recalculateSuggestion();
+  }
+
+  /** User manually selects a priority */
+  onPriorityChange(priority: Priority): void {
+    this.selectedPriority.set(priority);
+    this.priorityOverridden.set(true);
+  }
+
+  /** Accept the AI suggestion */
+  acceptSuggestion(): void {
+    const suggestion = this.prioritySuggestion();
+    this.selectedPriority.set(suggestion.priority);
+    this.priorityOverridden.set(false);
+  }
+
+  /** Get color for a priority tag */
+  getPriorityColor(priority: string): string {
+    const map: Record<string, string> = {
+      LOW: 'default',
+      MEDIUM: 'blue',
+      HIGH: 'orange',
+      CRITICAL: 'red',
+    };
+    return map[priority] || 'default';
+  }
+
+  /** Get status color for similar tickets */
+  getStatusColor(status: string): string {
+    const map: Record<string, string> = {
+      RESOLVED: 'green',
+      CLOSED: 'default',
+      IN_PROGRESS: 'blue',
+      ASSIGNED: 'cyan',
+      FOR_REVIEW: 'orange',
+      CANCELLED: 'red',
+    };
+    return map[status] || 'default';
+  }
+
+  /** Apply AI-rewritten description to the ticket form */
+  applyCleanTicket(cleanTicket: string): void {
+    const misForm = this.misFormRef();
+    if (misForm) {
+      misForm.setDetails(cleanTicket);
+      this.message.success('AI description applied to Additional Notes');
+      return;
+    }
+    const itsForm = this.itsFormRef();
+    if (itsForm) {
+      itsForm.setDetails(cleanTicket);
+      this.message.success('AI description applied to Additional Notes');
+    }
+  }
+
+  /** Fetch AI smart suggestions based on current form content */
+  fetchSmartSuggestions(): void {
+    const formType = this.formType();
+    let title = '';
+    let description = '';
+
+    if (formType === 'MIS') {
+      const misForm = this.misFormRef();
+      if (misForm) {
+        const payload = misForm.getPayload();
+        title = this.generateMISTitle(payload);
+        description = payload.details || '';
+      }
+    } else {
+      const itsForm = this.itsFormRef();
+      if (itsForm) {
+        const payload = itsForm.getPayload();
+        title = this.generateITSTitle(payload);
+        description = payload.details || '';
+      }
+    }
+
+    if (!title && !description) {
+      this.message.info('Please fill in some details first before requesting AI analysis.');
+      return;
+    }
+
+    this.loadingSuggestions.set(true);
+    this.suggestionsRequested.set(true);
+
+    this.aiService.getSmartSuggestions(title, description).subscribe({
+      next: (result) => {
+        this.smartSuggestions.set(result);
+        this.loadingSuggestions.set(false);
+
+        // If AI returned a priority, auto-apply if user hasn't overridden
+        if (result.analysis?.priority && !this.priorityOverridden()) {
+          this.selectedPriority.set(result.analysis.priority as Priority);
+        }
+      },
+      error: (err) => {
+        this.message.error(err?.message || 'Failed to get AI suggestions');
+        this.loadingSuggestions.set(false);
+      },
+    });
+  }
+
+  /** Recalculate the suggestion based on current form state */
+  private recalculateSuggestion(): void {
+    const formType = this.formType();
+    let title = '';
+    let description = '';
+    const selectedOptions: string[] = [];
+
+    if (formType === 'MIS') {
+      const misForm = this.misFormRef();
+      if (misForm) {
+        const payload = misForm.getPayload();
+        title = this.generateMISTitle(payload);
+        description = payload.details || '';
+
+        // Gather selected checkbox options
+        if (payload.category === 'WEBSITE' && 'website' in payload && payload.website) {
+          if (payload.website.addRemoveContent) selectedOptions.push('addRemoveContent');
+          if (payload.website.addRemoveFeatures) selectedOptions.push('addRemoveFeatures');
+          if (payload.website.addRemovePage) selectedOptions.push('addRemovePage');
+        } else if (payload.category === 'SOFTWARE' && 'software' in payload && payload.software) {
+          if (payload.software.fixError) selectedOptions.push('fixError');
+          if (payload.software.enhancement) selectedOptions.push('enhancement');
+          if (payload.software.newIS) selectedOptions.push('newIS');
+          if (payload.software.userTraining) selectedOptions.push('userTraining');
+          if (payload.software.backupDatabase) selectedOptions.push('backupDatabase');
+          if (payload.software.installExisting) selectedOptions.push('installExisting');
+          if (payload.software.isImplementationSupport)
+            selectedOptions.push('isImplementationSupport');
+        }
+      }
+    } else {
+      const itsForm = this.itsFormRef();
+      if (itsForm) {
+        const payload = itsForm.getPayload();
+        title = this.generateITSTitle(payload);
+        description = payload.details || '';
+
+        if (payload.itsMaintenance?.desktopLaptop) {
+          const dl = payload.itsMaintenance.desktopLaptop;
+          if (Object.values(dl).some((v) => v === true)) selectedOptions.push('desktopLaptop');
+        }
+        if (payload.itsMaintenance?.internetNetwork) {
+          const inet = payload.itsMaintenance.internetNetwork;
+          if (Object.values(inet).some((v) => v === true)) selectedOptions.push('internetNetwork');
+        }
+        if (payload.itsMaintenance?.printer) {
+          const p = payload.itsMaintenance.printer;
+          if (Object.values(p).some((v) => v === true)) selectedOptions.push('printer');
+        }
+        if (payload.itsBorrow?.purpose) selectedOptions.push('borrowRequest');
+      }
+    }
+
+    const suggestion = suggestPriority(title, description, selectedOptions);
+    this.prioritySuggestion.set(suggestion);
+
+    // Auto-apply suggestion only if user hasn't manually overridden
+    if (!this.priorityOverridden()) {
+      this.selectedPriority.set(suggestion.priority);
+    }
+  }
 
   constructor() {
     this.formTypeControl.valueChanges.subscribe((v) => this.formType.set(v));
@@ -199,18 +436,20 @@ export class SubmitTicketPage {
         const misInput: CreateMISTicketInput = {
           title: this.generateMISTitle(payload),
           description: fullDescription,
-          priority: 'MEDIUM',
+          priority: this.selectedPriority(),
           category: payload.category,
         };
 
         // Map category-specific fields based on type
         if (payload.category === 'WEBSITE') {
           misInput.websiteNewRequest = categoryData.addRemovePage || false;
-          misInput.websiteUpdate = categoryData.addRemoveContent || categoryData.addRemoveFeatures || false;
+          misInput.websiteUpdate =
+            categoryData.addRemoveContent || categoryData.addRemoveFeatures || false;
         } else {
           misInput.softwareNewRequest = categoryData.newIS || false;
           misInput.softwareUpdate = categoryData.enhancement || categoryData.fixError || false;
-          misInput.softwareInstall = categoryData.installExisting || categoryData.backupDatabase || false;
+          misInput.softwareInstall =
+            categoryData.installExisting || categoryData.backupDatabase || false;
         }
 
         response = await firstValueFrom(this.ticketService.createMISTicket(misInput));
@@ -251,18 +490,28 @@ export class SubmitTicketPage {
           maintenanceItems.push(`Others: ${maintenance.othersConcerns}`);
         }
 
-        const maintenanceDetailsStr = maintenanceItems.length > 0 ? maintenanceItems.join('\n') : undefined;
-        const borrowDetailsStr = borrow?.purpose ? `Purpose: ${borrow.purpose}\nDuration: ${borrow.duration || 'N/A'}\nVenue: ${borrow.venueRoom || 'N/A'}\nItems: ${borrow.borrowedItems || 'N/A'}` : undefined;
+        const maintenanceDetailsStr =
+          maintenanceItems.length > 0 ? maintenanceItems.join('\n') : undefined;
+        const borrowDetailsStr = borrow?.purpose
+          ? `Purpose: ${borrow.purpose}\nDuration: ${borrow.duration || 'N/A'}\nVenue: ${borrow.venueRoom || 'N/A'}\nItems: ${borrow.borrowedItems || 'N/A'}`
+          : undefined;
 
         const itsInput: CreateITSTicketInput = {
           title: this.generateITSTitle(payload),
           description: fullDescription,
-          priority: 'MEDIUM',
+          priority: this.selectedPriority(),
           borrowRequest: !!borrow?.purpose,
           borrowDetails: borrowDetailsStr,
-          maintenanceDesktopLaptop: !!(maintenance?.desktopLaptop && Object.values(maintenance.desktopLaptop).some(v => v)),
-          maintenanceInternetNetwork: !!(maintenance?.internetNetwork && Object.values(maintenance.internetNetwork).some(v => v)),
-          maintenancePrinter: !!(maintenance?.printer && Object.values(maintenance.printer).some(v => v)),
+          maintenanceDesktopLaptop: !!(
+            maintenance?.desktopLaptop && Object.values(maintenance.desktopLaptop).some((v) => v)
+          ),
+          maintenanceInternetNetwork: !!(
+            maintenance?.internetNetwork &&
+            Object.values(maintenance.internetNetwork).some((v) => v)
+          ),
+          maintenancePrinter: !!(
+            maintenance?.printer && Object.values(maintenance.printer).some((v) => v)
+          ),
           maintenanceDetails: maintenanceDetailsStr,
         };
 

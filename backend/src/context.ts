@@ -1,10 +1,10 @@
-import { User } from '@prisma/client';
-import type { IncomingMessage } from 'http';
-import { prisma } from './lib/prisma';
-import { logger } from './lib/logger';
-import { jwtService } from './modules/auth/jwt.service';
-import { auth0Service } from './modules/auth/auth0.service';
-import { userService } from './modules/users/user.service';
+import { User } from "@prisma/client";
+import type { IncomingMessage } from "http";
+import { prisma } from "./lib/prisma";
+import { logger } from "./lib/logger";
+import { jwtService } from "./modules/auth/jwt.service";
+import { auth0Service } from "./modules/auth/auth0.service";
+import { userService } from "./modules/users/user.service";
 
 export interface GraphQLContext {
   currentUser: User | null;
@@ -12,9 +12,13 @@ export interface GraphQLContext {
   jwtService: typeof jwtService;
 }
 
-export async function createContext({ req }: { req: IncomingMessage }): Promise<GraphQLContext> {
-  const authHeader = (req.headers?.authorization || '').toString();
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+export async function createContext({
+  req,
+}: {
+  req: IncomingMessage;
+}): Promise<GraphQLContext> {
+  const authHeader = (req.headers?.authorization || "").toString();
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
   let currentUser: (User & { wasCreated?: boolean }) | null = null;
 
@@ -27,8 +31,14 @@ export async function createContext({ req }: { req: IncomingMessage }): Promise<
       if (!isNaN(userId)) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (user) {
-          currentUser = user;
-          logger.debug(`Authenticated via JWT, user ID: ${userId}`);
+          if (!user.isActive) {
+            logger.warn(
+              `JWT login blocked: account deactivated - ${user.email}`,
+            );
+          } else {
+            currentUser = user;
+            logger.debug(`Authenticated via JWT, user ID: ${userId}`);
+          }
         }
       }
     }
@@ -56,13 +66,22 @@ export async function createContext({ req }: { req: IncomingMessage }): Promise<
         auth0User.sub,
         email ?? `${auth0User.sub}@example.com`,
         name,
-        picture
+        picture,
       );
 
-      currentUser = result.user;
-      (currentUser as any).wasCreated = result.created;
-      
-      logger.debug(`Authenticated via Auth0, user ID: ${result.user.id}, created: ${result.created}`);
+      // Block deactivated users from SSO login
+      if (!result.user.isActive) {
+        logger.warn(
+          `SSO login blocked: account deactivated - ${result.user.email}`,
+        );
+        currentUser = null;
+      } else {
+        currentUser = result.user;
+        (currentUser as any).wasCreated = result.created;
+        logger.debug(
+          `Authenticated via Auth0, user ID: ${result.user.id}, created: ${result.created}`,
+        );
+      }
     }
   }
 

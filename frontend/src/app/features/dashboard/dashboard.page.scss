@@ -1,14 +1,109 @@
 .dashboard-container {
   padding: 24px;
 
-  h1 {
+  .dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  h1 {
+    margin: 0;
     font-size: 24px;
     font-weight: 600;
   }
 
+  .dashboard-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #8c8c8c;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: color 0.3s;
+
+    &.connected {
+      color: #52c41a;
+
+      .live-dot {
+        background: #52c41a;
+        box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.2);
+        animation: livePulse 2s ease-in-out infinite;
+      }
+    }
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8c8c8c;
+    transition: background 0.3s;
+  }
+
+  .last-updated {
+    font-size: 12px;
+    color: #8c8c8c;
+    cursor: help;
+  }
+
+  // Stat card styles with transition
+  .stat-card {
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  }
+
   .recent-tickets-card {
     margin-top: 24px;
+  }
+}
+
+// ========================================
+// Pulse animation for real-time updates
+// ========================================
+.pulse-update .stat-card {
+  animation: statPulse 0.6s ease-out;
+}
+
+@keyframes statPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.15);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@keyframes livePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(82, 196, 26, 0.05);
   }
 }
 

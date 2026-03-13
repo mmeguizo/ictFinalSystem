@@ -1,4 +1,11 @@
-import { ApplicationConfig, inject, NgZone, provideBrowserGlobalErrorListeners, provideZoneChangeDetection, provideAppInitializer } from '@angular/core';
+import {
+  ApplicationConfig,
+  inject,
+  NgZone,
+  provideBrowserGlobalErrorListeners,
+  provideZoneChangeDetection,
+  provideAppInitializer,
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 
@@ -20,7 +27,16 @@ import {
   EyeOutline,
   EyeInvisibleOutline,
   BarChartOutline,
-  AlertOutline
+  AlertOutline,
+  WarningOutline,
+  ClockCircleOutline,
+  HourglassOutline,
+  FieldTimeOutline,
+  ReloadOutline,
+  StarOutline,
+  StarFill,
+  FilePdfOutline,
+  FileExcelOutline,
 } from '@ant-design/icons-angular/icons';
 import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
 import { registerLocaleData } from '@angular/common';
@@ -49,8 +65,6 @@ import { Router } from '@angular/router';
 
 registerLocaleData(en);
 
-
-
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
@@ -70,7 +84,7 @@ export const appConfig: ApplicationConfig = {
     // HTTP client with interceptors for auth, error handling, and loading
     provideHttpClient(
       withFetch(),
-      withInterceptors([authInterceptor, errorInterceptor, loadingInterceptor])
+      withInterceptors([authInterceptor, errorInterceptor, loadingInterceptor]),
     ),
     // Apollo GraphQL client
     provideApollo(() => {
@@ -95,13 +109,20 @@ export const appConfig: ApplicationConfig = {
         });
 
         const errorLink = onError((errorResponse: any) => {
-          const graphQLErrors = errorResponse.graphQLErrors as ReadonlyArray<GraphQLError> | undefined;
+          const graphQLErrors = errorResponse.graphQLErrors as
+            | ReadonlyArray<GraphQLError>
+            | undefined;
           const networkError = errorResponse.networkError as any;
 
           // Debug: Log all errors received
           console.log('[Apollo ErrorLink] Error received:', {
-            graphQLErrors: graphQLErrors?.map(e => ({ message: e.message, code: e.extensions?.['code'] })),
-            networkError: networkError ? { status: networkError.status, message: networkError.message } : null
+            graphQLErrors: graphQLErrors?.map((e) => ({
+              message: e.message,
+              code: e.extensions?.['code'],
+            })),
+            networkError: networkError
+              ? { status: networkError.status, message: networkError.message }
+              : null,
           });
 
           if (graphQLErrors && !isLoggingOut) {
@@ -128,11 +149,15 @@ export const appConfig: ApplicationConfig = {
               // Check for internal server error that might be caused by auth failure
               // When JWT expires, backend wraps the error as "Internal server error"
               const isInternalErrorWithAuth =
-                errorCode === 'INTERNAL_SERVER_ERROR' &&
-                appAuthService.getToken() !== null; // User has a token that might be expired
+                errorCode === 'INTERNAL_SERVER_ERROR' && appAuthService.getToken() !== null; // User has a token that might be expired
 
               if (isAuthError || isInternalErrorWithAuth) {
-                console.warn('[Apollo] Authentication error detected, logging out user. Error:', err.message, 'Code:', errorCode);
+                console.warn(
+                  '[Apollo] Authentication error detected, logging out user. Error:',
+                  err.message,
+                  'Code:',
+                  errorCode,
+                );
                 isLoggingOut = true;
                 // Clear auth state and redirect to login
                 // Must run inside NgZone so Angular Router navigation works
@@ -195,7 +220,7 @@ export const appConfig: ApplicationConfig = {
               };
             }
           } catch (error) {
-            if(!localToken){
+            if (!localToken) {
               // console.log('[Apollo] Using local JWT token:', localToken);
               console.warn('[Apollo] Failed to get Auth0 access token:', error);
             }
@@ -210,7 +235,7 @@ export const appConfig: ApplicationConfig = {
         const httpChain = ApolloLink.from([
           errorLink,
           authLink,
-          httpLink.create({ uri: environment.apiUrl })
+          httpLink.create({ uri: environment.apiUrl }),
         ]);
 
         // WebSocket link for subscriptions (real-time updates)
@@ -224,7 +249,7 @@ export const appConfig: ApplicationConfig = {
             // Auto-reconnect on connection loss
             retryAttempts: Infinity,
             shouldRetry: () => true,
-          })
+          }),
         );
 
         // Split: subscriptions go through WebSocket, everything else through HTTP
@@ -232,12 +257,11 @@ export const appConfig: ApplicationConfig = {
           ({ query }) => {
             const definition = getMainDefinition(query);
             return (
-              definition.kind === 'OperationDefinition' &&
-              definition.operation === 'subscription'
+              definition.kind === 'OperationDefinition' && definition.operation === 'subscription'
             );
           },
           wsLink,
-          httpChain
+          httpChain,
         );
 
         return {
@@ -309,7 +333,7 @@ export const appConfig: ApplicationConfig = {
     // Auth0 authentication
     provideAuth0({
       domain: environment.auth0.domain,
-        clientId: environment.auth0.clientId,
+      clientId: environment.auth0.clientId,
       authorizationParams: {
         // Redirect to /callback after Auth0 login to properly process auth
         redirect_uri: typeof window !== 'undefined' ? `${window.location.origin}/callback` : '',
@@ -334,7 +358,17 @@ export const appConfig: ApplicationConfig = {
       MenuFoldOutline,
       MenuUnfoldOutline,
       UploadOutline,
-      AlertOutline
-    ])
-  ]
+      AlertOutline,
+      BarChartOutline,
+      WarningOutline,
+      ClockCircleOutline,
+      HourglassOutline,
+      FieldTimeOutline,
+      ReloadOutline,
+      StarOutline,
+      StarFill,
+      FilePdfOutline,
+      FileExcelOutline,
+    ]),
+  ],
 };
