@@ -12,7 +12,11 @@
 
 :host ::ng-deep {
   .ant-table-cell {
-    vertical-align: middle;
+    vertical-align: middle !important;
+  }
+
+  .ant-table-tbody > tr > td {
+    vertical-align: middle !important;
   }
 
   .ant-tag {
@@ -58,8 +62,10 @@
 .action-cell {
   min-width: 180px;
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 /* Form groups in modals */
