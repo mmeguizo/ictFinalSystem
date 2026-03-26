@@ -16,8 +16,10 @@ export interface Environment {
 
 export const environment: Environment = {
   production: false,
-  apiUrl: 'http://localhost:4000/graphql',
-  wsUrl: 'ws://localhost:4000/graphql',
+  apiUrl: 'http://10.100.168.9:4000/graphql',
+  // apiUrl: 'http://localhost:4000/graphql',
+  wsUrl: 'ws://10.100.168.9:4000/graphql',
+  // wsUrl: 'ws://localhost:4000/graphql',
   auth0: {
     domain: 'dev-r7i2pqcybdndjxwt.us.auth0.com',
     clientId: 'WkpoCJqPf7qphHyBAvNF3PWPuVIb8xfl',

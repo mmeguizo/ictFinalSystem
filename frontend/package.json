@@ -9,7 +9,7 @@
     "test": "ng test",
     "serve:ssr:ictsystem": "node dist/ictsystem/server/server.mjs",
     "starter": "node --max_old_space_size=4048 ./node_modules/@angular/cli/bin/ng serve",
-    "superstarter": "node --max_old_space_size=4048 ./node_modules/@angular/cli/bin/ng serve --host 0.0.0.0 --ssl --ssl-cert ./localhost+2.pem --ssl-key ./localhost+2-key.pem",
+    "superstarter": "ng serve --host 0.0.0.0 --ssl --ssl-cert ./localhost+2.pem --ssl-key ./localhost+2-key.pem",
     "codegen": "graphql-codegen --config codegen.yml",
     "codegen:watch": "graphql-codegen --config codegen.yml --watch"
   },

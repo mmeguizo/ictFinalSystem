@@ -97,97 +97,101 @@
               <td>
                 {{ ticket.targetCompletionDate ? formatDate(ticket.targetCompletionDate) : '-' }}
               </td>
-              <td class="action-cell">
-                <!-- Review button (for Admin/Secretary on FOR_REVIEW tickets) -->
-                @if (canReview(ticket) && isSecretary()) {
-                  <button
-                    nz-button
-                    nzType="primary"
-                    nzSize="small"
-                    nz-tooltip="Review this ticket (approve or reject with notes)"
-                    (click)="openReviewModal(ticket.id)"
-                  >
-                    Review
-                  </button>
-                }
+              <td>
+                <div class="action-cell">
+                  <!-- Review button (for Admin/Secretary on FOR_REVIEW tickets) -->
+                  @if (canReview(ticket) && isSecretary()) {
+                    <button
+                      nz-button
+                      nzType="primary"
+                      nzSize="small"
+                      nz-tooltip="Review this ticket (approve or reject with notes)"
+                      (click)="openReviewModal(ticket.id)"
+                    >
+                      Review
+                    </button>
+                  }
 
-                @if (canReviewAdmin(ticket)) {
-                  <button
-                    nz-button
-                    nzType="primary"
-                    nzSize="small"
-                    nz-tooltip="Review this ticket (approve or reject with notes)"
-                    (click)="openReviewModal(ticket.id)"
-                  >
-                    Endorse
-                  </button>
-                }
+                  @if (canReviewAdmin(ticket)) {
+                    <button
+                      nz-button
+                      nzType="primary"
+                      nzSize="small"
+                      nz-tooltip="Review this ticket (approve or reject with notes)"
+                      (click)="openReviewModal(ticket.id)"
+                    >
+                      Endorse
+                    </button>
+                  }
 
-                <!-- View button (always visible) -->
-                <a
-                  nz-button
-                  nzType="link"
-                  nzSize="small"
-                  [routerLink]="['/tickets', ticket.ticketNumber]"
-                >
-                  View
-                </a>
-
-                <!-- Assign button (for Department Heads on ASSIGNED tickets) -->
-                @if (canAssign(ticket)) {
-                  <button
+                  <!-- View button (always visible) -->
+                  <a
                     nz-button
-                    nzType="primary"
+                    nzType="link"
                     nzSize="small"
-                    nz-tooltip="Assign to staff member"
-                    (click)="openAssignModal(ticket.id)"
+                    [routerLink]="['/tickets', ticket.ticketNumber]"
                   >
-                    Assign
-                  </button>
-                }
+                    View
+                  </a>
 
-                <!-- Acknowledge Schedule button (for Admin on PENDING_ACKNOWLEDGMENT tickets) -->
-                @if (canAcknowledge(ticket)) {
-                  <button
-                    nz-button
-                    nzType="primary"
-                    nzSize="small"
-                    nz-tooltip="Acknowledge or reject the scheduled visit"
-                    (click)="openAcknowledgeModal(ticket.id)"
-                  >
-                    Acknowledge
-                  </button>
-                }
+                  <!-- Assign button (for Department Heads on ASSIGNED tickets) -->
+                  @if (canAssign(ticket)) {
+                    <button
+                      nz-button
+                      nzType="primary"
+                      nzSize="small"
+                      nz-tooltip="Assign to staff member"
+                      (click)="openAssignModal(ticket.id)"
+                    >
+                      Assign
+                    </button>
+                  }
 
-                <!-- Add/Update Monitor Notes button (for Department Heads) -->
-                @if (canAddMonitor(ticket)) {
-                  <button
-                    nz-button
-                    nzType="default"
-                    nzSize="small"
-                    [nz-tooltip]="
-                      ticket.monitorNotes
-                        ? 'Update monitor notes and recommendations'
-                        : 'Add monitor notes and recommendations'
-                    "
-                    (click)="openMonitorModal(ticket)"
-                  >
-                    {{ ticket.monitorNotes ? 'Update Monitor' : 'Add Monitor' }}
-                  </button>
-                }
+                  <!-- Acknowledge Schedule button (for Admin on PENDING_ACKNOWLEDGMENT tickets) -->
+                  @if (canAcknowledge(ticket)) {
+                    <button
+                      nz-button
+                      nzType="primary"
+                      nzSize="small"
+                      nz-tooltip="Acknowledge or reject the scheduled visit"
+                      (click)="openAcknowledgeModal(ticket.id)"
+                    >
+                      Acknowledge
+                    </button>
+                  }
 
-                <!-- Update Status button (for Staff on their assigned tickets) -->
-                @if (canUpdate(ticket)) {
-                  <button
-                    nz-button
-                    nzType="default"
-                    nzSize="small"
-                    nz-tooltip="Update ticket status"
-                    (click)="openStatusModal(ticket.id, ticket.status, ticket.targetCompletionDate)"
-                  >
-                    Update
-                  </button>
-                }
+                  <!-- Add/Update Monitor Notes button (for Department Heads) -->
+                  @if (canAddMonitor(ticket)) {
+                    <button
+                      nz-button
+                      nzType="default"
+                      nzSize="small"
+                      [nz-tooltip]="
+                        ticket.monitorNotes
+                          ? 'Update monitor notes and recommendations'
+                          : 'Add monitor notes and recommendations'
+                      "
+                      (click)="openMonitorModal(ticket)"
+                    >
+                      {{ ticket.monitorNotes ? 'Update Monitor' : 'Add Monitor' }}
+                    </button>
+                  }
+
+                  <!-- Update Status button (for Staff on their assigned tickets) -->
+                  @if (canUpdate(ticket)) {
+                    <button
+                      nz-button
+                      nzType="default"
+                      nzSize="small"
+                      nz-tooltip="Update ticket status"
+                      (click)="
+                        openStatusModal(ticket.id, ticket.status, ticket.targetCompletionDate)
+                      "
+                    >
+                      Update
+                    </button>
+                  }
+                </div>
               </td>
             </tr>
           }
