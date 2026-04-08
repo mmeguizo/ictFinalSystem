@@ -268,7 +268,7 @@ async function start() {
   await server.start();
   server.applyMiddleware({
     app,
-    path: "/",
+    path: "/graphql",
     bodyParserConfig: { limit: "10mb" },
   });
 
