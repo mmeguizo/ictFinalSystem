@@ -11,8 +11,7 @@ export const ticketTypeDefs = gql`
     REVIEWED
     DIRECTOR_APPROVED
     ASSIGNED
-    PENDING_ACKNOWLEDGMENT
-    SCHEDULED
+    PENDING
     IN_PROGRESS
     ON_HOLD
     RESOLVED
@@ -48,18 +47,12 @@ export const ticketTypeDefs = gql`
     secretaryReviewedAt: String
     directorApprovedById: Int
     directorApprovedAt: String
-    # Schedule workflow (Head sets dates, Admin acknowledges)
+    # Head workflow
+    assignedDeveloperName: String
     dateToVisit: String
     targetCompletionDate: String
-    headScheduledById: Int
-    headScheduledAt: String
-    adminAcknowledgedById: Int
-    adminAcknowledgedAt: String
-    # Monitoring (Head adds after visit)
-    monitorNotes: String
-    recommendations: String
-    monitoredById: Int
-    monitoredAt: String
+    resolution: String
+    dateFinished: String
     # Escalation
     escalatedAt: String
     escalationLevel: Int!
@@ -254,15 +247,19 @@ export const ticketTypeDefs = gql`
     comment: String
   }
 
-  input ScheduleVisitInput {
-    dateToVisit: String!
-    targetCompletionDate: String!
+  # Input for head to acknowledge ticket and assign developer
+  input AcknowledgeAndAssignInput {
+    assignedDeveloperName: String!
+    dateToVisit: String
+    targetCompletionDate: String
     comment: String
   }
 
-  input AddMonitorInput {
-    monitorNotes: String!
-    recommendations: String!
+  # Input for head to update ticket resolution
+  input UpdateResolutionInput {
+    resolution: String!
+    dateFinished: String
+    status: TicketStatus
     comment: String
   }
 
@@ -311,7 +308,7 @@ export const ticketTypeDefs = gql`
     myCreatedTickets(pagination: PaginationInput): PaginatedTickets!
     ticketsForSecretaryReview: [Ticket!]!
     ticketsPendingDirectorApproval: [Ticket!]!
-    ticketsPendingAcknowledgment: [Ticket!]!
+    officeHeadTickets(type: TicketType!): PaginatedTickets!
     allSecretaryTickets(pagination: PaginationInput): PaginatedTickets!
     ticketAnalytics(filter: AnalyticsFilterInput): TicketAnalytics!
     slaMetrics: SLAMetrics!
@@ -335,16 +332,13 @@ export const ticketTypeDefs = gql`
     unassignTicket(ticketId: Int!, userId: Int!): Ticket!
     addTicketNote(ticketId: Int!, input: CreateTicketNoteInput!): TicketNote!
     reopenTicket(ticketId: Int!, input: ReopenTicketInput): Ticket!
-    # Schedule workflow mutations (for Heads)
-    scheduleVisit(ticketId: Int!, input: ScheduleVisitInput!): Ticket!
-    # Acknowledge schedule (for Admin/Director)
-    acknowledgeSchedule(ticketId: Int!, comment: String): Ticket!
-    rejectSchedule(ticketId: Int!, reason: String!): Ticket!
-    # Monitor workflow (for Heads after visit)
-    addMonitorAndRecommendations(
+    # Head workflow: acknowledge ticket and assign developer name
+    acknowledgeAndAssignDeveloper(
       ticketId: Int!
-      input: AddMonitorInput!
+      input: AcknowledgeAndAssignInput!
     ): Ticket!
+    # Head workflow: update resolution after work is done
+    updateResolution(ticketId: Int!, input: UpdateResolutionInput!): Ticket!
     # Attachment management
     deleteTicketAttachment(attachmentId: Int!): Boolean!
     # Satisfaction survey

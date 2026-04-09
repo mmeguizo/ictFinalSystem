@@ -300,7 +300,6 @@ export class TicketService {
    * @param assignedById - The user performing the assignment (e.g., MIS_HEAD)
    * @param options - Optional schedule dates (dateToVisit, targetCompletionDate) and comment
    * Notifies the assigned user about the new assignment
-   * If dateToVisit is provided, also transitions ticket to PENDING_ACKNOWLEDGMENT
    */
   async assignUser(
     ticketId: number,
@@ -331,50 +330,20 @@ export class TicketService {
       assignedById,
     );
 
-    // If dateToVisit is provided, combine assign + schedule into one step:
-    // Set the schedule dates AND transition status to PENDING_ACKNOWLEDGMENT
-    if (options?.dateToVisit) {
-      const updateData: any = {
-        dateToVisit: options.dateToVisit,
-        headScheduledById: assignedById,
-        headScheduledAt: new Date(),
-        status: TicketStatus.PENDING_ACKNOWLEDGMENT,
-      };
+    // If dateToVisit is provided, store it on the ticket
+    if (options?.dateToVisit || options?.targetCompletionDate) {
+      const updateData: any = {};
+      if (options.dateToVisit) {
+        updateData.dateToVisit = options.dateToVisit;
+      }
       if (options.targetCompletionDate) {
         updateData.targetCompletionDate = options.targetCompletionDate;
       }
 
-      // Atomic: ticket update + status history for assign+schedule
-      await this.prisma.$transaction(async (tx) => {
-        await tx.ticket.update({
-          where: { id: ticketId },
-          data: updateData,
-        });
-
-        await tx.ticketStatusHistory.create({
-          data: {
-            ticketId,
-            userId: assignedById || userId,
-            fromStatus: TicketStatus.ASSIGNED,
-            toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-            comment: `Staff assigned and visit scheduled for ${options.dateToVisit!.toLocaleDateString()}`,
-          },
-        });
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: updateData,
       });
-
-      // Notify admin about schedule for acknowledgment
-      try {
-        await this.notificationService.notifyAdminScheduleSet(
-          ticketId,
-          ticket.ticketNumber,
-          ticket.title,
-          assigner?.name || "Department Head",
-          options.dateToVisit,
-          options.targetCompletionDate || options.dateToVisit,
-        );
-      } catch (err) {
-        console.error("Failed to send schedule notification:", err);
-      }
     }
 
     // Notify the assigned user
@@ -612,7 +581,7 @@ export class TicketService {
   /**
    * Get tickets for Office Heads (MIS_HEAD or ITS_HEAD)
    * Returns all tickets of their type that are in work statuses
-   * (DIRECTOR_APPROVED, ASSIGNED, PENDING_ACKNOWLEDGMENT, SCHEDULED, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED)
+   * (DIRECTOR_APPROVED, ASSIGNED, PENDING, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED)
    */
   async getOfficeHeadTickets(
     ticketType: TicketType,
@@ -623,8 +592,7 @@ export class TicketService {
       [
         TicketStatus.DIRECTOR_APPROVED,
         TicketStatus.ASSIGNED,
-        TicketStatus.PENDING_ACKNOWLEDGMENT,
-        TicketStatus.SCHEDULED,
+        TicketStatus.PENDING,
         TicketStatus.IN_PROGRESS,
         TicketStatus.ON_HOLD,
         TicketStatus.RESOLVED,
@@ -1164,106 +1132,120 @@ export class TicketService {
   }
 
   // ========================================
-  // SCHEDULE WORKFLOW METHODS
+  // HEAD WORKFLOW METHODS (Simplified)
   // ========================================
 
   /**
-   * Get tickets pending acknowledgment (PENDING_ACKNOWLEDGMENT status)
-   * For admin/director to see tickets that heads have scheduled
+   * Head acknowledges ticket and assigns a developer name
+   * Transitions from ASSIGNED → PENDING (default status while developer works)
+   * Head sets: developer name, optional dates, optional notes
    */
-  async getTicketsPendingAcknowledgment() {
-    const result = await this.repository.findMany({
-      status: TicketStatus.PENDING_ACKNOWLEDGMENT,
-    });
-    return result.items;
-  }
-
-  /**
-   * Schedule a visit (for MIS_HEAD/ITS_HEAD)
-   * Sets the dateToVisit and targetCompletionDate, changes status to PENDING_ACKNOWLEDGMENT
-   */
-  async scheduleVisit(
+  async acknowledgeAndAssignDeveloper(
     ticketId: number,
     headId: number,
-    dateToVisit: Date,
-    targetCompletionDate: Date,
-    comment?: string,
+    assignedDeveloperName: string,
+    options?: {
+      dateToVisit?: Date;
+      targetCompletionDate?: Date;
+      comment?: string;
+    },
   ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
       throw new Error("Ticket not found");
     }
 
-    // Only ASSIGNED tickets can be scheduled
     if (ticket.status !== TicketStatus.ASSIGNED) {
-      throw new Error("Ticket must be in ASSIGNED status to schedule a visit");
+      throw new Error(
+        "Ticket must be in ASSIGNED status to acknowledge and assign developer",
+      );
     }
 
-    // Get head name for notification
+    if (!assignedDeveloperName || assignedDeveloperName.trim().length === 0) {
+      throw new Error("Developer name is required");
+    }
+
     const head = await this.prisma.user.findUnique({
       where: { id: headId },
       select: { name: true, role: true },
     });
 
-    // Atomic: status history + ticket update + optional note
     await this.prisma.$transaction(async (tx) => {
+      const updateData: any = {
+        status: TicketStatus.PENDING,
+        assignedDeveloperName: assignedDeveloperName.trim(),
+      };
+
+      if (options?.dateToVisit) {
+        updateData.dateToVisit = options.dateToVisit;
+      }
+      if (options?.targetCompletionDate) {
+        updateData.targetCompletionDate = options.targetCompletionDate;
+      }
+
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: updateData,
+      });
+
+      const commentText =
+        options?.comment ||
+        `Acknowledged by ${head?.name || "Head"}, assigned to developer: ${assignedDeveloperName.trim()}`;
+
       await tx.ticketStatusHistory.create({
         data: {
           ticketId,
           userId: headId,
           fromStatus: TicketStatus.ASSIGNED,
-          toStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-          comment:
-            comment ||
-            `Visit scheduled for ${dateToVisit.toLocaleDateString()}`,
+          toStatus: TicketStatus.PENDING,
+          comment: commentText,
         },
       });
 
-      await tx.ticket.update({
-        where: { id: ticketId },
-        data: {
-          status: TicketStatus.PENDING_ACKNOWLEDGMENT,
-          dateToVisit,
-          targetCompletionDate,
-          headScheduledById: headId,
-          headScheduledAt: new Date(),
-        },
-      });
-
-      if (comment && comment.trim().length > 0) {
-        await tx.ticketNote.create({
-          data: {
-            ticketId,
-            userId: headId,
-            content: `Visit scheduled: ${comment.trim()}`,
-            isInternal: true,
-          },
-        });
+      // Add internal note with assignment details
+      let noteContent = `Developer assigned: **${assignedDeveloperName.trim()}**`;
+      if (options?.dateToVisit) {
+        noteContent += `\nVisit date: ${options.dateToVisit.toLocaleDateString()}`;
       }
+      if (options?.targetCompletionDate) {
+        noteContent += `\nTarget completion: ${options.targetCompletionDate.toLocaleDateString()}`;
+      }
+      if (options?.comment) {
+        noteContent += `\nNotes: ${options.comment}`;
+      }
+
+      await tx.ticketNote.create({
+        data: {
+          ticketId,
+          userId: headId,
+          content: noteContent,
+          isInternal: true,
+        },
+      });
     });
 
-    // Notify admin about schedule for acknowledgment
+    // Notify ticket creator that their ticket is being worked on
     try {
-      await this.notificationService.notifyAdminScheduleSet(
+      await this.notificationService.notifyStatusChanged(
         ticketId,
         ticket.ticketNumber,
         ticket.title,
+        ticket.createdById,
+        TicketStatus.ASSIGNED,
+        TicketStatus.PENDING,
         head?.name || "Department Head",
-        dateToVisit,
-        targetCompletionDate,
       );
     } catch (err) {
-      console.error("Failed to send schedule notification:", err);
+      console.error("Failed to send acknowledge notification:", err);
     }
 
-    // Publish real-time event for schedule visit status change
     pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
       ticketStatusChanged: {
         ticketId,
         ticketNumber: ticket.ticketNumber,
         title: ticket.title,
         oldStatus: TicketStatus.ASSIGNED,
-        newStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
+        newStatus: TicketStatus.PENDING,
         changedBy: head?.name || "Department Head",
         timestamp: new Date().toISOString(),
       },
@@ -1273,227 +1255,64 @@ export class TicketService {
   }
 
   /**
-   * Acknowledge schedule (for Admin/Director)
-   * Confirms the visit dates set by the head, notifies the user
+   * Head updates resolution after developer hands back finished work
+   * Sets resolution text, dateFinished, and optionally updates status
    */
-  async acknowledgeSchedule(
-    ticketId: number,
-    adminId: number,
-    comment?: string,
-  ) {
-    const ticket = await this.repository.findById(ticketId);
-    if (!ticket) {
-      throw new Error("Ticket not found");
-    }
-
-    if (ticket.status !== TicketStatus.PENDING_ACKNOWLEDGMENT) {
-      throw new Error(
-        "Ticket must be in PENDING_ACKNOWLEDGMENT status to acknowledge",
-      );
-    }
-
-    // Get admin name for notification
-    const admin = await this.prisma.user.findUnique({
-      where: { id: adminId },
-      select: { name: true },
-    });
-
-    // Atomic: status history + ticket update + optional note
-    await this.prisma.$transaction(async (tx) => {
-      await tx.ticketStatusHistory.create({
-        data: {
-          ticketId,
-          userId: adminId,
-          fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-          toStatus: TicketStatus.SCHEDULED,
-          comment: comment || "Visit schedule acknowledged by admin",
-        },
-      });
-
-      await tx.ticket.update({
-        where: { id: ticketId },
-        data: {
-          status: TicketStatus.SCHEDULED,
-          adminAcknowledgedById: adminId,
-          adminAcknowledgedAt: new Date(),
-        },
-      });
-
-      if (comment && comment.trim().length > 0) {
-        await tx.ticketNote.create({
-          data: {
-            ticketId,
-            userId: adminId,
-            content: `Schedule acknowledged: ${comment.trim()}`,
-            isInternal: true,
-          },
-        });
-      }
-    });
-
-    // Notify the ticket creator about the scheduled visit
-    try {
-      await this.notificationService.notifyUserVisitScheduled(
-        ticketId,
-        ticket.ticketNumber,
-        ticket.title,
-        ticket.createdById,
-        ticket.dateToVisit!,
-        ticket.targetCompletionDate!,
-        ticket.type === TicketType.MIS ? "MIS Office" : "ITS Office",
-      );
-    } catch (err) {
-      console.error("Failed to send visit scheduled notification:", err);
-    }
-
-    // Publish real-time event for acknowledge status change
-    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
-      ticketStatusChanged: {
-        ticketId,
-        ticketNumber: ticket.ticketNumber,
-        title: ticket.title,
-        oldStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-        newStatus: TicketStatus.SCHEDULED,
-        changedBy: admin?.name || "Admin",
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    return this.repository.findById(ticketId);
-  }
-
-  /**
-   * Reject schedule (for Admin/Director)
-   * Returns ticket to ASSIGNED status for head to reschedule
-   */
-  async rejectSchedule(ticketId: number, adminId: number, reason: string) {
-    const ticket = await this.repository.findById(ticketId);
-    if (!ticket) {
-      throw new Error("Ticket not found");
-    }
-
-    if (ticket.status !== TicketStatus.PENDING_ACKNOWLEDGMENT) {
-      throw new Error(
-        "Ticket must be in PENDING_ACKNOWLEDGMENT status to reject schedule",
-      );
-    }
-
-    // Get admin name for notification
-    const admin = await this.prisma.user.findUnique({
-      where: { id: adminId },
-      select: { name: true },
-    });
-
-    // Atomic: status history + ticket update + rejection note
-    await this.prisma.$transaction(async (tx) => {
-      await tx.ticketStatusHistory.create({
-        data: {
-          ticketId,
-          userId: adminId,
-          fromStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-          toStatus: TicketStatus.ASSIGNED,
-          comment: `Schedule rejected: ${reason}`,
-        },
-      });
-
-      await tx.ticket.update({
-        where: { id: ticketId },
-        data: {
-          status: TicketStatus.ASSIGNED,
-          dateToVisit: null,
-          targetCompletionDate: null,
-          headScheduledById: null,
-          headScheduledAt: null,
-        },
-      });
-
-      await tx.ticketNote.create({
-        data: {
-          ticketId,
-          userId: adminId,
-          content: `Schedule rejected by admin: ${reason}`,
-          isInternal: true,
-        },
-      });
-    });
-
-    // Notify head about schedule rejection
-    try {
-      await this.notificationService.notifyHeadScheduleRejected(
-        ticketId,
-        ticket.ticketNumber,
-        ticket.title,
-        ticket.headScheduledById!,
-        reason,
-      );
-    } catch (err) {
-      console.error("Failed to send schedule rejection notification:", err);
-    }
-
-    // Publish real-time event for schedule rejection status change
-    pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
-      ticketStatusChanged: {
-        ticketId,
-        ticketNumber: ticket.ticketNumber,
-        title: ticket.title,
-        oldStatus: TicketStatus.PENDING_ACKNOWLEDGMENT,
-        newStatus: TicketStatus.ASSIGNED,
-        changedBy: admin?.name || "Admin",
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    return this.repository.findById(ticketId);
-  }
-
-  /**
-   * Add monitor notes and recommendations (for MIS_HEAD/ITS_HEAD after visit)
-   * Updates the ticket with monitoring information
-   */
-  async addMonitorAndRecommendations(
+  async updateResolution(
     ticketId: number,
     headId: number,
-    monitorNotes: string,
-    recommendations: string,
-    comment?: string,
+    resolution: string,
+    options?: {
+      dateFinished?: Date;
+      status?: TicketStatus;
+      comment?: string;
+    },
   ) {
     const ticket = await this.repository.findById(ticketId);
     if (!ticket) {
       throw new Error("Ticket not found");
     }
 
-    // Allow monitor notes on tickets that are SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED
+    // Allow resolution update on active tickets
     const allowedStatuses: string[] = [
-      TicketStatus.SCHEDULED,
+      TicketStatus.PENDING,
       TicketStatus.IN_PROGRESS,
       TicketStatus.ON_HOLD,
       TicketStatus.RESOLVED,
     ];
     if (!allowedStatuses.includes(ticket.status)) {
       throw new Error(
-        "Ticket must be in SCHEDULED, IN_PROGRESS, ON_HOLD, or RESOLVED status to update monitor notes",
+        "Ticket must be in PENDING, IN_PROGRESS, ON_HOLD, or RESOLVED status to update resolution",
       );
     }
 
-    // Get head name for notification
+    if (!resolution || resolution.trim().length === 0) {
+      throw new Error("Resolution text is required");
+    }
+
     const head = await this.prisma.user.findUnique({
       where: { id: headId },
       select: { name: true },
     });
 
-    // Atomic: ticket update + optional status history + note
+    const newStatus = options?.status || TicketStatus.RESOLVED;
+    const dateFinished = options?.dateFinished || new Date();
+
     await this.prisma.$transaction(async (tx) => {
-      // Update ticket with monitor data
-      // If ticket is SCHEDULED, transition to IN_PROGRESS; otherwise keep current status
       const updateData: any = {
-        monitorNotes,
-        recommendations,
-        monitoredById: headId,
-        monitoredAt: new Date(),
+        resolution: resolution.trim(),
+        dateFinished,
       };
 
-      if (ticket.status === TicketStatus.SCHEDULED) {
-        updateData.status = TicketStatus.IN_PROGRESS;
+      // Update status if it's changing
+      if (newStatus !== ticket.status) {
+        updateData.status = newStatus;
+        if (newStatus === TicketStatus.RESOLVED) {
+          updateData.resolvedAt = new Date();
+        }
+        if (newStatus === TicketStatus.CLOSED) {
+          updateData.closedAt = new Date();
+        }
       }
 
       await tx.ticket.update({
@@ -1501,52 +1320,56 @@ export class TicketService {
         data: updateData,
       });
 
-      // Add status history if status changed
-      if (ticket.status === TicketStatus.SCHEDULED) {
+      if (newStatus !== ticket.status) {
         await tx.ticketStatusHistory.create({
           data: {
             ticketId,
             userId: headId,
-            fromStatus: TicketStatus.SCHEDULED,
-            toStatus: TicketStatus.IN_PROGRESS,
-            comment: comment || "Monitor notes added after visit",
+            fromStatus: ticket.status as TicketStatus,
+            toStatus: newStatus,
+            comment:
+              options?.comment ||
+              `Resolution added: ${resolution.trim().substring(0, 100)}...`,
           },
         });
       }
 
-      // Add a note with the monitor info
+      // Add public note with the resolution visible to user
       await tx.ticketNote.create({
         data: {
           ticketId,
           userId: headId,
-          content: `**Monitor Notes:**\n${monitorNotes}\n\n**Recommendations:**\n${recommendations}${comment ? `\n\n**Additional Comments:** ${comment}` : ""}`,
-          isInternal: false, // Visible to user
+          content: `**Resolution:**\n${resolution.trim()}${options?.comment ? `\n\n**Notes:** ${options.comment}` : ""}`,
+          isInternal: false,
         },
       });
     });
 
-    // Notify user about monitoring update
-    try {
-      await this.notificationService.notifyUserMonitorUpdate(
-        ticketId,
-        ticket.ticketNumber,
-        ticket.title,
-        ticket.createdById,
-        head?.name || "Department Head",
-      );
-    } catch (err) {
-      console.error("Failed to send monitor update notification:", err);
+    // Notify user about resolution
+    if (ticket.createdById !== headId) {
+      try {
+        await this.notificationService.notifyStatusChanged(
+          ticketId,
+          ticket.ticketNumber,
+          ticket.title,
+          ticket.createdById,
+          ticket.status as TicketStatus,
+          newStatus,
+          head?.name || "Department Head",
+        );
+      } catch (err) {
+        console.error("Failed to send resolution notification:", err);
+      }
     }
 
-    // Publish real-time event if status changed (SCHEDULED → IN_PROGRESS)
-    if (ticket.status === TicketStatus.SCHEDULED) {
+    if (newStatus !== ticket.status) {
       pubsub.publish(EVENTS.TICKET_STATUS_CHANGED, {
         ticketStatusChanged: {
           ticketId,
           ticketNumber: ticket.ticketNumber,
           title: ticket.title,
-          oldStatus: TicketStatus.SCHEDULED,
-          newStatus: TicketStatus.IN_PROGRESS,
+          oldStatus: ticket.status,
+          newStatus,
           changedBy: head?.name || "Department Head",
           timestamp: new Date().toISOString(),
         },

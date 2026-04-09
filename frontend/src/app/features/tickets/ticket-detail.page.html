@@ -260,66 +260,62 @@
         }
       </ng-template>
 
-      <!-- Schedule & Monitor Card -->
+      <!-- Schedule & Head Actions Card -->
       @if (
-        t.dateToVisit ||
-        t.status === 'PENDING_ACKNOWLEDGMENT' ||
-        t.status === 'SCHEDULED' ||
-        canAcknowledgeSchedule() ||
-        canAddMonitor()
+        t.dateToVisit || t.status === 'PENDING' || canHeadAcknowledge() || canUpdateResolution()
       ) {
-        <nz-card nzTitle="Schedule & Monitoring" class="schedule-card">
-          <!-- Pending Acknowledgment Alert (for Admin) -->
-          @if (canAcknowledgeSchedule()) {
+        <nz-card nzTitle="Schedule & Actions" class="schedule-card">
+          <!-- Head Acknowledge Alert (for Department Heads on ASSIGNED tickets) -->
+          @if (canHeadAcknowledge()) {
             <nz-alert
               nzType="warning"
-              nzMessage="Schedule Pending Acknowledgment"
-              [nzDescription]="acknowledgeDescTpl"
+              nzMessage="Ticket Pending Acknowledgment"
+              [nzDescription]="headAckDescTpl"
               [nzShowIcon]="true"
               style="margin-bottom: 16px"
             ></nz-alert>
-            <ng-template #acknowledgeDescTpl>
+            <ng-template #headAckDescTpl>
               <div>
-                <p>The department head has scheduled a visit. Please review and acknowledge.</p>
+                <p>This ticket needs your acknowledgment. Enter the developer/technician name.</p>
                 <button
                   nz-button
                   nzType="primary"
-                  (click)="openAcknowledgeModal()"
+                  (click)="openHeadAcknowledgeModal()"
                   style="margin-top: 8px"
                 >
                   <i nz-icon nzType="check-circle"></i>
-                  Review Schedule
+                  Acknowledge & Assign Developer
                 </button>
               </div>
             </ng-template>
           }
 
-          <!-- Add/Update Monitor Notes Action (for Department Heads) -->
-          @if (canAddMonitor()) {
+          <!-- Update Resolution Action (for Department Heads) -->
+          @if (canUpdateResolution()) {
             <nz-alert
               nzType="info"
-              [nzMessage]="t.monitorNotes ? 'Update Monitor Report' : 'Add Monitor Report'"
-              [nzDescription]="monitorDescTpl"
+              [nzMessage]="t.resolution ? 'Update Resolution' : 'Add Resolution'"
+              [nzDescription]="resolutionDescTpl"
               [nzShowIcon]="true"
               style="margin-bottom: 16px"
             ></nz-alert>
-            <ng-template #monitorDescTpl>
+            <ng-template #resolutionDescTpl>
               <div>
                 <p>
                   {{
-                    t.monitorNotes
-                      ? 'You can update the monitor notes and recommendations.'
-                      : 'After the visit, please add monitor notes and recommendations.'
+                    t.resolution
+                      ? 'You can update the resolution for this ticket.'
+                      : 'Add a resolution once the work is complete.'
                   }}
                 </p>
                 <button
                   nz-button
                   nzType="primary"
-                  (click)="openMonitorModal()"
+                  (click)="openResolutionModal()"
                   style="margin-top: 8px"
                 >
                   <i nz-icon nzType="file-text"></i>
-                  {{ t.monitorNotes ? 'Update Monitor Notes' : 'Add Monitor Notes' }}
+                  {{ t.resolution ? 'Update Resolution' : 'Add Resolution' }}
                 </button>
               </div>
             </ng-template>
@@ -348,20 +344,16 @@
                   <span class="pending">Not set</span>
                 }
               </nz-descriptions-item>
-              <nz-descriptions-item nzTitle="Scheduled By">
-                @if (t.headScheduledAt) {
-                  <span class="approved"> ✓ Scheduled on {{ formatDate(t.headScheduledAt) }} </span>
+              <nz-descriptions-item nzTitle="Assigned Developer">
+                @if (t.assignedDeveloperName) {
+                  <span class="approved">{{ t.assignedDeveloperName }}</span>
                 } @else {
                   <span class="pending">-</span>
                 }
               </nz-descriptions-item>
-              <nz-descriptions-item nzTitle="Acknowledged By Admin">
-                @if (t.adminAcknowledgedAt) {
-                  <span class="approved">
-                    ✓ Acknowledged on {{ formatDate(t.adminAcknowledgedAt) }}
-                  </span>
-                } @else if (t.status === 'PENDING_ACKNOWLEDGMENT') {
-                  <span class="pending">Pending</span>
+              <nz-descriptions-item nzTitle="Date Finished">
+                @if (t.dateFinished) {
+                  <span class="approved">{{ formatDate(t.dateFinished) }}</span>
                 } @else {
                   <span class="pending">-</span>
                 }
@@ -369,25 +361,17 @@
             </nz-descriptions>
           }
 
-          <!-- Monitor Notes & Recommendations Display -->
-          @if (t.monitorNotes || t.recommendations) {
-            <nz-divider nzText="Monitor Report"></nz-divider>
+          <!-- Resolution Display -->
+          @if (t.resolution) {
+            <nz-divider nzText="Resolution"></nz-divider>
             <div class="monitor-report">
-              @if (t.monitorNotes) {
-                <div class="report-section">
-                  <h5><i nz-icon nzType="file-text"></i> Monitor Notes</h5>
-                  <p style="white-space: pre-wrap">{{ t.monitorNotes }}</p>
-                </div>
-              }
-              @if (t.recommendations) {
-                <div class="report-section">
-                  <h5><i nz-icon nzType="bulb"></i> Recommendations</h5>
-                  <p style="white-space: pre-wrap">{{ t.recommendations }}</p>
-                </div>
-              }
-              @if (t.monitoredAt) {
+              <div class="report-section">
+                <h5><i nz-icon nzType="file-text"></i> Resolution</h5>
+                <p style="white-space: pre-wrap">{{ t.resolution }}</p>
+              </div>
+              @if (t.dateFinished) {
                 <p class="monitor-timestamp">
-                  <small>Monitored on {{ formatDate(t.monitoredAt) }}</small>
+                  <small>Finished on {{ formatDate(t.dateFinished) }}</small>
                 </p>
               }
             </div>
@@ -403,9 +387,6 @@
             <!-- Helpful hint about what the staff can do based on current status -->
             <p class="action-hint">
               @switch (ticket()?.status) {
-                @case ('SCHEDULED') {
-                  This ticket is scheduled and assigned to you. Click "Start Work" to begin.
-                }
                 @case ('ASSIGNED') {
                   This ticket is assigned to you. Click "Start Work" to begin.
                 }
@@ -420,22 +401,6 @@
 
             <div class="action-buttons">
               @switch (ticket()?.status) {
-                @case ('SCHEDULED') {
-                  <button
-                    nz-button
-                    nzType="primary"
-                    nzSize="large"
-                    [nzLoading]="updatingStatus()"
-                    (click)="quickStatusUpdate('IN_PROGRESS', 'Started working on this ticket')"
-                  >
-                    <i nz-icon nzType="play-circle" nzTheme="outline"></i>
-                    Start Work
-                  </button>
-                  <button nz-button nzType="default" nzSize="large" (click)="openStatusModal()">
-                    <i nz-icon nzType="edit" nzTheme="outline"></i>
-                    Update Status & Details
-                  </button>
-                }
                 @case ('ASSIGNED') {
                   <button
                     nz-button
@@ -1049,87 +1014,91 @@
   </ng-template>
 </nz-modal>
 
-<!-- Acknowledge Schedule Modal (for Admin) -->
+<!-- Head Acknowledge & Assign Developer Modal (for Department Heads) -->
 <nz-modal
-  [nzVisible]="showAcknowledgeModal()"
-  (nzVisibleChange)="showAcknowledgeModal.set($event)"
-  nzTitle="Acknowledge Schedule"
-  [nzFooter]="acknowledgeModalFooter"
-  [nzClosable]="true"
-  [nzWidth]="550"
-  (nzOnCancel)="closeAcknowledgeModal()"
->
-  <ng-container *nzModalContent>
-    <p>Review the scheduled visit set by the department head:</p>
-    <ul>
-      <li><strong>Acknowledge:</strong> Approve the schedule and notify the user</li>
-      <li><strong>Reject:</strong> Return to department head for rescheduling</li>
-    </ul>
-
-    @if (acknowledgeAction() === 'acknowledge') {
-      <div class="form-group" style="margin-top: 16px">
-        <label>Comment (optional):</label>
-        <textarea
-          nz-input
-          [ngModel]="acknowledgeComment()"
-          (ngModelChange)="acknowledgeComment.set($event)"
-          rows="3"
-          placeholder="Add any notes about the acknowledgment..."
-        ></textarea>
-      </div>
-    } @else {
-      <div class="form-group" style="margin-top: 16px">
-        <label><span class="required">*</span> Reason for Rejection:</label>
-        <textarea
-          nz-input
-          [ngModel]="rejectReason()"
-          (ngModelChange)="rejectReason.set($event)"
-          rows="3"
-          placeholder="Explain why the schedule needs to be revised..."
-        ></textarea>
-      </div>
-    }
-  </ng-container>
-
-  <ng-template #acknowledgeModalFooter>
-    <button nz-button nzType="default" (click)="closeAcknowledgeModal()">Cancel</button>
-    <button
-      nz-button
-      nzType="default"
-      nzDanger
-      [nzLoading]="processingAcknowledge()"
-      (click)="acknowledgeAction.set('reject'); confirmAcknowledge()"
-    >
-      Reject Schedule
-    </button>
-    <button
-      nz-button
-      nzType="primary"
-      [nzLoading]="processingAcknowledge()"
-      (click)="acknowledgeAction.set('acknowledge'); confirmAcknowledge()"
-    >
-      Acknowledge & Notify User
-    </button>
-  </ng-template>
-</nz-modal>
-
-<!-- Monitor & Recommendations Modal (for Department Heads) -->
-<nz-modal
-  [nzVisible]="showMonitorModal()"
-  (nzVisibleChange)="showMonitorModal.set($event)"
-  nzTitle="Monitor Notes & Recommendations"
-  [nzOkText]="'Submit'"
+  [nzVisible]="showHeadAcknowledgeModal()"
+  (nzVisibleChange)="showHeadAcknowledgeModal.set($event)"
+  nzTitle="Acknowledge & Assign Developer"
+  [nzOkText]="'Acknowledge & Assign'"
   [nzCancelText]="'Cancel'"
-  [nzOkLoading]="processingMonitor()"
-  [nzWidth]="600"
-  (nzOnOk)="confirmAddMonitor()"
-  (nzOnCancel)="closeMonitorModal()"
+  [nzOkLoading]="processingHeadAcknowledge()"
+  [nzOkDisabled]="!headAckDeveloperName().trim()"
+  [nzWidth]="550"
+  (nzOnOk)="confirmHeadAcknowledge()"
+  (nzOnCancel)="closeHeadAcknowledgeModal()"
 >
   <ng-container *nzModalContent>
     <nz-alert
       nzType="info"
-      nzMessage="Post-Visit Monitoring"
-      nzDescription="Document your findings and recommendations after the site visit. You can update these at any time."
+      nzMessage="Assign a developer/technician to this ticket"
+      nzDescription="Enter the name of the developer or technician who will handle this ticket. You can also set a visit date and target completion date."
+      [nzShowIcon]="true"
+      style="margin-bottom: 16px"
+    ></nz-alert>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label><span class="required">*</span> Developer/Technician Name:</label>
+      <input
+        nz-input
+        [ngModel]="headAckDeveloperName()"
+        (ngModelChange)="headAckDeveloperName.set($event)"
+        placeholder="Enter the developer or technician name"
+      />
+    </div>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label>Date to Visit (optional):</label>
+      <nz-date-picker
+        style="width: 100%"
+        [ngModel]="headAckDateToVisit()"
+        (ngModelChange)="headAckDateToVisit.set($event)"
+        nzPlaceHolder="Select date to visit"
+        [nzDisabledDate]="disablePastDates"
+      ></nz-date-picker>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 16px">
+      <label>Target Completion Date (optional):</label>
+      <nz-date-picker
+        style="width: 100%"
+        [ngModel]="headAckTargetCompletion()"
+        (ngModelChange)="headAckTargetCompletion.set($event)"
+        nzPlaceHolder="Select target completion date"
+        [nzDisabledDate]="disablePastDates"
+      ></nz-date-picker>
+    </div>
+
+    <div class="form-group">
+      <label>Comment (optional):</label>
+      <textarea
+        nz-input
+        [ngModel]="headAckComment()"
+        (ngModelChange)="headAckComment.set($event)"
+        rows="3"
+        placeholder="Any instructions or notes for the developer..."
+      ></textarea>
+    </div>
+  </ng-container>
+</nz-modal>
+
+<!-- Resolution Update Modal (for Department Heads) -->
+<nz-modal
+  [nzVisible]="showResolutionModal()"
+  (nzVisibleChange)="showResolutionModal.set($event)"
+  nzTitle="Update Resolution"
+  [nzOkText]="'Save Resolution'"
+  [nzCancelText]="'Cancel'"
+  [nzOkLoading]="processingResolution()"
+  [nzOkDisabled]="!resolutionText().trim()"
+  [nzWidth]="600"
+  (nzOnOk)="confirmResolution()"
+  (nzOnCancel)="closeResolutionModal()"
+>
+  <ng-container *nzModalContent>
+    <nz-alert
+      nzType="info"
+      nzMessage="Resolution Details"
+      nzDescription="Enter the resolution details after the developer has completed the work. Set the date finished and any relevant notes."
       [nzShowIcon]="true"
       style="margin-bottom: 16px"
     ></nz-alert>
@@ -1170,41 +1139,40 @@
         }
         <p style="margin: 8px 0 0 0; font-size: 11px; color: #959da5">
           <i nz-icon nzType="bulb" nzTheme="outline"></i>
-          Use the developer's notes above as reference for your recommendations.
+          Use the developer's notes above as reference for the resolution.
         </p>
       </div>
     }
 
     <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Monitor Notes:</label>
+      <label><span class="required">*</span> Resolution:</label>
       <textarea
         nz-input
-        [ngModel]="monitorNotes()"
-        (ngModelChange)="monitorNotes.set($event)"
+        [ngModel]="resolutionText()"
+        (ngModelChange)="resolutionText.set($event)"
         rows="5"
-        placeholder="Document your observations and findings during the visit..."
+        placeholder="Describe the resolution — what was done, what was fixed..."
       ></textarea>
     </div>
 
     <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Recommendations:</label>
-      <textarea
-        nz-input
-        [ngModel]="recommendations()"
-        (ngModelChange)="recommendations.set($event)"
-        rows="5"
-        placeholder="Provide recommendations for the user or for future actions..."
-      ></textarea>
+      <label>Date Finished (optional):</label>
+      <nz-date-picker
+        style="width: 100%"
+        [ngModel]="resolutionDateFinished()"
+        (ngModelChange)="resolutionDateFinished.set($event)"
+        nzPlaceHolder="Select the date the work was completed"
+      ></nz-date-picker>
     </div>
 
     <div class="form-group">
-      <label>Additional Comment (optional):</label>
+      <label>Comment (optional):</label>
       <textarea
         nz-input
-        [ngModel]="monitorComment()"
-        (ngModelChange)="monitorComment.set($event)"
+        [ngModel]="resolutionComment()"
+        (ngModelChange)="resolutionComment.set($event)"
         rows="3"
-        placeholder="Any additional notes or comments..."
+        placeholder="Any additional notes..."
       ></textarea>
     </div>
   </ng-container>

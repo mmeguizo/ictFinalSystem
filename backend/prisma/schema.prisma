@@ -29,8 +29,7 @@ enum TicketStatus {
   REVIEWED
   DIRECTOR_APPROVED
   ASSIGNED
-  PENDING_ACKNOWLEDGMENT
-  SCHEDULED
+  PENDING
   IN_PROGRESS
   ON_HOLD
   RESOLVED
@@ -109,19 +108,12 @@ model Ticket {
   directorApprovedById  Int?
   directorApprovedAt    DateTime?
 
-  // Schedule workflow (Head sets dates, Admin acknowledges)
-  dateToVisit           DateTime?
+  // Head workflow (Head acknowledges, assigns developer, sets dates)
+  assignedDeveloperName String? // Text input - name of developer assigned by head
+  dateToVisit           DateTime? // Date the user should visit (set by head, visible to user)
   targetCompletionDate  DateTime?
-  headScheduledById     Int?
-  headScheduledAt       DateTime?
-  adminAcknowledgedById Int?
-  adminAcknowledgedAt   DateTime?
-
-  // Monitoring (Head adds after visit)
-  monitorNotes    String?   @db.Text
-  recommendations String?   @db.Text
-  monitoredById   Int?
-  monitoredAt     DateTime?
+  resolution            String?   @db.Text // Resolution notes typed by head after work is done
+  dateFinished          DateTime? // Actual date the work was completed
 
   // Escalation tracking
   escalatedAt     DateTime?

@@ -414,10 +414,12 @@ export class TicketRepository {
       "FOR_REVIEW->REVIEWED": "Reviewed by secretary",
       "REVIEWED->DIRECTOR_APPROVED": "Approved by director",
       "DIRECTOR_APPROVED->ASSIGNED": "Assigned to department",
+      "ASSIGNED->PENDING": "Acknowledged by head, developer assigned",
+      "PENDING->IN_PROGRESS": "Work started",
       "ASSIGNED->IN_PROGRESS": "Work started",
-      "SCHEDULED->IN_PROGRESS": "Work started",
       "IN_PROGRESS->ON_HOLD": "Work paused",
       "ON_HOLD->IN_PROGRESS": "Work resumed",
+      "PENDING->RESOLVED": "Issue resolved",
       "IN_PROGRESS->RESOLVED": "Issue resolved",
       "RESOLVED->CLOSED": "Ticket closed",
     };

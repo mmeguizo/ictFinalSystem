@@ -1,0 +1,22 @@
+
+
+- new project process
+
+- user will submit, => secretary will thorough check approve or reject => admin or director will approve and assign to the office heads normally he will just approve it because in the future we will have a chat like options to create a ticket 
+user will describe their issue we provide the process step by step as options if the user says issue is not resolved or agent or developer will trigger to create a ticket for them and assigned level critical low medium etc. then the mis or its heads will acknowledge assign ticket to the developer will add notes dates etc then print it give to the developer, the developer will no longer touch the ticket they will just receive the printed ticket as a job then hand over to the heads the finished ticket the heads will just type back the resolutions, date finished etc relevant to the ticket and update the ticket and it will notify the users if the issue is resolve or they need to visit the office for fixing the equipment or any other solutions
+
+ - the users should not have time something so it will not put pressures to the staff, it should be internal only 
+ - so sla should be on the staff only and there should be live timer on the ticket each time it is open or hand over to the next in charge, so if the director is next in charge the time/seconds are ticking and they will know if they are over the sla or within and done next office head if tehy open it they will know if they are over the time or whatnot
+
+ - heads like mis or its if they put acknowledge the ticket they must assign it to the developer there will be names of the developer assign, not yet known if just a text or dropdown select of developer for the meantime lets do textinput 
+
+ - the heads are the one will update if pending , resolved, ongoing etc
+- there should be date on the ticket when the user will visit that they can see it as assigned by the heads
+ - after they recieve the ticket fromt he staff or the devs the heads will update the ticket if resoved or closed pending will be the defaults status until the heads update it 
+ lets retain the rate module will used a proper form for the in the future.
+
+  - so since we dont have yet any dataset will try an ai that will check the internet to provide resolutions
+  - this is after we implement the features above
+         - the user will try to talk to the bot will check the ai suggestion at the bottom to try and ask if the issue is resolve if not will try to assist until the user will shows frustration or what not then offer 
+         if agree to the resolution will create a ticket with a resolved resolutions created resolved by bot (well assigned approriate name later)
+  - i dont know if it would be better if create a manual a ticket and then options to talk to an ai or both options what is the best practice lets do it and propose the design to the client 

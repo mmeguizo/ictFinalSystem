@@ -155,18 +155,25 @@ export const ticketResolvers = {
     },
 
     /**
-     * Get tickets pending acknowledgment (for Admin/Director)
-     * Tickets that heads have scheduled and are awaiting admin acknowledgment
+     * Get tickets for office heads (by type)
      */
-    ticketsPendingAcknowledgment: async (_: any, __: any, context: any) => {
+    officeHeadTickets: async (
+      _: any,
+      { type }: { type: string },
+      context: any,
+    ) => {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      // Only admins and directors can view pending acknowledgments
-      if (!["ADMIN", "DIRECTOR"].includes(context.currentUser.role)) {
+      if (
+        !["ADMIN", "MIS_HEAD", "ITS_HEAD", "DIRECTOR"].includes(
+          context.currentUser.role,
+        )
+      ) {
         throw new Error("Forbidden: Insufficient permissions");
       }
-      return ticketService.getTicketsPendingAcknowledgment();
+      const ticketType = type === "MIS" ? TicketType.MIS : TicketType.ITS;
+      return ticketService.getOfficeHeadTickets(ticketType);
     },
 
     ticketAnalytics: async (
@@ -477,14 +484,14 @@ export const ticketResolvers = {
     },
 
     // ========================================
-    // SCHEDULE WORKFLOW MUTATIONS
+    // HEAD WORKFLOW MUTATIONS (Simplified)
     // ========================================
 
     /**
-     * Schedule a visit (for MIS_HEAD/ITS_HEAD)
-     * Sets dateToVisit and targetCompletionDate, changes status to PENDING_ACKNOWLEDGMENT
+     * Head acknowledges ticket and assigns developer name
+     * ASSIGNED → PENDING
      */
-    scheduleVisit: async (
+    acknowledgeAndAssignDeveloper: async (
       _: any,
       {
         ticketId,
@@ -492,8 +499,9 @@ export const ticketResolvers = {
       }: {
         ticketId: number;
         input: {
-          dateToVisit: string;
-          targetCompletionDate: string;
+          assignedDeveloperName: string;
+          dateToVisit?: string;
+          targetCompletionDate?: string;
           comment?: string;
         };
       },
@@ -502,71 +510,33 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      // Only department heads can schedule visits
-      if (!["MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)) {
-        throw new Error("Forbidden: Only department heads can schedule visits");
-      }
-      return ticketService.scheduleVisit(
-        ticketId,
-        context.currentUser.id,
-        new Date(input.dateToVisit),
-        new Date(input.targetCompletionDate),
-        input.comment,
-      );
-    },
-
-    /**
-     * Acknowledge schedule (for Admin/Director)
-     * Confirms the visit dates, notifies the user
-     */
-    acknowledgeSchedule: async (
-      _: any,
-      { ticketId, comment }: { ticketId: number; comment?: string },
-      context: any,
-    ) => {
-      if (!context.currentUser) {
-        throw new Error("Unauthorized");
-      }
-      // Only admins and directors can acknowledge schedules
-      if (!["ADMIN", "DIRECTOR"].includes(context.currentUser.role)) {
+      if (
+        !["ADMIN", "MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)
+      ) {
         throw new Error(
-          "Forbidden: Only admin/director can acknowledge schedules",
+          "Forbidden: Only department heads can acknowledge and assign developers",
         );
       }
-      return ticketService.acknowledgeSchedule(
+      return ticketService.acknowledgeAndAssignDeveloper(
         ticketId,
         context.currentUser.id,
-        comment,
+        input.assignedDeveloperName,
+        {
+          dateToVisit: input.dateToVisit
+            ? new Date(input.dateToVisit)
+            : undefined,
+          targetCompletionDate: input.targetCompletionDate
+            ? new Date(input.targetCompletionDate)
+            : undefined,
+          comment: input.comment,
+        },
       );
     },
 
     /**
-     * Reject schedule (for Admin/Director)
-     * Returns ticket to ASSIGNED for head to reschedule
+     * Head updates resolution after developer finishes work
      */
-    rejectSchedule: async (
-      _: any,
-      { ticketId, reason }: { ticketId: number; reason: string },
-      context: any,
-    ) => {
-      if (!context.currentUser) {
-        throw new Error("Unauthorized");
-      }
-      // Only admins and directors can reject schedules
-      if (!["ADMIN", "DIRECTOR"].includes(context.currentUser.role)) {
-        throw new Error("Forbidden: Only admin/director can reject schedules");
-      }
-      return ticketService.rejectSchedule(
-        ticketId,
-        context.currentUser.id,
-        reason,
-      );
-    },
-
-    /**
-     * Add monitor notes and recommendations (for MIS_HEAD/ITS_HEAD after visit)
-     */
-    addMonitorAndRecommendations: async (
+    updateResolution: async (
       _: any,
       {
         ticketId,
@@ -574,8 +544,9 @@ export const ticketResolvers = {
       }: {
         ticketId: number;
         input: {
-          monitorNotes: string;
-          recommendations: string;
+          resolution: string;
+          dateFinished?: string;
+          status?: string;
           comment?: string;
         };
       },
@@ -584,18 +555,24 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      // Only department heads can add monitor notes
-      if (!["MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)) {
+      if (
+        !["ADMIN", "MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)
+      ) {
         throw new Error(
-          "Forbidden: Only department heads can add monitor notes",
+          "Forbidden: Only department heads can update resolutions",
         );
       }
-      return ticketService.addMonitorAndRecommendations(
+      return ticketService.updateResolution(
         ticketId,
         context.currentUser.id,
-        input.monitorNotes,
-        input.recommendations,
-        input.comment,
+        input.resolution,
+        {
+          dateFinished: input.dateFinished
+            ? new Date(input.dateFinished)
+            : undefined,
+          status: input.status as any,
+          comment: input.comment,
+        },
       );
     },
 

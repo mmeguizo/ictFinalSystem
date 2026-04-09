@@ -124,33 +124,20 @@ export class MyTicketsPage implements OnInit {
   readonly reviewComment = signal<string>('');
   readonly reviewAction = signal<'approve' | 'reject'>('approve');
 
-  // Modal state for acknowledge schedule (for Admin)
-  readonly showAcknowledgeModal = signal(false);
-  readonly acknowledgeTicketId = signal<number | null>(null);
-  readonly acknowledgeComment = signal<string>('');
-  readonly acknowledgeAction = signal<'acknowledge' | 'reject'>('acknowledge');
-  readonly rejectReason = signal<string>('');
+  // Modal state for head acknowledge & assign developer (for Department Heads)
+  readonly showHeadAcknowledgeModal = signal(false);
+  readonly headAckTicketId = signal<number | null>(null);
+  readonly headAckDeveloperName = signal<string>('');
+  readonly headAckDateToVisit = signal<Date | null>(null);
+  readonly headAckTargetCompletion = signal<Date | null>(null);
+  readonly headAckComment = signal<string>('');
 
-  // Modal state for monitor notes (for Department Heads)
-  readonly showMonitorModal = signal(false);
-  readonly monitorTicketId = signal<number | null>(null);
-  readonly monitorNotes = signal<string>('');
-  readonly recommendations = signal<string>('');
-  readonly monitorComment = signal<string>('');
-  // Store selected ticket for monitor modal (to show dev comments)
-  readonly monitorTicket = signal<TicketListItem | null>(null);
-
-  /**
-   * Get developer's status update comments from the selected ticket's statusHistory
-   * These are comments from DEVELOPER/TECHNICAL role users during status transitions
-   */
-  readonly devStatusComments = computed(() => {
-    const ticket = this.monitorTicket();
-    if (!ticket?.statusHistory) return [];
-    return ticket.statusHistory.filter(
-      (h) => (h.user.role === 'DEVELOPER' || h.user.role === 'TECHNICAL') && h.comment,
-    );
-  });
+  // Modal state for resolution update (for Department Heads)
+  readonly showResolutionModal = signal(false);
+  readonly resolutionTicketId = signal<number | null>(null);
+  readonly resolutionText = signal<string>('');
+  readonly resolutionDateFinished = signal<Date | null>(null);
+  readonly resolutionComment = signal<string>('');
 
   // ========================================
   // ROLE CHECKS
@@ -267,14 +254,9 @@ export class MyTicketsPage implements OnInit {
     () => this.tickets().filter((t) => t.status === 'ASSIGNED').length,
   );
 
-  /** Count of pending acknowledgment tickets */
-  readonly pendingAcknowledgmentCount = computed(
-    () => this.tickets().filter((t) => t.status === 'PENDING_ACKNOWLEDGMENT').length,
-  );
-
-  /** Count of scheduled tickets */
-  readonly scheduledCount = computed(
-    () => this.tickets().filter((t) => t.status === 'SCHEDULED').length,
+  /** Count of pending tickets */
+  readonly pendingCount = computed(
+    () => this.tickets().filter((t) => t.status === 'PENDING').length,
   );
 
   /** Count of in progress tickets */
@@ -456,7 +438,7 @@ export class MyTicketsPage implements OnInit {
     this.loading.set(true);
     this.ticketService.assignTicketToUser(ticketId, userId, options).subscribe({
       next: () => {
-        this.message.success('Ticket assigned and scheduled! Pending admin acknowledgment.');
+        this.message.success('Ticket assigned successfully!');
         this.closeAssignModal();
         this.loadTickets(); // Refresh list
       },
@@ -540,8 +522,7 @@ export class MyTicketsPage implements OnInit {
       REVIEWED: 'blue',
       DIRECTOR_APPROVED: 'cyan',
       ASSIGNED: 'purple',
-      PENDING_ACKNOWLEDGMENT: 'orange',
-      SCHEDULED: 'geekblue',
+      PENDING: 'orange',
       IN_PROGRESS: 'processing',
       ON_HOLD: 'warning',
       RESOLVED: 'success',
@@ -642,39 +623,21 @@ export class MyTicketsPage implements OnInit {
   }
 
   /**
-   * Check if ticket can be scheduled by department head
-   * (After assignment with staff, heads set visit date and target completion date)
+   * Check if ticket can be acknowledged & assigned a developer by department head
+   * (Head acknowledges ASSIGNED ticket and enters developer name)
    */
-  canSchedule(ticket: TicketListItem): boolean {
+  canHeadAcknowledge(ticket: TicketListItem): boolean {
     if (!this.isDepartmentHead()) return false;
-    // Can schedule if ticket is ASSIGNED and has staff assigned but no schedule set yet
-    if (ticket.status !== 'ASSIGNED') return false;
-
-    // Check if staff is assigned
-    const hasStaffAssigned = ticket.assignments?.some(
-      (a) => a.user.role === 'DEVELOPER' || a.user.role === 'TECHNICAL',
-    );
-
-    // Can schedule if staff is assigned and no visit date set yet
-    return hasStaffAssigned && !ticket.dateToVisit;
+    return ticket.status === 'ASSIGNED';
   }
 
   /**
-   * Check if ticket can be acknowledged by admin
-   * (Admin acknowledges the schedule set by department head)
+   * Check if ticket can have resolution updated by department head
+   * (After work is done - PENDING, IN_PROGRESS, ON_HOLD, RESOLVED statuses)
    */
-  canAcknowledge(ticket: TicketListItem): boolean {
-    return this.isAdmin() && ticket.status === 'PENDING_ACKNOWLEDGMENT';
-  }
-
-  /**
-   * Check if ticket can have monitor notes added/updated by department head
-   * (After visit - SCHEDULED, IN_PROGRESS, ON_HOLD, RESOLVED statuses)
-   * Heads can update their recommendations at any time
-   */
-  canAddMonitor(ticket: TicketListItem): boolean {
+  canUpdateResolution(ticket: TicketListItem): boolean {
     if (!this.isDepartmentHead()) return false;
-    const allowedStatuses = ['SCHEDULED', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'];
+    const allowedStatuses = ['PENDING', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED'];
     return allowedStatuses.includes(ticket.status);
   }
 
@@ -788,151 +751,153 @@ export class MyTicketsPage implements OnInit {
   }
 
   // ========================================
-  // ACKNOWLEDGE SCHEDULE METHODS (for Admin)
+  // HEAD ACKNOWLEDGE & ASSIGN DEVELOPER (for Department Heads)
   // ========================================
 
   /**
-   * Open acknowledge schedule modal
+   * Open head acknowledge modal
    */
-  openAcknowledgeModal(ticketId: number): void {
-    this.acknowledgeTicketId.set(ticketId);
-    this.acknowledgeAction.set('acknowledge');
-    this.acknowledgeComment.set('');
-    this.rejectReason.set('');
-    this.showAcknowledgeModal.set(true);
+  openHeadAcknowledgeModal(ticketId: number): void {
+    this.headAckTicketId.set(ticketId);
+    this.headAckDeveloperName.set('');
+    this.headAckDateToVisit.set(null);
+    this.headAckTargetCompletion.set(null);
+    this.headAckComment.set('');
+    this.showHeadAcknowledgeModal.set(true);
   }
 
   /**
-   * Close acknowledge schedule modal
+   * Close head acknowledge modal
    */
-  closeAcknowledgeModal(): void {
-    this.showAcknowledgeModal.set(false);
-    this.acknowledgeTicketId.set(null);
-    this.acknowledgeComment.set('');
-    this.rejectReason.set('');
+  closeHeadAcknowledgeModal(): void {
+    this.showHeadAcknowledgeModal.set(false);
+    this.headAckTicketId.set(null);
+    this.headAckDeveloperName.set('');
+    this.headAckDateToVisit.set(null);
+    this.headAckTargetCompletion.set(null);
+    this.headAckComment.set('');
   }
 
   /**
-   * Confirm acknowledge or reject schedule
+   * Confirm head acknowledge and assign developer
    */
-  confirmAcknowledge(): void {
-    const ticketId = this.acknowledgeTicketId();
-    const action = this.acknowledgeAction();
+  confirmHeadAcknowledge(): void {
+    const ticketId = this.headAckTicketId();
+    const developerName = this.headAckDeveloperName().trim();
 
     if (!ticketId) {
       this.message.error('No ticket selected');
       return;
     }
 
-    this.loading.set(true);
+    if (!developerName) {
+      this.message.warning('Please enter the developer name');
+      return;
+    }
 
-    if (action === 'acknowledge') {
-      this.ticketService
-        .acknowledgeSchedule(ticketId, this.acknowledgeComment() || undefined)
-        .subscribe({
-          next: () => {
-            this.message.success(
-              'Schedule acknowledged! The user will be notified of the visit date.',
-            );
-            this.closeAcknowledgeModal();
-            this.loadTickets();
-          },
-          error: (err) => {
-            console.error('Failed to acknowledge schedule:', err);
-            this.message.error(err?.message || 'Failed to acknowledge schedule');
-            this.loading.set(false);
-          },
-        });
-    } else {
-      const reason = this.rejectReason().trim();
-      if (!reason) {
-        this.message.warning('Please provide a reason for rejecting the schedule');
+    const input: any = {
+      assignedDeveloperName: developerName,
+    };
+
+    const dateToVisit = this.headAckDateToVisit();
+    if (dateToVisit) {
+      input.dateToVisit = dateToVisit.toISOString();
+    }
+
+    const targetCompletion = this.headAckTargetCompletion();
+    if (targetCompletion) {
+      input.targetCompletionDate = targetCompletion.toISOString();
+    }
+
+    const comment = this.headAckComment().trim();
+    if (comment) {
+      input.comment = comment;
+    }
+
+    this.loading.set(true);
+    this.ticketService.acknowledgeAndAssignDeveloper(ticketId, input).subscribe({
+      next: () => {
+        this.message.success('Ticket acknowledged and developer assigned!');
+        this.closeHeadAcknowledgeModal();
+        this.loadTickets();
+      },
+      error: (err) => {
+        console.error('Failed to acknowledge ticket:', err);
+        this.message.error(err?.message || 'Failed to acknowledge ticket');
         this.loading.set(false);
-        return;
-      }
-
-      this.ticketService.rejectSchedule(ticketId, reason).subscribe({
-        next: () => {
-          this.message.success('Schedule rejected. The department head will be notified.');
-          this.closeAcknowledgeModal();
-          this.loadTickets();
-        },
-        error: (err) => {
-          console.error('Failed to reject schedule:', err);
-          this.message.error(err?.message || 'Failed to reject schedule');
-          this.loading.set(false);
-        },
-      });
-    }
+      },
+    });
   }
 
   // ========================================
-  // MONITOR NOTES METHODS (for Department Heads)
+  // RESOLUTION UPDATE (for Department Heads)
   // ========================================
 
   /**
-   * Open monitor notes modal
-   * Pre-populates with existing notes/recommendations if updating
-   * Stores the full ticket to access statusHistory (dev comments)
+   * Open resolution update modal
    */
-  openMonitorModal(ticket: TicketListItem): void {
-    this.monitorTicketId.set(ticket.id);
-    this.monitorTicket.set(ticket);
-    this.monitorNotes.set(ticket.monitorNotes || '');
-    this.recommendations.set(ticket.recommendations || '');
-    this.monitorComment.set('');
-    this.showMonitorModal.set(true);
+  openResolutionModal(ticketId: number, existingResolution?: string): void {
+    this.resolutionTicketId.set(ticketId);
+    this.resolutionText.set(existingResolution || '');
+    this.resolutionDateFinished.set(null);
+    this.resolutionComment.set('');
+    this.showResolutionModal.set(true);
   }
 
   /**
-   * Close monitor notes modal
+   * Close resolution modal
    */
-  closeMonitorModal(): void {
-    this.showMonitorModal.set(false);
-    this.monitorTicketId.set(null);
-    this.monitorTicket.set(null);
-    this.monitorNotes.set('');
-    this.recommendations.set('');
-    this.monitorComment.set('');
+  closeResolutionModal(): void {
+    this.showResolutionModal.set(false);
+    this.resolutionTicketId.set(null);
+    this.resolutionText.set('');
+    this.resolutionDateFinished.set(null);
+    this.resolutionComment.set('');
   }
 
   /**
-   * Confirm add/update monitor notes and recommendations
+   * Confirm resolution update
    */
-  confirmMonitor(): void {
-    const ticketId = this.monitorTicketId();
-    const notes = this.monitorNotes().trim();
-    const recs = this.recommendations().trim();
+  confirmResolution(): void {
+    const ticketId = this.resolutionTicketId();
+    const resolution = this.resolutionText().trim();
 
     if (!ticketId) {
       this.message.error('No ticket selected');
       return;
     }
 
-    if (!notes) {
-      this.message.warning('Please enter monitor notes');
+    if (!resolution) {
+      this.message.warning('Please enter a resolution');
       return;
     }
 
-    if (!recs) {
-      this.message.warning('Please enter recommendations');
-      return;
+    const input: any = {
+      resolution,
+    };
+
+    const dateFinished = this.resolutionDateFinished();
+    if (dateFinished) {
+      input.dateFinished = dateFinished.toISOString();
+    }
+
+    const comment = this.resolutionComment().trim();
+    if (comment) {
+      input.comment = comment;
     }
 
     this.loading.set(true);
-    this.ticketService
-      .addMonitorAndRecommendations(ticketId, notes, recs, this.monitorComment() || undefined)
-      .subscribe({
-        next: () => {
-          this.message.success('Monitor notes and recommendations updated successfully!');
-          this.closeMonitorModal();
-          this.loadTickets();
-        },
-        error: (err) => {
-          console.error('Failed to update monitor notes:', err);
-          this.message.error(err?.message || 'Failed to update monitor notes');
-          this.loading.set(false);
-        },
-      });
+    this.ticketService.updateResolution(ticketId, input).subscribe({
+      next: () => {
+        this.message.success('Resolution updated successfully!');
+        this.closeResolutionModal();
+        this.loadTickets();
+      },
+      error: (err) => {
+        console.error('Failed to update resolution:', err);
+        this.message.error(err?.message || 'Failed to update resolution');
+        this.loading.set(false);
+      },
+    });
   }
 }
