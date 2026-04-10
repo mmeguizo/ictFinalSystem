@@ -557,6 +557,39 @@
     font-size: 11px;
     color: #aaa;
   }
+
+  .sla-live-indicator {
+    display: inline-block;
+    animation: sla-blink 1s ease-in-out infinite;
+    margin-right: 2px;
+  }
+
+  &.sla-overdue-pulse {
+    animation: sla-pulse-bg 1.5s ease-in-out infinite;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 77, 79, 0.08);
+  }
+}
+
+@keyframes sla-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes sla-pulse-bg {
+  0%,
+  100% {
+    background: rgba(255, 77, 79, 0.08);
+  }
+  50% {
+    background: rgba(255, 77, 79, 0.2);
+  }
 }
 
 .sla-pipeline-timestamp {

@@ -1353,10 +1353,13 @@ export class TicketService {
    */
   acknowledgeAndAssignDeveloper(
     ticketId: number,
-    assignedDeveloperName: string,
-    dateToVisit?: string,
-    targetCompletionDate?: string,
-    comment?: string,
+    input: {
+      assignedDeveloperName: string;
+      assignToUserId?: number;
+      dateToVisit?: string;
+      targetCompletionDate?: string;
+      comment?: string;
+    },
   ): Observable<{
     id: number;
     ticketNumber: string;
@@ -1375,7 +1378,7 @@ export class TicketService {
         mutation: ACKNOWLEDGE_AND_ASSIGN_DEVELOPER,
         variables: {
           ticketId,
-          input: { assignedDeveloperName, dateToVisit, targetCompletionDate, comment },
+          input,
         },
       })
       .pipe(
@@ -1393,10 +1396,12 @@ export class TicketService {
    */
   updateResolution(
     ticketId: number,
-    resolution: string,
-    dateFinished?: string,
-    status?: string,
-    comment?: string,
+    input: {
+      resolution: string;
+      dateFinished?: string;
+      status?: string;
+      comment?: string;
+    },
   ): Observable<{ id: number; ticketNumber: string; status: string }> {
     return this.apollo
       .mutate<{
@@ -1405,7 +1410,7 @@ export class TicketService {
         mutation: UPDATE_RESOLUTION,
         variables: {
           ticketId,
-          input: { resolution, dateFinished, status, comment },
+          input,
         },
       })
       .pipe(

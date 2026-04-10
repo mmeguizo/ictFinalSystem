@@ -141,8 +141,8 @@
         </div>
       </nz-card>
 
-      <!-- SLA Processing Time Tracker -->
-      @if (slaTimeline(); as sla) {
+      <!-- SLA Processing Time Tracker (staff only) -->
+      @if (!isRegularUser() && slaTimeline(); as sla) {
         <nz-card class="sla-tracker-card">
           <div class="sla-tracker-header">
             <div class="sla-tracker-title">
@@ -202,7 +202,14 @@
                 <!-- Step Info -->
                 <div class="sla-pipeline-info">
                   <div class="sla-pipeline-name">{{ step.name }}</div>
-                  <div class="sla-pipeline-time" [style.color]="getSLAStepColor(step.status)">
+                  <div
+                    class="sla-pipeline-time"
+                    [class.sla-overdue-pulse]="step.status === 'IN_PROGRESS_OVERDUE'"
+                    [style.color]="getSLAStepColor(step.status)"
+                  >
+                    @if (step.status === 'IN_PROGRESS' || step.status === 'IN_PROGRESS_OVERDUE') {
+                      <span class="sla-live-indicator">●</span>
+                    }
                     {{ formatDuration(step.actualMinutes) }}
                     <span class="sla-pipeline-expected">/ {{ step.expectedMinutes }}m</span>
                   </div>
@@ -250,15 +257,8 @@
         <span>Assigned Staff</span>
       </ng-template>
 
-      <!-- Assignment Card Extra - Assign Button (visible for department heads when applicable) -->
-      <ng-template #assignmentCardExtra>
-        @if (canAssignTicket()) {
-          <button nz-button nzType="primary" (click)="openAssignModal()">
-            <i nz-icon nzType="user-add" nzTheme="outline"></i>
-            Assign Staff
-          </button>
-        }
-      </ng-template>
+      <!-- Assignment Card Extra -->
+      <ng-template #assignmentCardExtra> </ng-template>
 
       <!-- Schedule & Head Actions Card -->
       @if (
@@ -1030,11 +1030,28 @@
   <ng-container *nzModalContent>
     <nz-alert
       nzType="info"
-      nzMessage="Assign a developer/technician to this ticket"
-      nzDescription="Enter the name of the developer or technician who will handle this ticket. You can also set a visit date and target completion date."
+      nzMessage="Acknowledge & assign this ticket"
+      nzDescription="Select a staff member to assign, enter the developer/technician name, and optionally set dates."
       [nzShowIcon]="true"
       style="margin-bottom: 16px"
     ></nz-alert>
+
+    <!-- Staff member selection (optional) -->
+    <div class="form-group" style="margin-bottom: 16px">
+      <label>Assign to Staff Member (optional):</label>
+      <nz-select
+        [ngModel]="selectedUserId()"
+        (ngModelChange)="selectedUserId.set($event)"
+        nzPlaceHolder="Select staff member"
+        nzShowSearch
+        nzAllowClear
+        style="width: 100%"
+      >
+        @for (staff of staffList(); track staff.id) {
+          <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
+        }
+      </nz-select>
+    </div>
 
     <div class="form-group" style="margin-bottom: 16px">
       <label><span class="required">*</span> Developer/Technician Name:</label>
@@ -1175,64 +1192,6 @@
         placeholder="Any additional notes..."
       ></textarea>
     </div>
-  </ng-container>
-</nz-modal>
-
-<!-- ========================================
-     Assign Ticket Modal (for Department Heads)
-     Assigns staff + schedules date to visit in one step.
-     ======================================== -->
-<nz-modal
-  [nzVisible]="showAssignModal()"
-  (nzVisibleChange)="showAssignModal.set($event)"
-  nzTitle="Assign Ticket to Staff"
-  [nzOkText]="'Assign & Schedule'"
-  [nzCancelText]="'Cancel'"
-  [nzOkLoading]="processingAssignment()"
-  [nzOkDisabled]="!selectedUserId() || !assignDateToVisit()"
-  [nzWidth]="550"
-  (nzOnOk)="confirmAssignment()"
-  (nzOnCancel)="closeAssignModal()"
->
-  <ng-container *nzModalContent>
-    <!-- Staff member selection (required) -->
-    <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Select Staff Member:</label>
-      <nz-select
-        [ngModel]="selectedUserId()"
-        (ngModelChange)="selectedUserId.set($event)"
-        nzPlaceHolder="Select staff member"
-        nzShowSearch
-        style="width: 100%"
-      >
-        @for (staff of staffList(); track staff.id) {
-          <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
-        }
-      </nz-select>
-      @if (staffList().length === 0) {
-        <p class="warning-text" style="color: #ff4d4f; margin-top: 8px">
-          No staff members available. Please add developers/technical staff first.
-        </p>
-      }
-    </div>
-
-    <!-- Date to Visit (REQUIRED) -->
-    <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Date to Visit:</label>
-      <nz-date-picker
-        style="width: 100%"
-        [ngModel]="assignDateToVisit()"
-        (ngModelChange)="assignDateToVisit.set($event)"
-        nzPlaceHolder="Select date to visit"
-        [nzDisabledDate]="disablePastDates"
-      ></nz-date-picker>
-    </div>
-
-    <p class="info-text" style="margin-top: 12px; color: #666; font-size: 12px">
-      <i nz-icon nzType="info-circle" nzTheme="outline"></i>
-      After assigning, the ticket will be sent to admin/director for acknowledgment. The developer
-      will set the target completion date when they start working.
-    </p>
   </ng-container>
 </nz-modal>
 

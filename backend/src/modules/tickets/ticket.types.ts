@@ -250,6 +250,7 @@ export const ticketTypeDefs = gql`
   # Input for head to acknowledge ticket and assign developer
   input AcknowledgeAndAssignInput {
     assignedDeveloperName: String!
+    assignToUserId: Int
     dateToVisit: String
     targetCompletionDate: String
     comment: String

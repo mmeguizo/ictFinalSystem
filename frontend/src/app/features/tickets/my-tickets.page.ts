@@ -759,6 +759,7 @@ export class MyTicketsPage implements OnInit {
    */
   openHeadAcknowledgeModal(ticketId: number): void {
     this.headAckTicketId.set(ticketId);
+    this.selectedUserId.set(null);
     this.headAckDeveloperName.set('');
     this.headAckDateToVisit.set(null);
     this.headAckTargetCompletion.set(null);
@@ -772,6 +773,7 @@ export class MyTicketsPage implements OnInit {
   closeHeadAcknowledgeModal(): void {
     this.showHeadAcknowledgeModal.set(false);
     this.headAckTicketId.set(null);
+    this.selectedUserId.set(null);
     this.headAckDeveloperName.set('');
     this.headAckDateToVisit.set(null);
     this.headAckTargetCompletion.set(null);
@@ -798,6 +800,12 @@ export class MyTicketsPage implements OnInit {
     const input: any = {
       assignedDeveloperName: developerName,
     };
+
+    // Include staff member assignment if selected
+    const userId = this.selectedUserId();
+    if (userId) {
+      input.assignToUserId = userId;
+    }
 
     const dateToVisit = this.headAckDateToVisit();
     if (dateToVisit) {

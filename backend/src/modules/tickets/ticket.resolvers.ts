@@ -500,6 +500,7 @@ export const ticketResolvers = {
         ticketId: number;
         input: {
           assignedDeveloperName: string;
+          assignToUserId?: number;
           dateToVisit?: string;
           targetCompletionDate?: string;
           comment?: string;
@@ -522,6 +523,7 @@ export const ticketResolvers = {
         context.currentUser.id,
         input.assignedDeveloperName,
         {
+          assignToUserId: input.assignToUserId,
           dateToVisit: input.dateToVisit
             ? new Date(input.dateToVisit)
             : undefined,

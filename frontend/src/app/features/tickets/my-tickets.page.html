@@ -133,20 +133,8 @@
                     View
                   </a>
 
-                  <!-- Assign button (for Department Heads on ASSIGNED tickets) -->
-                  @if (canAssign(ticket)) {
-                    <button
-                      nz-button
-                      nzType="primary"
-                      nzSize="small"
-                      nz-tooltip="Assign to staff member"
-                      (click)="openAssignModal(ticket.id)"
-                    >
-                      Assign
-                    </button>
-                  }
-
-                  <!-- Acknowledge & Assign Developer button (for Department Heads on ASSIGNED tickets) -->
+                  <!-- Acknowledge button (for Department Heads on ASSIGNED tickets) -->
+                  <!-- Includes staff assignment + developer name + dates in one step -->
                   @if (canHeadAcknowledge(ticket)) {
                     <button
                       nz-button
@@ -216,57 +204,6 @@
     </button>
   </div>
 </ng-template>
-
-<!-- Assignment Modal (for Department Heads) - assign staff + schedule date to visit -->
-<nz-modal
-  [(nzVisible)]="showAssignModal"
-  nzTitle="Assign Ticket to Staff"
-  [nzOkText]="'Assign & Schedule'"
-  [nzCancelText]="'Cancel'"
-  [nzWidth]="550"
-  [nzOkDisabled]="!selectedUserId() || !assignDateToVisit()"
-  (nzOnOk)="confirmAssignment()"
-  (nzOnCancel)="closeAssignModal()"
->
-  <ng-container *nzModalContent>
-    <!-- Staff member selection (required) -->
-    <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Select Staff Member:</label>
-      <nz-select
-        [(ngModel)]="selectedUserId"
-        nzPlaceHolder="Select staff member"
-        nzShowSearch
-        style="width: 100%"
-      >
-        @for (staff of staffList(); track staff.id) {
-          <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
-        }
-      </nz-select>
-      @if (staffList().length === 0) {
-        <p class="warning-text" style="color: #ff4d4f; margin-top: 8px">
-          No staff members available. Please add developers/technical staff first.
-        </p>
-      }
-    </div>
-
-    <!-- Date to Visit (REQUIRED) -->
-    <div class="form-group" style="margin-bottom: 16px">
-      <label><span class="required">*</span> Date to Visit:</label>
-      <nz-date-picker
-        style="width: 100%"
-        [ngModel]="assignDateToVisit()"
-        (ngModelChange)="assignDateToVisit.set($event)"
-        nzPlaceHolder="Select date to visit"
-        [nzDisabledDate]="disablePastDates"
-      ></nz-date-picker>
-    </div>
-
-    <p class="info-text" style="margin-top: 12px; color: #666; font-size: 12px">
-      <i nz-icon nzType="info-circle" nzTheme="outline"></i>
-      After assigning, the head will acknowledge the ticket and assign a developer name.
-    </p>
-  </ng-container>
-</nz-modal>
 
 <!-- Status Update Modal (for Staff) -->
 <nz-modal
@@ -377,6 +314,7 @@
 </nz-modal>
 
 <!-- Head Acknowledge & Assign Developer Modal (for Department Heads) -->
+<!-- Single modal that combines staff assignment + developer name + scheduling -->
 <nz-modal
   [(nzVisible)]="showHeadAcknowledgeModal"
   nzTitle="Acknowledge & Assign Developer"
@@ -393,6 +331,25 @@
       <i nz-icon nzType="info-circle" nzTheme="outline"></i>
       Acknowledge this ticket and enter the developer/technician who will handle it.
     </p>
+
+    <!-- Staff Member Selection (optional - assign from system users) -->
+    <div class="form-group" style="margin-bottom: 16px">
+      <label>Assign Staff Member (optional):</label>
+      <nz-select
+        [(ngModel)]="selectedUserId"
+        nzPlaceHolder="Select staff member from system"
+        nzShowSearch
+        nzAllowClear
+        style="width: 100%"
+      >
+        @for (staff of staffList(); track staff.id) {
+          <nz-option [nzValue]="staff.id" [nzLabel]="staff.name || staff.email"></nz-option>
+        }
+      </nz-select>
+      <p style="margin-top: 4px; color: #999; font-size: 12px">
+        Select a staff member from the system to assign them to this ticket.
+      </p>
+    </div>
 
     <!-- Developer Name (required) -->
     <div class="form-group" style="margin-bottom: 16px">

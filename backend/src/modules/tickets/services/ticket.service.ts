@@ -1145,6 +1145,7 @@ export class TicketService {
     headId: number,
     assignedDeveloperName: string,
     options?: {
+      assignToUserId?: number;
       dateToVisit?: Date;
       targetCompletionDate?: Date;
       comment?: string;
@@ -1187,6 +1188,22 @@ export class TicketService {
         where: { id: ticketId },
         data: updateData,
       });
+
+      // If a staff member was selected, assign them to the ticket
+      if (options?.assignToUserId) {
+        // Check if already assigned
+        const existingAssignment = await tx.ticketAssignment.findFirst({
+          where: { ticketId, userId: options.assignToUserId },
+        });
+        if (!existingAssignment) {
+          await tx.ticketAssignment.create({
+            data: {
+              ticketId,
+              userId: options.assignToUserId,
+            },
+          });
+        }
+      }
 
       const commentText =
         options?.comment ||

@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -12,6 +13,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { interval } from 'rxjs';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzDescriptionsModule } from 'ng-zorro-antd/descriptions';
 import { NzTagModule } from 'ng-zorro-antd/tag';
@@ -93,11 +96,20 @@ export class TicketDetailPage implements OnInit {
   private readonly message = inject(NzMessageService);
   private readonly authService = inject(AuthService);
   private readonly realtimeService = inject(RealtimeService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  /** Ticks every second so the SLA live timer auto-updates */
+  private readonly liveTick = signal(0);
 
   /** The current ticket number displayed on this page */
   private currentTicketNumber = '';
 
   constructor() {
+    // Tick every second for live SLA timer
+    interval(1000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.liveTick.update((v) => v + 1));
+
     // Real-time: auto-refresh ticket detail when WebSocket events arrive
     effect(() => {
       const changed = this.realtimeService.lastStatusChange();
@@ -245,6 +257,9 @@ export class TicketDetailPage implements OnInit {
 
   /** Check if current user is admin */
   readonly isAdmin = computed(() => this.authService.isAdmin());
+
+  /** Check if current user is a regular user (not staff) */
+  readonly isRegularUser = computed(() => this.authService.isUser());
 
   /** Check if current user is secretary */
   readonly isSecretaryRole = computed(() => this.authService.isSecretary());
@@ -408,6 +423,8 @@ export class TicketDetailPage implements OnInit {
   readonly slaTimeline = computed(() => {
     const t = this.ticket();
     if (!t) return null;
+    // Read liveTick to trigger recomputation every second (for live timer)
+    this.liveTick();
 
     const history = [...(t.statusHistory || [])].sort(
       (a, b) => this.parseDate(a.createdAt).getTime() - this.parseDate(b.createdAt).getTime(),
@@ -1255,6 +1272,7 @@ export class TicketDetailPage implements OnInit {
     this.headAckDateToVisit.set(null);
     this.headAckTargetCompletion.set(null);
     this.headAckComment.set('');
+    this.selectedUserId.set(null);
     this.showHeadAcknowledgeModal.set(true);
   }
 
@@ -1264,6 +1282,7 @@ export class TicketDetailPage implements OnInit {
     this.headAckDateToVisit.set(null);
     this.headAckTargetCompletion.set(null);
     this.headAckComment.set('');
+    this.selectedUserId.set(null);
   }
 
   confirmHeadAcknowledge(): void {
@@ -1277,6 +1296,8 @@ export class TicketDetailPage implements OnInit {
     }
 
     const input: any = { assignedDeveloperName: developerName };
+    const userId = this.selectedUserId();
+    if (userId) input.assignToUserId = userId;
     const dateToVisit = this.headAckDateToVisit();
     if (dateToVisit) input.dateToVisit = dateToVisit.toISOString();
     const targetCompletion = this.headAckTargetCompletion();
