@@ -91,6 +91,12 @@ export const routes: Routes = [
           import('./features/knowledge-base/knowledge-base.page').then((m) => m.KnowledgeBasePage),
       },
       {
+        path: 'solutions',
+        canActivate: [roleGuard(['ADMIN', 'MIS_HEAD', 'ITS_HEAD', 'DEVELOPER', 'TECHNICAL'])],
+        loadComponent: () =>
+          import('./features/solutions/solutions.page').then((m) => m.SolutionsPage),
+      },
+      {
         path: 'docs',
         loadComponent: () => import('./features/docs/docs.page').then((m) => m.DocsPage),
       },

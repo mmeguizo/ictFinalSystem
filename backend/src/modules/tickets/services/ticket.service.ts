@@ -1393,6 +1393,18 @@ export class TicketService {
       });
     }
 
+    // Auto-save resolution as a TroubleshootingSolution for future AI retrieval
+    if (
+      newStatus === TicketStatus.RESOLVED ||
+      newStatus === TicketStatus.CLOSED
+    ) {
+      import("../../solutions/solution.service")
+        .then(({ solutionService }) =>
+          solutionService.createFromResolvedTicket(ticketId, headId),
+        )
+        .catch((err) => console.error("Failed to auto-create solution:", err));
+    }
+
     return this.repository.findById(ticketId);
   }
 
