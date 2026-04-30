@@ -262,6 +262,7 @@ export const ticketTypeDefs = gql`
     dateFinished: String
     status: TicketStatus
     comment: String
+    solutionVisibility: String
   }
 
   input SubmitSatisfactionInput {

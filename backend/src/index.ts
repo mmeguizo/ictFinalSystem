@@ -265,6 +265,101 @@ async function start() {
     },
   );
 
+  // ========================================
+  // REST endpoint for report downloads
+  // GET /reports/download?type=full-report&from=2025-01-01&to=2025-12-31
+  // Requires Authorization header (Bearer token)
+  // Only ADMIN, ICT_STAFF, and SUPERVISOR roles allowed
+  // ========================================
+  app.get("/reports/download", async (req, res) => {
+    try {
+      // Authenticate
+      const authHeader = (req.headers.authorization || "").toString();
+      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+      if (!token) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      let userId: number | null = null;
+      const jwtUser = await jwtService.verify(token);
+      if (jwtUser) {
+        const id = parseInt(jwtUser.sub, 10);
+        if (!isNaN(id)) userId = id;
+      }
+      if (!userId) {
+        const auth0User = await auth0Service.verifyToken(token);
+        if (auth0User?.sub) {
+          const dbUser = await prisma.user.findFirst({
+            where: { externalId: auth0User.sub },
+          });
+          if (dbUser) userId = dbUser.id;
+        }
+      }
+      if (!userId) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      // Check role
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user || !["ADMIN", "ICT_STAFF", "SUPERVISOR"].includes(user.role)) {
+        return res
+          .status(403)
+          .json({
+            error: "Insufficient permissions. Admin or staff role required.",
+          });
+      }
+
+      // Parse params
+      const { reportService } =
+        await import("./modules/reports/report.service");
+      const type = (req.query.type as string) || "full-report";
+      const validTypes = [
+        "ticket-summary",
+        "ticket-status",
+        "ticket-category",
+        "ticket-priority",
+        "ticket-monthly",
+        "full-report",
+      ];
+      if (!validTypes.includes(type)) {
+        return res
+          .status(400)
+          .json({
+            error: `Invalid report type. Valid: ${validTypes.join(", ")}`,
+          });
+      }
+
+      const filters: any = {};
+      if (req.query.from) filters.from = new Date(req.query.from as string);
+      if (req.query.to) filters.to = new Date(req.query.to as string);
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.priority) filters.priority = req.query.priority;
+
+      const workbook = await reportService.generateReport(type as any, filters);
+
+      const filename = `ICT_Report_${type}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+
+      logger.info(
+        `[Reports] ${user.name} (${user.role}) downloaded ${type} report`,
+      );
+    } catch (error: any) {
+      logger.error("[Reports] Generation failed:", error.message);
+      res.status(500).json({ error: "Report generation failed" });
+    }
+  });
+
   const server = new ApolloServer({
     schema,
     context: createContext,

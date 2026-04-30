@@ -16,28 +16,54 @@ import { embeddingService } from "./embedding.service";
  * 5. If no answer found, AI can guide ticket creation
  */
 
-const CHAT_SYSTEM_PROMPT = `You are an AI support assistant for the CHMSU ICT Department help desk.
-Your role is to help users resolve their ICT issues by providing step-by-step troubleshooting guidance.
+const CHAT_SYSTEM_PROMPT = `You are an expert AI support assistant for the CHMSU ICT Department help desk (Carlos Hilado Memorial State University).
+Your role is to help users resolve ICT issues with accurate, detailed, step-by-step troubleshooting guidance.
 
-IMPORTANT RULES:
-1. ALWAYS try to answer from the provided CONTEXT DATA first (knowledge base articles, resolved tickets, troubleshooting solutions).
-2. If you find a relevant solution in the context, provide clear step-by-step instructions.
-3. If you cannot find a solution in the context, use your general ICT knowledge to help.
-4. If the issue seems complex or requires physical intervention, suggest creating a support ticket.
-5. Be friendly, professional, and concise.
-6. When suggesting ticket creation, ask the user to describe their problem in detail so you can help fill out the ticket.
-7. Never make up specific ticket numbers or staff names.
-8. Format responses with markdown for readability (bullet points, numbered steps, bold for emphasis).
+CORE BEHAVIOR:
+- You are knowledgeable, proactive, and thorough. Give complete answers — never say "I don't know" if relevant context is provided.
+- Think step-by-step through problems. If the user's question is vague, infer the likely issue from context and ask a clarifying question.
+- Always provide actionable solutions, not just descriptions of the problem.
+- Be PROACTIVE: suggest next steps, related solutions, and preventive measures. Don't just answer — anticipate follow-up needs.
+
+ROLE-BASED ACCESS CONTROL:
+- Check the CURRENT USER section in context data for the user's role.
+- ADMIN: Full access — analytics, reports, all features. Can ask for any data.
+- ICT_STAFF / SUPERVISOR: Can access analytics and reports. Cannot perform admin-level mutations.
+- USER (regular user): Can ONLY ask about troubleshooting, knowledge base solutions, their own ticket status, and create new tickets. Do NOT provide analytics, statistics, reports, or staff-level features to regular users. If they ask for analytics, politely explain that feature is available to ICT staff only.
+- If an ACCESS LEVEL restriction notice is in the context, strictly follow it.
+
+CONTEXT DATA RULES:
+1. ALWAYS check the provided CONTEXT DATA first (knowledge base articles, resolved tickets, troubleshooting solutions). This is your PRIMARY source of truth.
+2. When context data is provided, you MUST use it. Synthesize and present the information clearly — do not ignore it.
+3. When referencing a Knowledge Base article, include a clickable link: [KB: Article Title](kb:ARTICLE_ID) — replace ARTICLE_ID with the actual numeric ID.
+4. When multiple context sources are relevant, combine them into a comprehensive answer.
+5. If NO relevant context is provided, use your general ICT knowledge confidently. Note: "Based on general ICT best practices:" before the answer.
+6. For issues requiring physical intervention (hardware failure, cable issues), suggest creating a support ticket.
+
+KNOWLEDGE PRIORITY:
+1. Knowledge Base articles (highest — curated solutions)
+2. Troubleshooting Solutions from resolved tickets (proven fixes)
+3. Resolved ticket history (past similar issues)
+4. General ICT knowledge (last resort, but still provide a useful answer)
+
+RESPONSE FORMAT:
+- Use markdown: bullet points, numbered steps, bold for emphasis, code blocks for commands.
+- Keep responses focused but thorough. Aim for complete solutions.
+- For multi-step fixes, number each step clearly.
+- If you provide multiple possible solutions, label them (Solution 1, Solution 2, etc.)
+- Always end troubleshooting responses with a proactive suggestion: "If this doesn't work, would you like me to create a support ticket?"
 
 WHEN ASKED ABOUT TICKET STATUS:
-- If ticket data is provided in context, report the status accurately.
-- Include: ticket number, current status, assigned staff (if any), and any recent updates.
+- Report status accurately from context: ticket number, status, assigned staff, recent updates.
+- If the user has multiple tickets, list them in a clear table format.
+- Include SLA information if available (overdue warnings, due dates).
 
-WHEN ASKED ABOUT ANALYTICS OR STATISTICS:
-- If analytics data is provided in context, present it clearly with formatting.
-- Use tables, bullet points, or numbered lists for readability.
-- You can report: tickets per day/week/month, tickets by status/category/priority, most common issues, resolution times, and staff workload.
-- Be accurate — only report numbers from the data provided.
+WHEN ASKED ABOUT ANALYTICS OR STATISTICS (staff/admin only):
+- Present data clearly with formatting (tables, bullet points, numbered lists).
+- Include totals, breakdowns by category/status/priority, and any notable insights.
+- Be accurate — only report numbers from the provided data.
+- Proactively highlight concerning metrics (high overdue count, increasing trend, etc.)
+- If SLA warnings are present in context, mention them.
 
 WHEN GUIDING TICKET CREATION:
 - Ask for: What is the problem? What device/system is affected? When did it start? Is it affecting others?
@@ -46,9 +72,23 @@ WHEN GUIDING TICKET CREATION:
 {"title": "...", "description": "...", "type": "MIS or ITS", "priority": "LOW/MEDIUM/HIGH/CRITICAL"}
 \`\`\`
 
+USER CONTEXT:
+- You may receive the current user's name, role, and other details. Use this to personalize responses.
+- Admins/staff may ask different questions than regular users — adjust detail level accordingly.
+- Address the user by name when appropriate for a personalized experience.
+
 CATEGORIES:
-- MIS (Management Information Systems): Website issues, software problems
-- ITS (Information Technology Services): Hardware, network, printer, device borrowing`;
+- MIS (Management Information Systems): Website issues, software problems, system accounts
+- ITS (Information Technology Services): Hardware, network, printer, device borrowing, connectivity
+
+WHEN ASKED FOR REPORTS (staff/admin only):
+- If report generation data is provided in context, present the download links exactly as shown.
+- Explain what each report contains and offer alternative report types.
+- If the user lacks permission, politely explain that report generation requires admin or staff role.
+
+SLA AWARENESS:
+- If SLA warning data is present in context, proactively mention it to staff/admin users.
+- For overdue tickets, suggest immediate attention and escalation.`;
 
 export class ChatService {
   private genAI: GoogleGenerativeAI | null = null;
@@ -85,6 +125,27 @@ export class ChatService {
       where: { userId },
       orderBy: { updatedAt: "desc" },
       include: {
+        _count: { select: { messages: true } },
+      },
+    });
+  }
+
+  /**
+   * Admin-only: get all chat sessions across all users
+   */
+  async getAllSessions() {
+    return prisma.chatSession.findMany({
+      orderBy: { updatedAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            picture: true,
+          },
+        },
         _count: { select: { messages: true } },
       },
     });
@@ -129,11 +190,12 @@ export class ChatService {
     userId: number,
     userMessage: string,
   ): Promise<{ reply: string; metadata?: string }> {
-    // 1. Verify session ownership
+    // 1. Verify session ownership + get user info
     const session = await prisma.chatSession.findUnique({
       where: { id: sessionId },
       include: {
         messages: { orderBy: { createdAt: "asc" }, take: 20 },
+        user: { select: { name: true, role: true, email: true } },
       },
     });
 
@@ -156,14 +218,35 @@ export class ChatService {
       userId,
     );
 
-    // 3b. Check if this is an analytics/statistics query
-    const analyticsContext = await this.checkAnalyticsQuery(userMessage);
+    // 3b. Role-gated: Analytics queries only for staff/admin
+    const userRole = session.user?.role || "USER";
+    const staffRoles = ["ADMIN", "ICT_STAFF", "SUPERVISOR"];
+    const isStaffOrAdmin = staffRoles.includes(userRole);
+
+    const analyticsContext = isStaffOrAdmin
+      ? await this.checkAnalyticsQuery(userMessage)
+      : null;
+
+    // 3c. Report generation (already role-checked internally, but skip entirely for regular users)
+    const reportContext = isStaffOrAdmin
+      ? this.checkReportRequest(userMessage, userRole)
+      : null;
+
+    // 3d. SLA context for staff/admin — proactive SLA awareness
+    const slaContext = isStaffOrAdmin
+      ? await this.getSLAContext()
+      : null;
 
     // 4. Search for relevant context (RAG — fulltext + vector)
     const ragContext = await this.retrieveContext(userMessage);
 
     // 5. Build context string
     let contextStr = "";
+
+    // Add user context so AI knows who it's talking to
+    if (session.user) {
+      contextStr += `\n--- CURRENT USER ---\nName: ${session.user.name}\nRole: ${session.user.role}\n`;
+    }
 
     if (ticketContext) {
       contextStr += "\n--- TICKET STATUS DATA ---\n" + ticketContext + "\n";
@@ -173,10 +256,23 @@ export class ChatService {
       contextStr += "\n--- ANALYTICS DATA ---\n" + analyticsContext + "\n";
     }
 
+    if (reportContext) {
+      contextStr += "\n--- REPORT GENERATION ---\n" + reportContext + "\n";
+    }
+
+    if (slaContext) {
+      contextStr += "\n--- SLA WARNINGS ---\n" + slaContext + "\n";
+    }
+
+    // For regular users, add a role restriction notice so the AI doesn't offer staff features
+    if (!isStaffOrAdmin) {
+      contextStr += "\n--- ACCESS LEVEL ---\nThis user has a regular USER role. Do NOT offer analytics, statistics, reports, or any admin/staff features. Only help with troubleshooting, knowledge base lookups, checking their own ticket status, and creating new tickets.\n";
+    }
+
     if (ragContext.kbArticles.length > 0) {
       contextStr += "\n--- KNOWLEDGE BASE ARTICLES ---\n";
       for (const article of ragContext.kbArticles) {
-        contextStr += `Title: ${article.title}\nCategory: ${article.category}\nContent: ${article.content.substring(0, 500)}\n\n`;
+        contextStr += `[Article ID: ${article.id}] Title: ${article.title}\nCategory: ${article.category}\nContent: ${article.content.substring(0, 1500)}\nLink format: [KB: ${article.title}](kb:${article.id})\n\n`;
       }
     }
 
@@ -242,19 +338,114 @@ export class ChatService {
   // ========================================
 
   private async retrieveContext(query: string) {
+    // Extract meaningful keywords — filter out common stop words
+    const stopWords = new Set([
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "could",
+      "should",
+      "may",
+      "might",
+      "can",
+      "shall",
+      "i",
+      "you",
+      "he",
+      "she",
+      "it",
+      "we",
+      "they",
+      "me",
+      "him",
+      "her",
+      "us",
+      "them",
+      "my",
+      "your",
+      "his",
+      "its",
+      "our",
+      "their",
+      "this",
+      "that",
+      "these",
+      "those",
+      "what",
+      "which",
+      "who",
+      "whom",
+      "how",
+      "when",
+      "where",
+      "why",
+      "not",
+      "no",
+      "nor",
+      "but",
+      "and",
+      "or",
+      "if",
+      "then",
+      "so",
+      "too",
+      "very",
+      "just",
+      "about",
+      "up",
+      "out",
+      "on",
+      "off",
+      "in",
+      "to",
+      "for",
+      "of",
+      "with",
+      "at",
+      "by",
+      "from",
+      "as",
+      "into",
+      "like",
+      "please",
+      "know",
+      "check",
+      "tell",
+      "show",
+      "many",
+      "much",
+      "any",
+      "some",
+    ]);
+
     const keywords = query
+      .toLowerCase()
       .split(/\s+/)
-      .filter((w) => w.length >= 2)
       .map((k) => k.replace(/[^a-zA-Z0-9]/g, ""))
-      .filter(Boolean)
-      .slice(0, 10);
+      .filter((w) => w.length >= 3 && !stopWords.has(w))
+      .slice(0, 8);
 
     const [kbArticles, resolvedTickets, fulltextSolutions, vectorSolutions] =
       await Promise.all([
         this.searchKBArticles(keywords),
         this.searchResolvedTickets(keywords),
         solutionService.searchForContext(query, 3),
-        embeddingService.searchSimilarSolutions(query, 3, 0.45),
+        embeddingService.searchSimilarSolutions(query, 3, 0.4),
       ]);
 
     // Merge fulltext + vector solutions, deduplicate by id
@@ -282,7 +473,8 @@ export class ChatService {
   private async searchKBArticles(keywords: string[]): Promise<any[]> {
     if (keywords.length === 0) return [];
 
-    const searchTerms = keywords.map((k) => `+${k}`).join(" ");
+    // Use OR-based search (any keyword match) for better recall
+    const searchTerms = keywords.join(" ");
 
     try {
       return await prisma.$queryRaw<any[]>`
@@ -291,19 +483,19 @@ export class ChatService {
         WHERE status = 'PUBLISHED'
           AND MATCH(title, content) AGAINST(${searchTerms} IN BOOLEAN MODE)
         ORDER BY MATCH(title, content) AGAINST(${searchTerms} IN BOOLEAN MODE) DESC
-        LIMIT 3
+        LIMIT 5
       `;
     } catch {
       // Fallback to LIKE search
       return prisma.knowledgeArticle.findMany({
         where: {
           status: "PUBLISHED",
-          OR: keywords.slice(0, 3).map((kw) => ({
+          OR: keywords.slice(0, 5).map((kw) => ({
             OR: [{ title: { contains: kw } }, { content: { contains: kw } }],
           })),
         },
         select: { id: true, title: true, content: true, category: true },
-        take: 3,
+        take: 5,
       });
     }
   }
@@ -311,7 +503,8 @@ export class ChatService {
   private async searchResolvedTickets(keywords: string[]): Promise<any[]> {
     if (keywords.length === 0) return [];
 
-    const searchTerms = keywords.map((k) => `+${k}`).join(" ");
+    // Use OR-based search for better recall
+    const searchTerms = keywords.join(" ");
 
     try {
       return await prisma.$queryRaw<any[]>`
@@ -321,14 +514,14 @@ export class ChatService {
           AND resolution IS NOT NULL
           AND MATCH(title, description) AGAINST(${searchTerms} IN BOOLEAN MODE)
         ORDER BY MATCH(title, description) AGAINST(${searchTerms} IN BOOLEAN MODE) DESC
-        LIMIT 3
+        LIMIT 5
       `;
     } catch {
       return prisma.ticket.findMany({
         where: {
           status: { in: ["RESOLVED", "CLOSED"] },
           resolution: { not: null },
-          OR: keywords.slice(0, 3).map((kw) => ({
+          OR: keywords.slice(0, 5).map((kw) => ({
             OR: [
               { title: { contains: kw } },
               { description: { contains: kw } },
@@ -336,7 +529,7 @@ export class ChatService {
           })),
         },
         select: { id: true, title: true, description: true, resolution: true },
-        take: 3,
+        take: 5,
       });
     }
   }
@@ -466,6 +659,8 @@ export class ChatService {
       /(average|mean|median).*(resolution|response|time)/i,
       /\b(workload|performance|productivity)\b/i,
       /(busiest|peak|slowest)\s*(day|time|period|month)/i,
+      /\b(sla|overdue|due|deadline|compliance|breach)\b/i,
+      /\b(unresolved|pending|backlog)\b.*\b(ticket|request)\b/i,
     ];
 
     const isAnalytics = analyticsPatterns.some((p) => p.test(msg));
@@ -603,9 +798,152 @@ export class ChatService {
         }
       }
 
+      // Staff workload — tickets assigned per staff member
+      const workload = await prisma.$queryRaw<
+        Array<{ name: string; role: string; count: bigint }>
+      >`
+        SELECT u.name, u.role, COUNT(ta.id) as count
+        FROM TicketAssignment ta
+        JOIN User u ON ta.userId = u.id
+        JOIN Ticket t ON ta.ticketId = t.id
+        WHERE t.status NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')
+        GROUP BY u.id, u.name, u.role
+        ORDER BY count DESC
+        LIMIT 10
+      `;
+      if (workload.length > 0) {
+        results.push("\n**Current Staff Workload (active tickets):**");
+        for (const w of workload) {
+          results.push(`- ${w.name} (${w.role}): ${w.count} active ticket(s)`);
+        }
+      }
+
+      // SLA compliance — tickets with dueDate
+      const slaTotal = await prisma.ticket.count({
+        where: { dueDate: { not: null } },
+      });
+      const slaMet = await prisma.ticket.count({
+        where: {
+          dueDate: { not: null },
+          status: { in: ["RESOLVED", "CLOSED"] },
+          resolvedAt: { not: null },
+        },
+      });
+      if (slaTotal > 0) {
+        const complianceRate =
+          slaTotal > 0 ? Math.round((slaMet / slaTotal) * 100) : 0;
+        results.push(
+          `\n**SLA Compliance**: ${slaMet}/${slaTotal} tickets resolved within SLA (${complianceRate}%)`,
+        );
+      }
+
       return results.length > 0 ? results.join("\n") : null;
     } catch (err: any) {
       logger.error("[ChatService] Analytics query failed:", err.message);
+      return null;
+    }
+  }
+
+  // ========================================
+  // REPORT REQUEST DETECTION
+  // ========================================
+
+  private checkReportRequest(message: string, userRole: string): string | null {
+    const msg = message.toLowerCase();
+
+    const reportPatterns = [
+      /\b(generate|create|make|download|export|give me|produce|prepare)\b.*\b(report|excel|spreadsheet|xlsx|csv)\b/i,
+      /\b(report|excel|spreadsheet)\b.*\b(generate|create|download|export)\b/i,
+      /\b(ticket|data)\b.*\b(report|export)\b/i,
+      /\bexcel\b/i,
+    ];
+
+    const isReportRequest = reportPatterns.some((p) => p.test(msg));
+    if (!isReportRequest) return null;
+
+    const allowedRoles = ["ADMIN", "ICT_STAFF", "SUPERVISOR"];
+    if (!allowedRoles.includes(userRole)) {
+      return "The user is requesting a report but does NOT have the required role. Only Admin, ICT Staff, and Supervisor roles can generate reports. Politely inform the user that report generation requires admin or staff privileges.";
+    }
+
+    // Detect the type of report requested
+    let reportType = "full-report";
+    if (/status/i.test(msg)) reportType = "ticket-status";
+    else if (/categor|type/i.test(msg)) reportType = "ticket-category";
+    else if (/priorit/i.test(msg)) reportType = "ticket-priority";
+    else if (/month|trend/i.test(msg)) reportType = "ticket-monthly";
+    else if (/summar/i.test(msg)) reportType = "ticket-summary";
+
+    const baseUrl = "/reports/download";
+    const downloadUrl = `${baseUrl}?type=${reportType}`;
+
+    return `The user is requesting an Excel report. They have the ${userRole} role and ARE authorized.
+Provide a download link in this EXACT markdown format:
+[📥 Download ${reportType.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())} Report](${downloadUrl})
+
+Available report types and their download links:
+- Full Report (all data): [📥 Download Full Report](${baseUrl}?type=full-report)
+- Ticket Summary: [📥 Download Summary](${baseUrl}?type=ticket-summary)
+- By Status: [📥 Download Status Report](${baseUrl}?type=ticket-status)
+- By Category: [📥 Download Category Report](${baseUrl}?type=ticket-category)
+- By Priority: [📥 Download Priority Report](${baseUrl}?type=ticket-priority)
+- Monthly Trend: [📥 Download Monthly Report](${baseUrl}?type=ticket-monthly)
+
+Tell the user which report type you detected based on their request, and offer the other types too. Remind them they can add date filters (from/to) if needed.`;
+  }
+
+  // ========================================
+  // SLA CONTEXT (Staff/Admin only)
+  // ========================================
+
+  private async getSLAContext(): Promise<string | null> {
+    try {
+      const now = new Date();
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const [overdueCount, dueTodayCount, dueSoonCount] = await Promise.all([
+        // Overdue: dueDate < now AND not resolved/closed
+        prisma.ticket.count({
+          where: {
+            dueDate: { lt: now },
+            status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
+          },
+        }),
+        // Due today
+        prisma.ticket.count({
+          where: {
+            dueDate: { gte: now, lte: todayEnd },
+            status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
+          },
+        }),
+        // Due within 3 days
+        prisma.ticket.count({
+          where: {
+            dueDate: {
+              gte: now,
+              lte: new Date(now.getTime() + 3 * 86400000),
+            },
+            status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
+          },
+        }),
+      ]);
+
+      if (overdueCount === 0 && dueTodayCount === 0 && dueSoonCount === 0) {
+        return null;
+      }
+
+      const parts: string[] = [];
+      if (overdueCount > 0)
+        parts.push(`⚠️ ${overdueCount} ticket(s) are OVERDUE`);
+      if (dueTodayCount > 0)
+        parts.push(`🔴 ${dueTodayCount} ticket(s) are due TODAY`);
+      if (dueSoonCount > 0)
+        parts.push(`🟡 ${dueSoonCount} ticket(s) are due within 3 days`);
+
+      return parts.join("\n");
+    } catch (err: any) {
+      logger.error("[ChatService] SLA context failed:", err.message);
       return null;
     }
   }
@@ -660,8 +998,9 @@ export class ChatService {
       const result = await model.generateContent({
         contents,
         generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
+          temperature: 0.4,
+          maxOutputTokens: 4096,
+          topP: 0.9,
         },
       });
 

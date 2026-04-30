@@ -1401,6 +1401,7 @@ export class TicketService {
       dateFinished?: string;
       status?: string;
       comment?: string;
+      solutionVisibility?: string;
     },
   ): Observable<{ id: number; ticketNumber: string; status: string }> {
     return this.apollo

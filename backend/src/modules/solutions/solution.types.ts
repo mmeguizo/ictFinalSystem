@@ -19,6 +19,7 @@ export const solutionTypeDefs = gql`
     totalCount: Int!
     page: Int!
     pageSize: Int!
+    totalPages: Int!
   }
 
   input CreateSolutionInput {

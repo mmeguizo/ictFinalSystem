@@ -1,7 +1,7 @@
 # ICT Ticket System - Backend API Documentation
 
-**Version**: 2.0.0  
-**Last Updated**: July 8, 2025  
+**Version**: 2.4.0  
+**Last Updated**: July 15, 2025  
 **Base URL**: `http://localhost:4000/graphql`
 
 ---
@@ -15,6 +15,7 @@
    - [Mutations](#mutations)
    - [Queries](#queries)
    - [AI Chat API](#ai-chat-api)
+   - [REST API — Report Download](#rest-api--report-download)
    - [Solutions & Vector Search Architecture](#solutions--vector-search-architecture)
 5. [Data Models](#data-models)
 6. [Enums](#enums)
@@ -45,7 +46,9 @@ The ICT Ticket System Backend provides a GraphQL API for managing service reques
 ✅ Role-based access control  
 ✅ AI Chat Assistant with RAG (vector + full-text search)  
 ✅ Auto-saved Solutions Database from resolved tickets  
-✅ Read-only analytics queries via AI Chat
+✅ Read-only analytics queries via AI Chat  
+✅ Excel report generation (downloadable via REST endpoint)  
+✅ AI-triggered report downloads with role-based access
 
 ---
 
@@ -761,6 +764,32 @@ query {
 
 ---
 
+#### All Chat Sessions Query (Admin Only)
+
+Retrieve all chat sessions across all users. Includes user details and message count.
+
+```graphql
+query {
+  allChatSessions {
+    id
+    title
+    status
+    messageCount
+    createdAt
+    user {
+      id
+      name
+      email
+      role
+    }
+  }
+}
+```
+
+**Access**: ADMIN role only. Returns 403 for non-admin users.
+
+---
+
 #### Create Chat Session
 
 Start a new AI chat session.
@@ -889,6 +918,57 @@ mutation {
 **Access**: ADMIN role only
 
 **Use Case**: Run after initial deployment or data migration to populate the Solutions Database and generate vector embeddings for semantic search.
+
+---
+
+### REST API — Report Download
+
+#### Download Excel Report
+
+Generate and download an Excel report file.
+
+```
+GET /reports/download?type={reportType}&from={date}&to={date}&status={status}&priority={priority}
+```
+
+**Headers:**
+
+| Header          | Required | Description             |
+| --------------- | -------- | ----------------------- |
+| `Authorization` | ✅       | `Bearer <access_token>` |
+
+**Query Parameters:**
+
+| Param      | Type   | Required | Description                                                                                                                                            |
+| ---------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `type`     | String | ❌       | Report type. Default: `full-report`. Options: `full-report`, `ticket-summary`, `ticket-status`, `ticket-category`, `ticket-priority`, `ticket-monthly` |
+| `from`     | Date   | ❌       | Filter tickets created on or after this date (ISO format: `2025-01-01`)                                                                                |
+| `to`       | Date   | ❌       | Filter tickets created on or before this date                                                                                                          |
+| `status`   | String | ❌       | Filter by ticket status (e.g., `RESOLVED`, `OPEN`)                                                                                                     |
+| `priority` | String | ❌       | Filter by priority (e.g., `HIGH`, `CRITICAL`)                                                                                                          |
+
+**Report Types:**
+
+| Type              | Sheets Included                                                          |
+| ----------------- | ------------------------------------------------------------------------ |
+| `full-report`     | Summary, By Status, By Category, By Priority, Monthly Trend, All Tickets |
+| `ticket-summary`  | Summary sheet with totals and breakdowns                                 |
+| `ticket-status`   | Status breakdown sheet                                                   |
+| `ticket-category` | Category/Type breakdown sheet                                            |
+| `ticket-priority` | Priority breakdown sheet                                                 |
+| `ticket-monthly`  | Monthly trend with resolution rates (last 12 months)                     |
+
+**Response:** Binary `.xlsx` file stream with appropriate Content-Type and Content-Disposition headers.
+
+**Access:** ADMIN, ICT_STAFF, SUPERVISOR roles only. Returns 403 for other roles.
+
+**Example:**
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:4000/reports/download?type=full-report&from=2025-01-01&to=2025-12-31" \
+  -o report.xlsx
+```
 
 ---
 
@@ -1492,6 +1572,15 @@ query DashboardData {
 ---
 
 ## Changelog
+
+### Version 2.4.0 (July 15, 2025)
+
+✅ **AI Intelligence Upgrade**: Rewritten system prompt, stop-word filtering, OR-based fulltext search, user context injection, tuned generation params (temp 0.4, 4096 tokens, topP 0.9)  
+✅ **Excel Report Generation**: New `GET /reports/download` REST endpoint with 6 report types, role-restricted (ADMIN/ICT_STAFF/SUPERVISOR)  
+✅ **AI Report Trigger**: Chat AI detects "generate report" / "download excel" requests and provides download buttons  
+✅ **Admin Chat Sessions**: New `allChatSessions` query for admin oversight of all user conversations  
+✅ **Bug Fix**: `totalPages` added to `PaginatedSolutions` GraphQL type  
+✅ **New Dependency**: `exceljs` for Excel file generation
 
 ### Version 1.0.0 (December 9, 2025)
 

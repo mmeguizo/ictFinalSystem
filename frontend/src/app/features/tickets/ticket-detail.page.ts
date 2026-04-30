@@ -35,6 +35,7 @@ import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
 import { NzUploadModule } from 'ng-zorro-antd/upload';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
+import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { TicketService, TicketDetail, TicketAttachment } from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -85,6 +86,7 @@ interface SLAStep {
     NzUploadModule,
     NzToolTipModule,
     NzProgressModule,
+    NzRadioModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ticket-detail.page.html',
@@ -181,6 +183,7 @@ export class TicketDetailPage implements OnInit {
   readonly resolutionText = signal('');
   readonly resolutionDateFinished = signal<Date | null>(null);
   readonly resolutionComment = signal('');
+  readonly solutionVisibility = signal<'INTERNAL' | 'PUBLIC'>('INTERNAL');
   readonly processingResolution = signal(false);
 
   // ========================================
@@ -1330,6 +1333,7 @@ export class TicketDetailPage implements OnInit {
     this.resolutionText.set(t?.resolution || '');
     this.resolutionDateFinished.set(null);
     this.resolutionComment.set('');
+    this.solutionVisibility.set('INTERNAL');
     this.showResolutionModal.set(true);
   }
 
@@ -1338,6 +1342,7 @@ export class TicketDetailPage implements OnInit {
     this.resolutionText.set('');
     this.resolutionDateFinished.set(null);
     this.resolutionComment.set('');
+    this.solutionVisibility.set('INTERNAL');
   }
 
   confirmResolution(): void {
@@ -1350,7 +1355,10 @@ export class TicketDetailPage implements OnInit {
       return;
     }
 
-    const input: any = { resolution };
+    const input: any = {
+      resolution,
+      solutionVisibility: this.solutionVisibility(),
+    };
     const dateFinished = this.resolutionDateFinished();
     if (dateFinished) input.dateFinished = dateFinished.toISOString();
     const comment = this.resolutionComment().trim();

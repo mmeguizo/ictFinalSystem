@@ -1,266 +1,360 @@
-<nz-spin [nzSpinning]="busy()" nzTip="Submitting ticket...">
-  <nz-card [nzTitle]="isMIS() ? 'ICT-MIS Support Ticket' : 'Request for ICT Support Services'">
-    <div class="ticket-form">
-      <!-- Form Type Selector -->
-      <nz-form-item>
-        <nz-form-label>Form Type</nz-form-label>
-        <nz-form-control>
-          <nz-radio-group [formControl]="formTypeControl">
-            <label nz-radio nzValue="MIS">MIS (Software)</label>
-            <!-- commented for the meantime will focus work with MIS  -->
-            <!-- <label nz-radio nzValue="ITS">ITS (Hardware/Network)</label> -->
-          </nz-radio-group>
-        </nz-form-control>
-      </nz-form-item>
+<!-- MODE CHOOSER — appears first before showing form -->
+@if (submitMode() === 'chooser') {
+  <div class="mode-chooser">
+    <div class="chooser-header">
+      <h2>How would you like to submit your request?</h2>
+      <p>Choose the option that works best for you</p>
+    </div>
 
-      <!-- Render MIS or ITS form component -->
-      @if (isMIS()) {
-        <app-mis-form (contentChanged)="onFormContentChanged()" />
-      }
+    <div class="chooser-cards">
+      <!-- Option 1: Manual Form -->
+      <div class="chooser-card" (click)="chooseManualForm()">
+        <div class="card-icon manual-icon">
+          <i nz-icon nzType="form" nzTheme="outline"></i>
+        </div>
+        <h3>Fill Form Manually</h3>
+        <p>Fill out the support request form with your issue details, category, and priority.</p>
+        <div class="card-features">
+          <span
+            ><i nz-icon nzType="check-circle" nzTheme="outline"></i> Structured form fields</span
+          >
+          <span
+            ><i nz-icon nzType="check-circle" nzTheme="outline"></i> AI-powered priority
+            suggestion</span
+          >
+          <span><i nz-icon nzType="check-circle" nzTheme="outline"></i> Smart ticket analysis</span>
+        </div>
+        <button nz-button nzType="default" nzSize="large" class="card-btn">
+          <i nz-icon nzType="edit" nzTheme="outline"></i>
+          Start Writing
+        </button>
+      </div>
 
-      @if (isITS()) {
-        <app-its-form (contentChanged)="onFormContentChanged()" />
-      }
+      <!-- Option 2: AI Assistant -->
+      <div class="chooser-card ai-card" (click)="chooseAIAssistant()">
+        <div class="card-icon ai-icon">
+          <i nz-icon nzType="robot" nzTheme="outline"></i>
+        </div>
+        <h3>Talk to AI Assistant</h3>
+        <p>
+          Describe your issue in a conversation. The AI may solve it instantly or help create a
+          ticket.
+        </p>
+        <div class="card-features">
+          <span
+            ><i nz-icon nzType="check-circle" nzTheme="outline"></i> Instant troubleshooting</span
+          >
+          <span><i nz-icon nzType="check-circle" nzTheme="outline"></i> Knowledge base lookup</span>
+          <span
+            ><i nz-icon nzType="check-circle" nzTheme="outline"></i> Guided ticket creation</span
+          >
+        </div>
+        <button nz-button nzType="primary" nzSize="large" class="card-btn">
+          <i nz-icon nzType="message" nzTheme="outline"></i>
+          Start Conversation
+        </button>
+      </div>
+    </div>
+  </div>
+}
 
-      <!-- Smart Priority Selection -->
-      <div class="priority-section">
+<!-- AI MODE — show a helpful message since the chat widget is now open -->
+@if (submitMode() === 'ai') {
+  <nz-card>
+    <div class="ai-mode-active">
+      <div class="ai-mode-icon">
+        <i nz-icon nzType="robot" nzTheme="outline"></i>
+      </div>
+      <h3>AI Assistant is ready</h3>
+      <p>
+        The AI chat is now open on the right side. Describe your issue and the AI will help you
+        troubleshoot or create a ticket.
+      </p>
+      <nz-divider></nz-divider>
+      <button nz-button nzType="default" (click)="backToChooser()">
+        <i nz-icon nzType="arrow-left" nzTheme="outline"></i>
+        Back to Options
+      </button>
+      <button nz-button nzType="link" (click)="chooseManualForm()">
+        or fill the form manually instead
+      </button>
+    </div>
+  </nz-card>
+}
+
+<!-- MANUAL FORM MODE -->
+@if (submitMode() === 'form') {
+  <div class="form-mode-header">
+    <button nz-button nzType="text" nzSize="small" (click)="backToChooser()">
+      <i nz-icon nzType="arrow-left" nzTheme="outline"></i>
+      Back to Options
+    </button>
+  </div>
+  <nz-spin [nzSpinning]="busy()" nzTip="Submitting ticket...">
+    <nz-card [nzTitle]="isMIS() ? 'ICT-MIS Support Ticket' : 'Request for ICT Support Services'">
+      <div class="ticket-form">
+        <!-- Form Type Selector -->
         <nz-form-item>
-          <nz-form-label>Priority</nz-form-label>
+          <nz-form-label>Form Type</nz-form-label>
           <nz-form-control>
-            <div class="priority-row">
-              <nz-select
-                style="width: 200px"
-                [ngModel]="selectedPriority()"
-                (ngModelChange)="onPriorityChange($event)"
-              >
-                @for (opt of priorityOptions; track opt.value) {
-                  <nz-option [nzValue]="opt.value" [nzLabel]="opt.label"></nz-option>
-                }
-              </nz-select>
-
-              <!-- Smart Suggestion Badge -->
-              @if (prioritySuggestion(); as suggestion) {
-                <div class="suggestion-badge" [class.overridden]="priorityOverridden()">
-                  <i nz-icon nzType="bulb" nzTheme="twotone" [nzTwotoneColor]="'#faad14'"></i>
-                  <span class="suggestion-label">Suggested:</span>
-                  <nz-tag [nzColor]="getPriorityColor(suggestion.priority)">
-                    {{ suggestion.priority }}
-                  </nz-tag>
-                  <span class="suggestion-confidence"
-                    >({{ suggestion.confidence }} confidence)</span
-                  >
-
-                  @if (priorityOverridden() && selectedPriority() !== suggestion.priority) {
-                    <button
-                      nz-button
-                      nzType="link"
-                      nzSize="small"
-                      (click)="acceptSuggestion()"
-                      nz-tooltip="Use the suggested priority"
-                    >
-                      Apply
-                    </button>
-                  }
-                </div>
-              }
-            </div>
+            <nz-radio-group [formControl]="formTypeControl">
+              <label nz-radio nzValue="MIS">MIS (Software)</label>
+              <!-- commented for the meantime will focus work with MIS  -->
+              <!-- <label nz-radio nzValue="ITS">ITS (Hardware/Network)</label> -->
+            </nz-radio-group>
           </nz-form-control>
         </nz-form-item>
 
-        <!-- Suggestion Reasons -->
-        @if (prioritySuggestion(); as suggestion) {
-          @if (suggestion.reasons.length > 0 && suggestion.confidence !== 'low') {
-            <nz-alert
-              nzType="info"
-              nzShowIcon
-              [nzMessage]="suggestionMsgTpl"
-              [nzDescription]="suggestionDescTpl"
-              style="margin-bottom: 16px"
-            ></nz-alert>
-            <ng-template #suggestionMsgTpl> Smart Priority Analysis </ng-template>
-            <ng-template #suggestionDescTpl>
-              <ul class="suggestion-reasons">
-                @for (reason of suggestion.reasons; track reason) {
-                  <li>{{ reason }}</li>
-                }
-              </ul>
-            </ng-template>
-          }
-        }
-      </div>
-
-      <!-- AI Smart Suggestions -->
-      <div class="ai-section">
-        <div class="ai-header">
-          <button
-            nz-button
-            nzType="dashed"
-            [nzLoading]="loadingSuggestions()"
-            (click)="fetchSmartSuggestions()"
-          >
-            <span nz-icon nzType="robot" nzTheme="outline"></span>
-            {{ suggestionsRequested() ? 'Re-analyze with AI' : 'Analyze with AI' }}
-          </button>
-          <span class="ai-hint"
-            >Get AI-powered suggestions, similar tickets, and related articles</span
-          >
-        </div>
-
-        @if (loadingSuggestions()) {
-          <nz-spin nzTip="AI is analyzing your ticket...">
-            <div class="ai-loading-placeholder"></div>
-          </nz-spin>
+        <!-- Render MIS or ITS form component -->
+        @if (isMIS()) {
+          <app-mis-form (contentChanged)="onFormContentChanged()" />
         }
 
-        @if (smartSuggestions(); as suggestions) {
-          <!-- AI Analysis Results -->
-          @if (suggestions.analysis; as analysis) {
-            <nz-collapse class="ai-collapse">
-              <nz-collapse-panel nzHeader="AI Analysis" [nzActive]="true" [nzExtra]="aiExtraTpl">
-                <div class="ai-analysis">
-                  @if (analysis.cleanTicket) {
-                    <div class="analysis-row clean-ticket-row">
-                      <div class="clean-ticket-header">
-                        <strong>AI-Rewritten Description:</strong>
-                        <button
-                          nz-button
-                          nzType="primary"
-                          nzSize="small"
-                          nz-tooltip="Use this as your ticket description"
-                          (click)="applyCleanTicket(analysis.cleanTicket)"
-                        >
-                          <span nz-icon nzType="check" nzTheme="outline"></span>
-                          Apply to Description
-                        </button>
-                      </div>
-                      <div class="clean-ticket-text">{{ analysis.cleanTicket }}</div>
-                    </div>
+        @if (isITS()) {
+          <app-its-form (contentChanged)="onFormContentChanged()" />
+        }
+
+        <!-- Smart Priority Selection -->
+        <div class="priority-section">
+          <nz-form-item>
+            <nz-form-label>Priority</nz-form-label>
+            <nz-form-control>
+              <div class="priority-row">
+                <nz-select
+                  style="width: 200px"
+                  [ngModel]="selectedPriority()"
+                  (ngModelChange)="onPriorityChange($event)"
+                >
+                  @for (opt of priorityOptions; track opt.value) {
+                    <nz-option [nzValue]="opt.value" [nzLabel]="opt.label"></nz-option>
                   }
-                  <div class="analysis-row">
-                    <strong>Summary:</strong>
-                    <span>{{ analysis.summary }}</span>
-                  </div>
-                  <div class="analysis-row">
-                    <strong>Category:</strong>
-                    <nz-tag nzColor="blue">{{ analysis.category }}</nz-tag>
-                    <strong style="margin-left: 12px">AI Priority:</strong>
-                    <nz-tag [nzColor]="getPriorityColor(analysis.priority)">{{
-                      analysis.priority
-                    }}</nz-tag>
-                  </div>
-                  <div class="analysis-row">
-                    <strong>Possible Root Cause:</strong>
-                    <span>{{ analysis.possibleRootCause }}</span>
-                  </div>
-                  <div class="analysis-row">
-                    <strong>Suggested Solutions:</strong>
-                    <ol class="solutions-list">
-                      @for (solution of analysis.suggestedSolutions; track solution) {
-                        <li>{{ solution }}</li>
-                      }
-                    </ol>
-                  </div>
-                  <div class="analysis-row">
-                    <strong>Keywords:</strong>
-                    @for (kw of analysis.keywords; track kw) {
-                      <nz-tag>{{ kw }}</nz-tag>
+                </nz-select>
+
+                <!-- Smart Suggestion Badge -->
+                @if (prioritySuggestion(); as suggestion) {
+                  <div class="suggestion-badge" [class.overridden]="priorityOverridden()">
+                    <i nz-icon nzType="bulb" nzTheme="twotone" [nzTwotoneColor]="'#faad14'"></i>
+                    <span class="suggestion-label">Suggested:</span>
+                    <nz-tag [nzColor]="getPriorityColor(suggestion.priority)">
+                      {{ suggestion.priority }}
+                    </nz-tag>
+                    <span class="suggestion-confidence"
+                      >({{ suggestion.confidence }} confidence)</span
+                    >
+
+                    @if (priorityOverridden() && selectedPriority() !== suggestion.priority) {
+                      <button
+                        nz-button
+                        nzType="link"
+                        nzSize="small"
+                        (click)="acceptSuggestion()"
+                        nz-tooltip="Use the suggested priority"
+                      >
+                        Apply
+                      </button>
                     }
                   </div>
-                </div>
-              </nz-collapse-panel>
-            </nz-collapse>
-            <ng-template #aiExtraTpl>
-              <nz-tag nzColor="purple">
-                <span nz-icon nzType="thunderbolt"></span>
-                Gemini AI
-              </nz-tag>
-            </ng-template>
+                }
+              </div>
+            </nz-form-control>
+          </nz-form-item>
+
+          <!-- Suggestion Reasons -->
+          @if (prioritySuggestion(); as suggestion) {
+            @if (suggestion.reasons.length > 0 && suggestion.confidence !== 'low') {
+              <nz-alert
+                nzType="info"
+                nzShowIcon
+                [nzMessage]="suggestionMsgTpl"
+                [nzDescription]="suggestionDescTpl"
+                style="margin-bottom: 16px"
+              ></nz-alert>
+              <ng-template #suggestionMsgTpl> Smart Priority Analysis </ng-template>
+              <ng-template #suggestionDescTpl>
+                <ul class="suggestion-reasons">
+                  @for (reason of suggestion.reasons; track reason) {
+                    <li>{{ reason }}</li>
+                  }
+                </ul>
+              </ng-template>
+            }
+          }
+        </div>
+
+        <!-- AI Smart Suggestions -->
+        <div class="ai-section">
+          <div class="ai-header">
+            <button
+              nz-button
+              nzType="dashed"
+              [nzLoading]="loadingSuggestions()"
+              (click)="fetchSmartSuggestions()"
+            >
+              <span nz-icon nzType="robot" nzTheme="outline"></span>
+              {{ suggestionsRequested() ? 'Re-analyze with AI' : 'Analyze with AI' }}
+            </button>
+            <span class="ai-hint"
+              >Get AI-powered suggestions, similar tickets, and related articles</span
+            >
+          </div>
+
+          @if (loadingSuggestions()) {
+            <nz-spin nzTip="AI is analyzing your ticket...">
+              <div class="ai-loading-placeholder"></div>
+            </nz-spin>
           }
 
-          <!-- Similar Tickets -->
-          @if (suggestions.similarTickets.length > 0) {
-            <nz-collapse class="ai-collapse">
-              <nz-collapse-panel
-                [nzHeader]="'Similar Tickets (' + suggestions.similarTickets.length + ')'"
-                [nzActive]="true"
-              >
-                <nz-list nzSize="small">
-                  @for (ticket of suggestions.similarTickets; track ticket.id) {
-                    <nz-list-item>
-                      <div class="similar-ticket-item">
-                        <div class="similar-ticket-row">
-                          <nz-tag [nzColor]="getStatusColor(ticket.status)">{{
-                            ticket.status
-                          }}</nz-tag>
-                          <nz-tag [nzColor]="getPriorityColor(ticket.priority)">{{
-                            ticket.priority
-                          }}</nz-tag>
-                          <span class="ticket-number">{{ ticket.ticketNumber }}</span>
+          @if (smartSuggestions(); as suggestions) {
+            <!-- AI Analysis Results -->
+            @if (suggestions.analysis; as analysis) {
+              <nz-collapse class="ai-collapse">
+                <nz-collapse-panel nzHeader="AI Analysis" [nzActive]="true" [nzExtra]="aiExtraTpl">
+                  <div class="ai-analysis">
+                    @if (analysis.cleanTicket) {
+                      <div class="analysis-row clean-ticket-row">
+                        <div class="clean-ticket-header">
+                          <strong>AI-Rewritten Description:</strong>
+                          <button
+                            nz-button
+                            nzType="primary"
+                            nzSize="small"
+                            nz-tooltip="Use this as your ticket description"
+                            (click)="applyCleanTicket(analysis.cleanTicket)"
+                          >
+                            <span nz-icon nzType="check" nzTheme="outline"></span>
+                            Apply to Description
+                          </button>
                         </div>
-                        <span class="ticket-title">{{ ticket.title }}</span>
+                        <div class="clean-ticket-text">{{ analysis.cleanTicket }}</div>
                       </div>
-                    </nz-list-item>
-                  }
-                </nz-list>
-              </nz-collapse-panel>
-            </nz-collapse>
-          }
+                    }
+                    <div class="analysis-row">
+                      <strong>Summary:</strong>
+                      <span>{{ analysis.summary }}</span>
+                    </div>
+                    <div class="analysis-row">
+                      <strong>Category:</strong>
+                      <nz-tag nzColor="blue">{{ analysis.category }}</nz-tag>
+                      <strong style="margin-left: 12px">AI Priority:</strong>
+                      <nz-tag [nzColor]="getPriorityColor(analysis.priority)">{{
+                        analysis.priority
+                      }}</nz-tag>
+                    </div>
+                    <div class="analysis-row">
+                      <strong>Possible Root Cause:</strong>
+                      <span>{{ analysis.possibleRootCause }}</span>
+                    </div>
+                    <div class="analysis-row">
+                      <strong>Suggested Solutions:</strong>
+                      <ol class="solutions-list">
+                        @for (solution of analysis.suggestedSolutions; track solution) {
+                          <li>{{ solution }}</li>
+                        }
+                      </ol>
+                    </div>
+                    <div class="analysis-row">
+                      <strong>Keywords:</strong>
+                      @for (kw of analysis.keywords; track kw) {
+                        <nz-tag>{{ kw }}</nz-tag>
+                      }
+                    </div>
+                  </div>
+                </nz-collapse-panel>
+              </nz-collapse>
+              <ng-template #aiExtraTpl>
+                <nz-tag nzColor="purple">
+                  <span nz-icon nzType="thunderbolt"></span>
+                  Gemini AI
+                </nz-tag>
+              </ng-template>
+            }
 
-          <!-- Related KB Articles -->
-          @if (suggestions.relatedArticles.length > 0) {
-            <nz-collapse class="ai-collapse">
-              <nz-collapse-panel
-                [nzHeader]="'Related Articles (' + suggestions.relatedArticles.length + ')'"
-                [nzActive]="true"
-              >
-                <nz-list nzSize="small">
-                  @for (article of suggestions.relatedArticles; track article.id) {
-                    <nz-list-item>
-                      <div class="related-article-item">
-                        <nz-tag nzColor="blue">{{ article.category }}</nz-tag>
-                        <span class="article-title">{{ article.title }}</span>
-                        <span class="article-stats">
-                          <span nz-icon nzType="eye" nzTheme="outline"></span>
-                          {{ article.viewCount }}
-                          <span
-                            nz-icon
-                            nzType="like"
-                            nzTheme="outline"
-                            style="margin-left: 8px"
-                          ></span>
-                          {{ article.helpfulCount }}
-                        </span>
-                      </div>
-                    </nz-list-item>
-                  }
-                </nz-list>
-              </nz-collapse-panel>
-            </nz-collapse>
-          }
+            <!-- Similar Tickets -->
+            @if (suggestions.similarTickets.length > 0) {
+              <nz-collapse class="ai-collapse">
+                <nz-collapse-panel
+                  [nzHeader]="'Similar Tickets (' + suggestions.similarTickets.length + ')'"
+                  [nzActive]="true"
+                >
+                  <nz-list nzSize="small">
+                    @for (ticket of suggestions.similarTickets; track ticket.id) {
+                      <nz-list-item>
+                        <div class="similar-ticket-item">
+                          <div class="similar-ticket-row">
+                            <nz-tag [nzColor]="getStatusColor(ticket.status)">{{
+                              ticket.status
+                            }}</nz-tag>
+                            <nz-tag [nzColor]="getPriorityColor(ticket.priority)">{{
+                              ticket.priority
+                            }}</nz-tag>
+                            <span class="ticket-number">{{ ticket.ticketNumber }}</span>
+                          </div>
+                          <span class="ticket-title">{{ ticket.title }}</span>
+                        </div>
+                      </nz-list-item>
+                    }
+                  </nz-list>
+                </nz-collapse-panel>
+              </nz-collapse>
+            }
 
-          <!-- No results message -->
-          @if (
-            !suggestions.analysis &&
-            suggestions.similarTickets.length === 0 &&
-            suggestions.relatedArticles.length === 0
-          ) {
-            <nz-alert
-              nzType="info"
-              nzShowIcon
-              nzMessage="No suggestions found"
-              nzDescription="No similar tickets or related articles were found. The AI service may not be configured."
-            ></nz-alert>
+            <!-- Related KB Articles -->
+            @if (suggestions.relatedArticles.length > 0) {
+              <nz-collapse class="ai-collapse">
+                <nz-collapse-panel
+                  [nzHeader]="'Related Articles (' + suggestions.relatedArticles.length + ')'"
+                  [nzActive]="true"
+                >
+                  <nz-list nzSize="small">
+                    @for (article of suggestions.relatedArticles; track article.id) {
+                      <nz-list-item>
+                        <div class="related-article-item">
+                          <nz-tag nzColor="blue">{{ article.category }}</nz-tag>
+                          <span class="article-title">{{ article.title }}</span>
+                          <span class="article-stats">
+                            <span nz-icon nzType="eye" nzTheme="outline"></span>
+                            {{ article.viewCount }}
+                            <span
+                              nz-icon
+                              nzType="like"
+                              nzTheme="outline"
+                              style="margin-left: 8px"
+                            ></span>
+                            {{ article.helpfulCount }}
+                          </span>
+                        </div>
+                      </nz-list-item>
+                    }
+                  </nz-list>
+                </nz-collapse-panel>
+              </nz-collapse>
+            }
+
+            <!-- No results message -->
+            @if (
+              !suggestions.analysis &&
+              suggestions.similarTickets.length === 0 &&
+              suggestions.relatedArticles.length === 0
+            ) {
+              <nz-alert
+                nzType="info"
+                nzShowIcon
+                nzMessage="No suggestions found"
+                nzDescription="No similar tickets or related articles were found. The AI service may not be configured."
+              ></nz-alert>
+            }
           }
-        }
+        </div>
+
+        <!-- Actions -->
+        <div class="actions">
+          <button nz-button nzType="primary" [disabled]="busy()" (click)="submit()">
+            Submit Ticket
+          </button>
+          <a nz-button nzType="default" routerLink="/tickets">Cancel</a>
+        </div>
       </div>
-
-      <!-- Actions -->
-      <div class="actions">
-        <button nz-button nzType="primary" [disabled]="busy()" (click)="submit()">
-          Submit Ticket
-        </button>
-        <a nz-button nzType="default" routerLink="/tickets">Cancel</a>
-      </div>
-    </div>
-  </nz-card>
-</nz-spin>
+    </nz-card>
+  </nz-spin>
+}
+<!-- end submitMode() === 'form' -->

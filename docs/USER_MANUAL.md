@@ -3,7 +3,7 @@
 **Intelligent Service Request Monitoring and Analysis Platform**
 **Carlos Hilado Memorial State University — ICT Department**
 
-> **Version**: 2.3.0 | **Last Updated**: July 8, 2025
+> **Version**: 2.4.0 | **Last Updated**: July 15, 2025
 
 ---
 
@@ -731,7 +731,33 @@ If the AI can't resolve your issue, you can convert the conversation into a tick
 - Click the **session list** icon to view past conversations
 - Delete sessions you no longer need
 
-### 16.7 Tips for Best Results
+### 16.7 Excel Report Generation (Admin/Staff Only)
+
+Admins, ICT Staff, and Supervisors can ask the AI to generate downloadable Excel reports.
+
+**How to request a report:**
+
+1. Open the AI Chat widget
+2. Type a request like:
+   - _"Generate a full report"_
+   - _"Download an Excel report of tickets by status"_
+   - _"Create a monthly trend report"_
+   - _"Export ticket data"_
+
+3. The AI will present **green download buttons** for available report types:
+   - **Full Report** — All data across multiple sheets (Summary, Status, Category, Priority, Monthly Trend, Ticket List)
+   - **Ticket Summary** — Overview with totals and breakdowns
+   - **By Status** — Tickets grouped by status
+   - **By Category** — Tickets grouped by type (MIS/ITS)
+   - **By Priority** — Tickets grouped by priority level
+   - **Monthly Trend** — Monthly submission and resolution rates
+
+4. Click any download button to receive an `.xlsx` file
+5. The Excel file includes professional formatting (colored headers, alternating rows)
+
+**Note:** Regular users (USER role) cannot generate reports. If a regular user asks for a report, the AI will explain that this feature requires staff or admin privileges.
+
+### 16.8 Tips for Best Results
 
 - **Be specific**: "Email won't load in Chrome on Windows" gets better results than "email broken"
 - **Include error messages**: Copy-paste any error text for more accurate solutions

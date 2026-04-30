@@ -24,6 +24,7 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzCollapseModule } from 'ng-zorro-antd/collapse';
 import { NzListModule } from 'ng-zorro-antd/list';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
+import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
@@ -32,6 +33,7 @@ import {
   CreateMISTicketInput,
   CreateITSTicketInput,
 } from '../../core/services/ticket.service';
+import { ChatService } from '../../core/services/chat.service';
 import { MISFormComponent } from './mis-form.component';
 import { ITSFormComponent } from './its-form.component';
 import {
@@ -65,6 +67,7 @@ type RequestCategory = 'WEBSITE' | 'SOFTWARE';
     NzCollapseModule,
     NzListModule,
     NzBadgeModule,
+    NzDividerModule,
     MISFormComponent,
     ITSFormComponent,
   ],
@@ -79,9 +82,13 @@ export class SubmitTicketPage {
   private readonly authService = inject(AuthService);
   private readonly ticketService = inject(TicketService);
   private readonly aiService = inject(AIService);
+  private readonly chatService = inject(ChatService);
 
   readonly today = new Date();
   readonly busy = signal(false);
+
+  /** Controls the initial chooser: null = show chooser, 'form' = manual form, 'ai' = open AI chat */
+  readonly submitMode = signal<'chooser' | 'form' | 'ai'>('chooser');
 
   readonly userName = computed(() => this.authService.currentUser()?.name ?? '');
   readonly userDept = signal('');
@@ -132,6 +139,26 @@ export class SubmitTicketPage {
     { value: 'HIGH', label: 'High', color: '#fa8c16' },
     { value: 'CRITICAL', label: 'Critical', color: '#f5222d' },
   ];
+
+  // ========================================
+  // MODE CHOOSER
+  // ========================================
+
+  /** User chooses to fill form manually */
+  chooseManualForm(): void {
+    this.submitMode.set('form');
+  }
+
+  /** User chooses to talk to AI — opens the global chat widget */
+  chooseAIAssistant(): void {
+    this.submitMode.set('ai');
+    this.chatService.requestOpenChat();
+  }
+
+  /** Go back to chooser from either mode */
+  backToChooser(): void {
+    this.submitMode.set('chooser');
+  }
 
   /**
    * Recalculate priority suggestion.

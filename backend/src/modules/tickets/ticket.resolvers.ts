@@ -550,6 +550,7 @@ export const ticketResolvers = {
           dateFinished?: string;
           status?: string;
           comment?: string;
+          solutionVisibility?: string;
         };
       },
       context: any,
@@ -574,6 +575,7 @@ export const ticketResolvers = {
             : undefined,
           status: input.status as any,
           comment: input.comment,
+          solutionVisibility: input.solutionVisibility,
         },
       );
     },
