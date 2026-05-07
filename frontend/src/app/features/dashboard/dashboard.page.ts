@@ -200,7 +200,8 @@ export class DashboardPage implements OnInit {
 
   ngOnInit(): void {
     this.loadTickets();
-    this.checkSlaReminderOnLogin();
+    //dont show the banner to regular users per requirements
+    // this.checkSlaReminderOnLogin();
 
     // Fallback: poll every 5 minutes as a safety net if WebSocket disconnects
     // This is a resilience measure, NOT the primary refresh mechanism
@@ -286,20 +287,20 @@ export class DashboardPage implements OnInit {
   // ========================================
 
   /** Check if we should show the SLA reminder modal (once per session, only for regular users) */
-  private checkSlaReminderOnLogin(): void {
-    if (!isPlatformBrowser(this.platformId)) return;
-    // Only show the auto-popup for regular users (non-staff)
-    if (!this.authService.isUser()) return;
-    const key = 'sla_reminder_shown';
-    const shown = sessionStorage.getItem(key);
-    if (!shown) {
-      // Show the modal after a short delay so dashboard loads first
-      setTimeout(() => {
-        this.showSlaModal.set(true);
-        sessionStorage.setItem(key, 'true');
-      }, 800);
-    }
-  }
+  // private checkSlaReminderOnLogin(): void {
+  //   if (!isPlatformBrowser(this.platformId)) return;
+  //   // Only show the auto-popup for regular users (non-staff)
+  //   if (!this.authService.isUser()) return;
+  //   const key = 'sla_reminder_shown';
+  //   const shown = sessionStorage.getItem(key);
+  //   if (!shown) {
+  //     // Show the modal after a short delay so dashboard loads first
+  //     setTimeout(() => {
+  //       this.showSlaModal.set(true);
+  //       sessionStorage.setItem(key, 'true');
+  //     }, 800);
+  //   }
+  // }
 
   /** Close the SLA modal */
   closeSlaModal(): void {

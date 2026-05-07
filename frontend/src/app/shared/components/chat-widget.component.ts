@@ -301,16 +301,36 @@ import { environment } from '../../core/config/environment';
 
           <!-- Input Area -->
           <div class="chat-input-area">
-            <nz-input-group [nzSuffix]="sendBtn">
-              <input
+            <nz-input-group [nzSuffix]="">
+              <!-- <nz-input-group [nzSuffix]="sendBtn"> -->
+              <!-- <input
                 nz-input
                 [(ngModel)]="inputMessage"
                 placeholder="Type your message..."
                 (keydown.enter)="send()"
                 [disabled]="sending()"
-              />
+              /> -->
+              <textarea
+                nz-input
+                [(ngModel)]="inputMessage"
+                placeholder="Type your message..."
+                [nzAutosize]="{ minRows: 2, maxRows: 6 }"
+                [disabled]="sending()"
+              ></textarea>
+              <div class="chat-input-actions">
+                <button
+                  nz-button
+                  nzType="primary"
+                  nzSize="small"
+                  [disabled]="!inputMessage.trim() || sending()"
+                  (click)="send()"
+                >
+                  <span nz-icon nzType="send" nzTheme="outline"></span>
+                  Send
+                </button>
+              </div>
             </nz-input-group>
-            <ng-template #sendBtn>
+            <!-- <ng-template #sendBtn>
               <button
                 nz-button
                 nzType="text"
@@ -320,7 +340,7 @@ import { environment } from '../../core/config/environment';
               >
                 <span nz-icon nzType="send" nzTheme="outline"></span>
               </button>
-            </ng-template>
+            </ng-template> -->
           </div>
         }
       </ng-container>
@@ -529,7 +549,7 @@ import { environment } from '../../core/config/environment';
 
       /* ── Chat messages ────────────────────────────── */
       .chat-messages {
-        height: calc(100vh - 65px - 56px);
+        height: calc(100vh - 65px - 97px);
         overflow-y: auto;
         padding: 16px;
         display: flex;
@@ -812,6 +832,17 @@ import { environment } from '../../core/config/environment';
         }
       }
 
+      .chat-input-area {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .chat-input-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
       @keyframes typing {
         0%,
         60%,
@@ -1025,6 +1056,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
         description: ticketData.description,
         type: ticketData.type || 'ITS',
         priority: ticketData.priority,
+        category: ticketData.category,
       })
       .subscribe({
         next: (ticket) => {
@@ -1036,7 +1068,8 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
             id: Date.now(),
             sessionId: session.id,
             role: 'SYSTEM',
-            content: `✅ Ticket **${ticket.ticketNumber}** has been created. You can track its status anytime by asking me.`,
+            content: `✅ Ticket [${ticket.ticketNumber}](/tickets/${ticket.ticketNumber}) has been created. You can track its status anytime by asking me.`,
+            // content: `✅ Ticket **${ticket.ticketNumber}** has been created. You can track its status anytime by asking me.`,
             metadata: null,
             createdAt: new Date().toISOString(),
           };
@@ -1070,6 +1103,13 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
       }
       // Intercept KB links for in-app navigation
       if (href.startsWith('/knowledge-base/')) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.router.navigate([href]);
+        return;
+      }
+
+      if (href.startsWith('/tickets/')) {
         event.preventDefault();
         event.stopPropagation();
         this.router.navigate([href]);

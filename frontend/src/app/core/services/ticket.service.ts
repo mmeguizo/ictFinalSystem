@@ -923,7 +923,8 @@ export class TicketService {
   /** Base URL for REST API (derived from GraphQL URL) */
   private get apiBaseUrl(): string {
     // GraphQL URL is like http://localhost:4000/graphql, we need http://localhost:4000
-    const graphqlUrl = 'http://localhost:4000'; // same origin as backend
+    const graphqlUrl = 'http://10.100.168.9:4000'; // same origin as backend
+    // const graphqlUrl = 'http://localhost:4000'; // same origin as backend
     return graphqlUrl;
   }
 

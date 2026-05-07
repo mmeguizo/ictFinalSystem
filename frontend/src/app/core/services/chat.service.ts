@@ -199,6 +199,7 @@ export class ChatService {
     description: string;
     type: string;
     priority?: string;
+    category?: string;
   }): Observable<TicketFromChat> {
     return this.apollo
       .mutate<{ createTicketFromChat: TicketFromChat }>({

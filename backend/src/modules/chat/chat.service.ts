@@ -218,24 +218,48 @@ export class ChatService {
       userId,
     );
 
-    // 3b. Role-gated: Analytics queries only for staff/admin
+    // 3b. Role-gated: Analytics and report requests only for staff/admin
     const userRole = session.user?.role || "USER";
     const staffRoles = ["ADMIN", "ICT_STAFF", "SUPERVISOR"];
     const isStaffOrAdmin = staffRoles.includes(userRole);
 
-    const analyticsContext = isStaffOrAdmin
-      ? await this.checkAnalyticsQuery(userMessage)
-      : null;
+    const analyticsRequest = await this.checkAnalyticsQuery(userMessage);
+    const reportRequest = this.checkReportRequest(userMessage, userRole);
 
-    // 3c. Report generation (already role-checked internally, but skip entirely for regular users)
-    const reportContext = isStaffOrAdmin
-      ? this.checkReportRequest(userMessage, userRole)
-      : null;
+    // Short-circuit: if the user is clearly asking for help/ticket creation, don't deny
+    const ticketCreationIntentPatterns = [
+      /\b(request|open|unlock|extend|create|submit|emergency|help|can i|please)\b/i,
+      /\bcreate\s+(a|new)?\s*ticket\b/i,
+    ];
+    const hasTicketCreationIntent = ticketCreationIntentPatterns.some((p) =>
+      p.test(userMessage),
+    );
+
+    if (
+      !isStaffOrAdmin &&
+      !hasTicketCreationIntent &&
+      (analyticsRequest || reportRequest)
+    ) {
+      const denyReply =
+        "I'm sorry, but analytics and report generation are available only to ICT staff and administrators. " +
+        "I can still help with troubleshooting, knowledge base lookups, checking your ticket status, or creating a new support ticket.";
+
+      await prisma.chatMessage.create({
+        data: {
+          sessionId,
+          role: "ASSISTANT",
+          content: denyReply,
+        },
+      });
+
+      return { reply: denyReply };
+    }
+
+    const analyticsContext = isStaffOrAdmin ? analyticsRequest : null;
+    const reportContext = isStaffOrAdmin ? reportRequest : null;
 
     // 3d. SLA context for staff/admin — proactive SLA awareness
-    const slaContext = isStaffOrAdmin
-      ? await this.getSLAContext()
-      : null;
+    const slaContext = isStaffOrAdmin ? await this.getSLAContext() : null;
 
     // 4. Search for relevant context (RAG — fulltext + vector)
     const ragContext = await this.retrieveContext(userMessage);
@@ -266,7 +290,8 @@ export class ChatService {
 
     // For regular users, add a role restriction notice so the AI doesn't offer staff features
     if (!isStaffOrAdmin) {
-      contextStr += "\n--- ACCESS LEVEL ---\nThis user has a regular USER role. Do NOT offer analytics, statistics, reports, or any admin/staff features. Only help with troubleshooting, knowledge base lookups, checking their own ticket status, and creating new tickets.\n";
+      contextStr +=
+        "\n--- ACCESS LEVEL ---\nThis user has a regular USER role. Do NOT offer analytics, statistics, reports, or any admin/staff features. Only help with troubleshooting, knowledge base lookups, checking their own ticket status, and creating new tickets.\n";
     }
 
     if (ragContext.kbArticles.length > 0) {
@@ -659,7 +684,9 @@ export class ChatService {
       /(average|mean|median).*(resolution|response|time)/i,
       /\b(workload|performance|productivity)\b/i,
       /(busiest|peak|slowest)\s*(day|time|period|month)/i,
-      /\b(sla|overdue|due|deadline|compliance|breach)\b/i,
+      /\b(sla|overdue|compliance|breach)\b.*\b(ticket|request|count|report|status|rate|data)\b/i,
+      /\b(ticket|request|count|report|status|rate|data)\b.*\b(sla|overdue|compliance|breach)\b/i,
+      /\bdeadline\b.*\b(ticket|request|count|report|sla|compliance)\b/i,
       /\b(unresolved|pending|backlog)\b.*\b(ticket|request)\b/i,
     ];
 
@@ -1033,6 +1060,7 @@ Tell the user which report type you detected based on their request, and offer t
       description: string;
       type: "MIS" | "ITS";
       priority?: string;
+      category?: string;
     },
   ) {
     // Verify session
@@ -1056,7 +1084,7 @@ Tell the user which report type you detected based on their request, and offer t
           title: ticketData.title,
           description: ticketData.description,
           priority: (ticketData.priority || "MEDIUM") as any,
-          category: "SOFTWARE" as any,
+          category: (ticketData.category || "SOFTWARE") as any,
           controlNumber: "",
         },
         userId,

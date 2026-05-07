@@ -59,6 +59,7 @@ export const chatResolvers = {
           description: string;
           type: string;
           priority?: string;
+          category?: string;
         };
       },
       ctx: any,
@@ -72,6 +73,7 @@ export const chatResolvers = {
           description: args.input.description,
           type: args.input.type as "MIS" | "ITS",
           priority: args.input.priority,
+          category: args.input.category,
         },
       );
     },
