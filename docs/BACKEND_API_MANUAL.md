@@ -838,7 +838,10 @@ mutation {
 **Behavior**:
 
 - The AI retrieves context from the **Solutions Database** (vector + full-text search), **Knowledge Base**, and **past resolved tickets**
-- If the question is about analytics/statistics, the AI runs **read-only** database queries and includes live data
+- If the question is about analytics/statistics or operational oversight, the AI runs **read-only** database queries and includes live data
+- Person-level user directory answers are **ADMIN only**; other staff roles receive aggregate user summaries only
+- If the question is about deletion policy, the AI explains the safeguard rules but does **not** execute destructive actions
+- Questions about notifications, chat history, attachments, ticket counters, and migration/internal tables return an explicit unsupported-data response
 - Returns `reply` (AI response) and `metadata` (JSON string with `solutionIds`, `kbArticleIds`, etc.)
 
 **Analytics Questions Detected**:
@@ -848,6 +851,11 @@ mutation {
 - Most recurring issues (grouped by title)
 - Average resolution time
 - Overdue ticket count
+- Approval queues (secretary review, director approval)
+- Escalations, oldest active tickets, and recent status transitions
+- Staff workload and department/category breakdowns (MIS vs ITS, website/software, hardware/network/printer/borrow)
+- Knowledge-base coverage and troubleshooting-solution summaries
+- Aggregate user totals and role distribution; ADMIN-only person-level user lists
 
 **Access**: Session owner only
 
@@ -960,7 +968,7 @@ GET /reports/download?type={reportType}&from={date}&to={date}&status={status}&pr
 
 **Response:** Binary `.xlsx` file stream with appropriate Content-Type and Content-Disposition headers.
 
-**Access:** ADMIN, ICT_STAFF, SUPERVISOR roles only. Returns 403 for other roles.
+**Access:** ADMIN, DEVELOPER, TECHNICAL, MIS_HEAD, ITS_HEAD, DIRECTOR, SECRETARY roles only. Returns 403 for other roles.
 
 **Example:**
 
@@ -1315,7 +1323,7 @@ Tickets are categorized into three SLA states:
 - Past due date
 - Critical attention needed
 - Red badge in UI
-- Notification to supervisor
+- Notification to the escalation path (assigned staff, department head, admin, or director depending on level)
 
 ---
 
@@ -1576,7 +1584,7 @@ query DashboardData {
 ### Version 2.4.0 (July 15, 2025)
 
 ✅ **AI Intelligence Upgrade**: Rewritten system prompt, stop-word filtering, OR-based fulltext search, user context injection, tuned generation params (temp 0.4, 4096 tokens, topP 0.9)  
-✅ **Excel Report Generation**: New `GET /reports/download` REST endpoint with 6 report types, role-restricted (ADMIN/ICT_STAFF/SUPERVISOR)  
+✅ **Excel Report Generation**: New `GET /reports/download` REST endpoint with 6 report types, role-restricted (ADMIN/DEVELOPER/TECHNICAL/MIS_HEAD/ITS_HEAD/DIRECTOR/SECRETARY)  
 ✅ **AI Report Trigger**: Chat AI detects "generate report" / "download excel" requests and provides download buttons  
 ✅ **Admin Chat Sessions**: New `allChatSessions` query for admin oversight of all user conversations  
 ✅ **Bug Fix**: `totalPages` added to `PaginatedSolutions` GraphQL type  
@@ -1635,7 +1643,7 @@ query DashboardData {
 - Solutions Database: auto-saves resolutions from resolved tickets
 - Vector embeddings via Gemini `text-embedding-004` (768 dimensions)
 - Hybrid search: vector (cosine similarity) + MySQL full-text
-- Read-only analytics queries (tickets by status/type/priority, resolution time, overdue, recurring issues)
+- Read-only analytics and operational queries (tickets by status/type/priority, approval queues, escalations, workload, categories, KB/solution coverage, user summaries)
 - Admin backfill endpoint for existing solutions
 - Chat session management (create, list, delete)
 - Create ticket from chat conversation

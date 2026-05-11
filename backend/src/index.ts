@@ -269,7 +269,7 @@ async function start() {
   // REST endpoint for report downloads
   // GET /reports/download?type=full-report&from=2025-01-01&to=2025-12-31
   // Requires Authorization header (Bearer token)
-  // Only ADMIN, ICT_STAFF, and SUPERVISOR roles allowed
+  // Only ADMIN, MIS_HEAD, ITS_HEAD, DIRECTOR, SECRETARY, DEVELOPER, TECHNICAL roles allowed
   // ========================================
   app.get("/reports/download", async (req, res) => {
     try {
@@ -302,12 +302,21 @@ async function start() {
 
       // Check role
       const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user || !["ADMIN", "ICT_STAFF", "SUPERVISOR"].includes(user.role)) {
-        return res
-          .status(403)
-          .json({
-            error: "Insufficient permissions. Admin or staff role required.",
-          });
+      if (
+        !user ||
+        ![
+          "ADMIN",
+          "MIS_HEAD",
+          "ITS_HEAD",
+          "DIRECTOR",
+          "SECRETARY",
+          "DEVELOPER",
+          "TECHNICAL",
+        ].includes(user.role)
+      ) {
+        return res.status(403).json({
+          error: "Insufficient permissions. Admin or staff role required.",
+        });
       }
 
       // Parse params
@@ -323,11 +332,9 @@ async function start() {
         "full-report",
       ];
       if (!validTypes.includes(type)) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid report type. Valid: ${validTypes.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `Invalid report type. Valid: ${validTypes.join(", ")}`,
+        });
       }
 
       const filters: any = {};

@@ -56,6 +56,29 @@ const ADD_TICKET_NOTE = gql`
   }
 `;
 
+const UPDATE_TICKET_NOTE = gql`
+  mutation UpdateTicketNote($noteId: Int!, $input: UpdateTicketNoteInput!) {
+    updateTicketNote(noteId: $noteId, input: $input) {
+      id
+      ticketId
+      content
+      isInternal
+      createdAt
+      user {
+        id
+        name
+        role
+      }
+    }
+  }
+`;
+
+const DELETE_TICKET_NOTE = gql`
+  mutation DeleteTicketNote($noteId: Int!) {
+    deleteTicketNote(noteId: $noteId)
+  }
+`;
+
 /**
  * Mutation to assign a ticket to a staff member
  * Used by MIS_HEAD/ITS_HEAD to assign tickets to DEVELOPER/TECHNICAL staff
@@ -163,6 +186,7 @@ const MY_ASSIGNED_TICKETS = gql`
         }
         notes {
           id
+          ticketId
           content
           isInternal
           createdAt
@@ -234,6 +258,7 @@ const ALL_TICKETS = gql`
         }
         notes {
           id
+          ticketId
           content
           isInternal
           createdAt
@@ -634,6 +659,7 @@ const TICKET_BY_NUMBER = gql`
       }
       notes {
         id
+        ticketId
         content
         isInternal
         createdAt
@@ -888,6 +914,7 @@ export interface TicketDetail extends TicketListItem {
   };
   notes: Array<{
     id: number;
+    ticketId: number;
     content: string;
     isInternal: boolean;
     createdAt: string;
@@ -1026,6 +1053,38 @@ export class TicketService {
             throw new Error('Failed to add note');
           }
           return result.data.addTicketNote;
+        }),
+      );
+  }
+
+  updateTicketNote(
+    noteId: number,
+    input: { isInternal?: boolean; content?: string },
+  ): Observable<TicketNote> {
+    return this.apollo
+      .mutate<{ updateTicketNote: TicketNote }>({
+        mutation: UPDATE_TICKET_NOTE,
+        variables: { noteId, input },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.updateTicketNote) {
+            throw new Error('Failed to update note');
+          }
+          return result.data.updateTicketNote;
+        }),
+      );
+  }
+
+  deleteTicketNote(noteId: number): Observable<boolean> {
+    return this.apollo
+      .mutate<{ deleteTicketNote: boolean }>({
+        mutation: DELETE_TICKET_NOTE,
+        variables: { noteId },
+      })
+      .pipe(
+        map((result) => {
+          return result.data?.deleteTicketNote ?? false;
         }),
       );
   }

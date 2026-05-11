@@ -51,31 +51,12 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 - [x] **Smart suggestions (similar past tickets, auto-fill)** — Gemini AI analysis + fulltext similar ticket search + related KB articles
 - [ ] **AI-powered search across tickets**
 
-### Next Steps (Chunked)
+### Chunk A3: AI Chatbot ✅
 
-#### Chunk A1: Knowledge Base Foundation ✅
-
-1. [x] Create `KnowledgeArticle` model in Prisma schema (id, title, content, category, tags, createdBy, viewCount, helpfulCount) — with fulltext index
-2. [x] Create migration and seed with common ICT FAQs — 6 articles across 5 categories
-3. [x] Create knowledge-base repository + service + resolvers (CRUD + search)
-4. [x] Create frontend knowledge-base page with search — card grid, category filters, detail modal, editor
-5. [ ] Test: Admin can create/edit articles, users can search and read
-
-#### Chunk A2: Smart Ticket Suggestions ✅
-
-1. [x] Add backend endpoint that searches existing resolved tickets by keyword similarity — fulltext index on Ticket(title, description), MySQL BOOLEAN MODE search
-2. [x] On ticket creation form, add "Similar Issues" panel that queries as user types — "Analyze with AI" button triggers Gemini analysis
-3. [x] Show matched knowledge base articles alongside similar tickets — collapse panels with similar tickets + related KB articles
-4. [x] Gemini AI integration — analyzes tickets for clean_ticket, summary, category, priority, root cause, solutions, keywords
-5. [ ] Test: Typing a description shows relevant past tickets/articles
-
-#### Chunk A3: AI Chatbot (Future — requires AI service)
-
-1. [ ] Integrate OpenAI/local LLM API for natural language processing
-2. [ ] Create chat interface component
-3. [ ] Implement intent detection (create ticket, check status, search KB)
-4. [ ] Auto-fill ticket form from chat conversation
-5. [ ] Test: User can describe issue in chat, system creates ticket
+1. [x] AI chatbot widget (floating button, conversation history, role-aware)
+2. [x] RAG pipeline (KB + resolved tickets + solutions)
+3. [x] Intent detection (ticket creation, report generation)
+4. [x] Rich markdown rendering (tables, headers, Enter-to-send)
 
 ---
 
@@ -282,6 +263,8 @@ Full end-to-end ticket management from creation through multi-stage approval, as
 - [x] Ticket closure
 - [x] Ticket reopen (creator can reopen CANCELLED tickets)
 - [x] Notes system (internal/public with notifications)
+- [x] **Delete ticket notes** — Staff roles can delete notes; USER role blocked at resolver level
+- [x] **Toggle note visibility** — Staff can switch notes between Internal and Public inline from ticket detail
 - [x] File attachments (upload, download, soft-delete)
 - [x] Control number generation (atomic counter)
 - [x] Polymorphic ticket types (MIS: WEBSITE/SOFTWARE, ITS: borrow/maintenance)
@@ -291,6 +274,27 @@ Full end-to-end ticket management from creation through multi-stage approval, as
 - [ ] **Bulk operations (close multiple, assign multiple)**
 - [ ] **Ticket merge (combine duplicate tickets)**
 - [x] **Satisfaction survey (after resolution — star rating + comments)**
+
+### AI Chatbot / Self-Service Chat
+
+- [x] **AI chatbot widget** — Floating chat button on all pages; conversation history; role-aware responses
+- [x] **RAG context from Knowledge Base** — AI searches KB articles for relevant answers
+- [x] **RAG context from resolved tickets** — AI searches past resolved tickets (title, description, resolution, staff notes) for similar issues
+- [x] **RAG context from Troubleshooting Solutions** — AI searches curated solution database
+- [x] **Ticket creation from chat** — AI can detect intent and guide user to create a ticket
+- [x] **Excel report download from chat** — AI detects report requests and renders clickable download buttons
+- [x] **Operational admin/staff chat queries** — Chat now answers approval queues, escalations, workload, department/category breakdowns, user summaries, and KB/solution coverage from selected Prisma tables
+- [x] **Deletion safeguard policy in chat** — Chat explains deactivate-vs-delete rules and audited hard deletes, but stays read-only for destructive actions
+- [x] **Rich markdown in chat** — Tables, headers, blockquotes, code blocks, bold/italic rendered properly
+- [x] **Enter-to-send keyboard shortcut** — Enter sends message; Shift+Enter inserts newline
+
+### Troubleshooting Solutions Database
+
+- [x] **Solutions CRUD** — Staff can create, edit, delete curated troubleshooting solutions
+- [x] **Auto-extraction from resolved tickets** — When a ticket is resolved, a solution is automatically created from title + description + resolution + staff notes (default visibility: INTERNAL)
+- [x] **Solution visibility control** — PUBLIC / INTERNAL visibility flag; USER role sees PUBLIC only via API
+- [x] **Embedding generation** — Each solution gets a vector embedding for semantic RAG search
+- [x] **Solutions used in AI RAG pipeline** — Semantic search + fulltext search against solution database
 
 ### Next Steps (Chunked)
 
@@ -351,15 +355,47 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 
 ## Summary Matrix
 
-| Feature                              | Status   | Completion                                                             |
-| ------------------------------------ | -------- | ---------------------------------------------------------------------- |
-| 1a. AI-Powered Self-Service Portal   | Partial  | ~60% (portal + knowledge base + AI suggestions + apply AI description) |
-| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                     |
-| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)   |
-| 1d. Integrated Reporting & Analytics | **Done** | ~90% (analytics + charts + trends + PDF/Excel export)                  |
-| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                 |
-| 1f. Ticket Lifecycle Management      | **Done** | ~97% (full workflow + satisfaction survey)                             |
-| Infrastructure                       | **Done** | ~95%                                                                   |
+| Feature                              | Status   | Completion                                                                                                   |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------ |
+| 1a. AI-Powered Self-Service Portal   | **Done** | ~92% (portal + KB + AI suggestions + chatbot + RAG pipeline + markdown rendering + operational chat answers) |
+| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                                                           |
+| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)                                         |
+| 1d. Integrated Reporting & Analytics | **Done** | ~94% (analytics + charts + trends + PDF/Excel + Excel-from-chat + staff/admin chat queries)                  |
+| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                                                       |
+| 1f. Ticket Lifecycle Management      | **Done** | ~98% (full workflow + satisfaction survey + note management)                                                 |
+| AI Training Pipeline                 | **Done** | ~95% (auto-extract solutions + notes in RAG + visibility enforcement)                                        |
+| Infrastructure                       | **Done** | ~97%                                                                                                         |
+
+---
+
+## Recent Fixes & Improvements (May 7, 2026)
+
+### New Features
+
+- **Delete ticket notes** — Staff roles can delete any note via the ticket detail page. Regular users are blocked at the API level.
+- **Toggle note visibility** — Staff can flip a note between Internal (staff-only) and Public (visible to ticket creator) without leaving the page.
+- **AI training pipeline from resolved tickets** — Auto-creates a TroubleshootingSolution when any ticket reaches RESOLVED/CLOSED status. Staff notes are included in the extracted solution content. Solutions start as INTERNAL so staff can review before publishing.
+- **Staff notes in AI chat context** — The AI chat assistant now retrieves staff notes from resolved tickets via the RAG pipeline, giving the AI access to technician observations and workarounds.
+- **Solution visibility enforcement** — USER role cannot see INTERNAL troubleshooting solutions via GraphQL API; restricted at resolver level.
+- **Operational chat answers for staff/admin** — The chat assistant now runs safe table-backed queries for approval queues, escalations, workloads, KB/solution coverage, and department-specific ticket breakdowns instead of relying only on generic analytics summaries.
+- **Admin-only user directory answers in chat** — Aggregate user counts are available to staff/admin, while person-level user lists stay ADMIN only in chat.
+- **Deletion safeguard policy surfaced in chat** — The assistant now explains why hard-delete can be blocked and recommends deactivation/reassignment without attempting destructive actions.
+- **Chat widget: rich markdown** — Full GFM markdown support using `marked` v18 (tables, headers, blockquotes, code blocks, HR). Custom compact heading renderer prevents oversized H1 text in chat bubbles.
+- **Chat widget: Enter-to-send** — Enter key sends message; Shift+Enter inserts newline.
+
+### Bug Fixes
+
+- **Send button disappearing** — `nz-input-group` wrapper applied `overflow: hidden` which clipped the Send button on mouse-out; replaced with plain flex layout.
+- **Build error: `ticketId` in note queries** — Three GQL query selections were missing `ticketId` on note sub-fields causing TS2345 at build time.
+- **Phantom roles** — `ICT_STAFF` and `SUPERVISOR` role strings (not in Prisma enum) replaced with correct values in 4 backend locations.
+- **Report access role alignment** — Added `SECRETARY` to the REST report-download permission check so chat-generated report links and backend authorization use the same staff role list.
+- **Auth token key mismatch** — HTTP interceptor now reads correct `auth_token` key.
+- **JWT_SECRET guard** — Backend refuses to start in production without a secure `JWT_SECRET`.
+- **Form subscription memory leak** — `valueChanges` subscriptions in MIS/ITS forms were never unsubscribed; fixed with proper cleanup.
+
+### Documentation
+
+- **Client-meeting documentation refresh** — Updated `CHANGELOG.md`, `docs/USER_MANUAL.md`, `docs/BACKEND_API_MANUAL.md`, and `CLIENT_FEATURE_REPORT.md` to cover operational chat answers, admin-only user-directory questions, delete safeguards, and the finalized report-access role list.
 
 ---
 

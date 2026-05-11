@@ -5,6 +5,66 @@ All notable changes to the ICT Support Ticketing System will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-05-07
+
+### Added — Note Management, AI Training Pipeline, Operational Chat Coverage & Admin Safeguards
+
+#### Note Management (Full Stack)
+
+- **Delete ticket notes** — Staff roles (ADMIN, DEVELOPER, TECHNICAL, MIS_HEAD, ITS_HEAD, SECRETARY, DIRECTOR) can delete ticket notes. Regular users (USER) cannot delete notes.
+- **Toggle note visibility** — Staff can switch a note between Public (visible to ticket creator) and Internal (staff-only). UI shows "Make Internal" / "Make Public" button per note, with instant optimistic update.
+- **Note action buttons** — Delete (with loading spinner) and toggle buttons appear inline on each note card, guarded by `canManageNotes` computed signal.
+
+#### AI Training Data Pipeline
+
+- **Auto-extract troubleshooting solutions from resolved tickets** — When a ticket status moves to RESOLVED/CLOSED with a resolution present, the system automatically creates a `TroubleshootingSolution` record built from the ticket's title, description, resolution, and any staff notes. Tags are auto-generated from the ticket keywords. Solutions default to INTERNAL visibility so they don't surface to users until manually published.
+- **Staff notes in AI RAG context** — The AI chat assistant now includes internal staff notes from resolved tickets when building its response context. Diagnostic observations and workarounds logged by technicians become part of the AI's searchable knowledge.
+- **Solution visibility enforcement** — Non-staff users (USER role) can only query PUBLIC solutions via the `troubleshootingSolutions` and `troubleshootingSolution` GraphQL APIs. Staff roles (ADMIN, DEVELOPER, TECHNICAL, MIS_HEAD, ITS_HEAD, SECRETARY, DIRECTOR) see all visibility levels.
+
+#### Chat Widget Improvements
+
+- **Send button always visible** — Fixed regression where the Send button disappeared when moving the mouse outside the input area. Removed `nz-input-group` wrapper (was applying `overflow: hidden`) and replaced with a plain flex container.
+- **Rich markdown rendering** — Chat responses now fully render markdown: headers H1–H4, bordered tables, blockquotes, horizontal rules, bold, italic, inline code, fenced code blocks, and line breaks. Previously raw `##` headings and `| table |` pipes were displayed as plain text.
+- **Enter to send** — Pressing Enter sends the message. Shift+Enter inserts a newline for multi-line messages.
+
+#### Operational Chat Coverage & Admin Safeguards
+
+- **Operational chat answers for staff/admin** — The AI chat assistant now answers approval queues, escalations, workload, MIS/ITS category breakdowns, knowledge-base coverage, troubleshooting-solution coverage, and user summaries from selected live Prisma tables.
+- **Admin-only user directory answers in chat** — Aggregate user counts are available to staff and admin roles, while person-level user lists such as regular users, deactivated accounts, admins, and recent users are limited to ADMIN.
+- **Explicit unsupported-data fallback** — If a user asks about notifications, chat history, attachments, ticket counters, or migration/internal tables, the AI now explains that those sources are intentionally excluded from operational chat analytics.
+- **Deletion safeguard policy in chat** — The AI can explain deactivate-vs-delete rules, blocked hard deletes, and audit logging, but remains read-only for destructive actions.
+
+#### Bug Fixes
+
+- **Build error: `ticketId` missing from note GQL queries** — Three GraphQL query selections (`MY_ASSIGNED_TICKETS`, `ALL_TICKETS`, main ticket detail) were missing the `ticketId` field on the note sub-selection, causing TS2345 type errors on Angular build. All three fixed.
+- **Phantom roles removed** — References to non-existent `ICT_STAFF` and `SUPERVISOR` role names replaced with correct Prisma enum values (`DEVELOPER`/`TECHNICAL` and `MIS_HEAD`/`ITS_HEAD`) in 4 places across backend resolvers and middleware.
+- **Auth token key mismatch** — HTTP interceptor was reading a wrong storage key; updated to the correct `auth_token` key used by `AuthService`.
+- **JWT_SECRET production guard** — Server now throws a startup error if `JWT_SECRET` is missing or is the default insecure placeholder in production environment.
+- **Form subscription memory leak** — Removed unsubscribed `valueChanges` `Subscription` objects in MIS and ITS ticket submission form components; replaced with `effect()` cleanup or explicit `ngOnDestroy` unsubscribe.
+- **Duplicate CSS block merged** — `.chat-input-area` was declared twice in `chat-widget.component.ts` inline styles; merged into a single declaration.
+- **Report download role alignment** — Added `SECRETARY` to the `/reports/download` permission check so chat-based report access and the REST endpoint use the same staff role list.
+
+#### Files Modified
+
+- `backend/src/modules/tickets/ticket.types.ts` — Added `UpdateTicketNoteInput`, `updateTicketNote`, `deleteTicketNote` mutations
+- `backend/src/modules/tickets/services/ticket.service.ts` — Added `noteManagerRoles`, `deleteNote()`, `updateNote()` service methods; confirmed `createFromResolvedTicket()` integration
+- `backend/src/modules/tickets/ticket.resolvers.ts` — Added `updateTicketNote`, `deleteTicketNote` resolvers
+- `backend/src/modules/solutions/solution.resolvers.ts` — Added role-based visibility filter (USER role restricted to PUBLIC solutions only)
+- `backend/src/modules/chat/chat.service.ts` — `searchResolvedTickets()` now JOINs `TicketNote`; context assembly block includes staff notes; added operational query handlers (approvals, escalations, workload, categories, KB/solutions, user summaries), admin-only directory answers, excluded-data fallback, and deletion-policy context
+- `backend/src/modules/users/user.service.ts` — Blocked hard delete when a user still owns open tickets or has active assignments; logs hard deletes for audit
+- `backend/src/modules/knowledge-base/kb.service.ts` — Added audit log before permanent article delete
+- `backend/src/modules/solutions/solution.service.ts` — Added audit log before permanent solution delete
+- `backend/src/index.ts` — Aligned report-download access roles with chat permissions by allowing `SECRETARY`
+- `frontend/src/app/core/services/ticket.service.ts` — Added `UPDATE_TICKET_NOTE`, `DELETE_TICKET_NOTE` GQL mutations; fixed `ticketId` field in 3 note query selections
+- `frontend/src/app/features/admin/admin.page.ts` — Added safer delete modal workflow with deactivate-first action
+- `frontend/src/app/features/admin/admin.page.html` — Replaced single hard-delete popconfirm with a warning modal that recommends deactivation
+- `frontend/src/app/features/tickets/ticket-detail.page.ts` — Added `deletingNoteId`, `togglingNoteId` signals; `canManageNotes` computed; `deleteNote()`, `toggleNoteInternal()` methods
+- `frontend/src/app/features/tickets/ticket-detail.page.html` — Added delete/toggle note buttons per note card (staff-only, guarded by `canManageNotes()`)
+- `frontend/src/app/features/tickets/ticket-detail.page.scss` — Added `.note-actions` flex layout styles
+- `frontend/src/app/shared/components/chat-widget.component.ts` — Fixed Send button, `marked` v18 GFM rendering, Enter-to-send keyboard handler, custom compact heading renderer
+
+---
+
 ## [2.4.0] - 2026-07-15
 
 ### Added — AI Intelligence Upgrade & Excel Report Generation

@@ -442,10 +442,12 @@ When the work is complete:
 
 ### 11.1 Admin Panel (`/admin`)
 
-- **User Management**: View, create, edit, and delete user accounts
+- **User Management**: View, create, edit, deactivate, and conditionally delete user accounts
 - **Role Assignment**: Change user roles (USER, SECRETARY, DIRECTOR, etc.)
 - **System Overview**: See all tickets regardless of department
 - **Acknowledge Schedules**: Process PENDING_ACKNOWLEDGMENT tickets
+
+**Important safeguard:** The admin UI now recommends **Deactivation** first. Permanent delete is only allowed when the user has no open created tickets and no active ticket assignments.
 
 ### 11.2 Knowledge Base Management
 
@@ -678,7 +680,7 @@ The AI combines:
 - **Knowledge Base articles** for FAQ-style answers
 - **Past resolved tickets** with similar descriptions
 
-#### Analytics & Statistics (Read-Only)
+#### Analytics, Operational Questions & Safety Policies (Read-Only)
 
 Ask the AI for live data about ticket activity. It queries the database in real time but **never modifies data** — all analytics are read-only.
 
@@ -691,6 +693,11 @@ Ask the AI for live data about ticket activity. It queries the database in real 
 - _"How many tickets are overdue?"_
 - _"Break down tickets by priority"_
 - _"How many tickets this week vs last month?"_
+- _"Show me tickets pending secretary review"_
+- _"Which tickets are escalated right now?"_
+- _"What is the workload by staff member?"_
+- _"Show MIS vs ITS request breakdown"_
+- _"What knowledge-base categories do we have the most articles in?"_
 
 The AI responds with formatted tables and summaries, including:
 
@@ -699,6 +706,21 @@ The AI responds with formatted tables and summaries, including:
 - Most recurring issues
 - Average resolution time
 - Overdue ticket count and details
+- Approval queues, escalations, staff workload, and department/category breakdowns
+- Knowledge-base coverage and troubleshooting-solution summaries
+- Aggregate user totals and role breakdowns for staff/admin users
+
+**Admin-only person-level questions:**
+
+- _"Show me the 3 regular users"_
+- _"List deactivated accounts"_
+- _"Show the newest users"_
+
+Staff roles receive **aggregate user counts only** in chat. Person-level user-directory answers remain **ADMIN only**.
+
+**Excluded from chat analytics:** Notifications, chat history, attachments, ticket counters, and migration/internal tables are intentionally not queried through the AI chat assistant.
+
+**Deletion policy questions:** You can ask the AI about safe deletion rules such as the difference between **Deactivate** and **Delete**, why a delete is blocked, or which hard deletes are audited. The AI explains the policy but does **not** perform destructive actions.
 
 #### General Help
 
@@ -733,7 +755,7 @@ If the AI can't resolve your issue, you can convert the conversation into a tick
 
 ### 16.7 Excel Report Generation (Admin/Staff Only)
 
-Admins, ICT Staff, and Supervisors can ask the AI to generate downloadable Excel reports.
+Admins and staff roles (`ADMIN`, `DEVELOPER`, `TECHNICAL`, `MIS_HEAD`, `ITS_HEAD`, `DIRECTOR`, `SECRETARY`) can ask the AI to generate downloadable Excel reports.
 
 **How to request a report:**
 
@@ -762,6 +784,7 @@ Admins, ICT Staff, and Supervisors can ask the AI to generate downloadable Excel
 - **Be specific**: "Email won't load in Chrome on Windows" gets better results than "email broken"
 - **Include error messages**: Copy-paste any error text for more accurate solutions
 - **Ask analytics questions naturally**: The AI understands phrases like "how many", "show me", "breakdown", "average", "most common"
+- **Ask role-appropriate user questions**: ADMIN can request bounded user lists in chat, while other staff roles should ask for counts and summaries
 - **Solutions improve over time**: The more tickets that are resolved, the more solutions the AI has to reference
 
 ---

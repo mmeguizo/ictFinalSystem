@@ -354,9 +354,13 @@ export class AnalyticsPage implements OnInit {
     return colorMap[priority] || 'default';
   }
 
-  getOverdueHours(dueDate: string): number {
-    const diff = new Date().getTime() - new Date(dueDate).getTime();
-    return Math.round(diff / (1000 * 60 * 60));
+  getOverdueHours(dueDate: string | null | undefined): string {
+    if (!dueDate) return 'N/A';
+    const due = new Date(dueDate);
+    if (isNaN(due.getTime())) return 'N/A';
+    const diff = new Date().getTime() - due.getTime();
+    const hours = Math.round(diff / (1000 * 60 * 60));
+    return hours > 0 ? `${hours}h` : '<1h';
   }
 
   getStatusChartColor(status: string): string {

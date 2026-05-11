@@ -259,6 +259,39 @@ export class AdminPage implements OnInit {
     this.passwordForm.update((f) => ({ ...f, password: value }));
   }
 
+  // --- Delete User Modal ---
+  isDeleteModalVisible = signal(false);
+  deleteTarget = signal<UserData | null>(null);
+
+  openDeleteModal(user: UserData): void {
+    this.deleteTarget.set(user);
+    this.isDeleteModalVisible.set(true);
+  }
+
+  closeDeleteModal(): void {
+    this.isDeleteModalVisible.set(false);
+    this.deleteTarget.set(null);
+  }
+
+  onDeactivateFromDeleteModal(): void {
+    const user = this.deleteTarget();
+    if (!user) return;
+    this.closeDeleteModal();
+    // Only deactivate if currently active
+    if (user.isActive) {
+      this.onToggleActive(user);
+    } else {
+      this.message.info('User is already deactivated.');
+    }
+  }
+
+  onConfirmDelete(): void {
+    const user = this.deleteTarget();
+    if (!user) return;
+    this.closeDeleteModal();
+    this.onDeleteUser(user);
+  }
+
   // --- Delete User ---
   onDeleteUser(user: UserData): void {
     this.adminApiService.deleteUser(user.id).subscribe({

@@ -27,6 +27,17 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.service';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../core/config/environment';
+import { marked } from 'marked';
+
+// Configure marked once: GFM tables enabled by default, breaks converts \n to <br>, headings use compact divs
+marked.use({
+  breaks: true,
+  renderer: {
+    heading(token): string {
+      return `<div class="chat-h${token.depth}">${token.text}</div>\n`;
+    },
+  },
+});
 
 @Component({
   selector: 'app-chat-widget',
@@ -301,46 +312,28 @@ import { environment } from '../../core/config/environment';
 
           <!-- Input Area -->
           <div class="chat-input-area">
-            <nz-input-group [nzSuffix]="">
-              <!-- <nz-input-group [nzSuffix]="sendBtn"> -->
-              <!-- <input
-                nz-input
-                [(ngModel)]="inputMessage"
-                placeholder="Type your message..."
-                (keydown.enter)="send()"
-                [disabled]="sending()"
-              /> -->
-              <textarea
-                nz-input
-                [(ngModel)]="inputMessage"
-                placeholder="Type your message..."
-                [nzAutosize]="{ minRows: 2, maxRows: 6 }"
-                [disabled]="sending()"
-              ></textarea>
-              <div class="chat-input-actions">
-                <button
-                  nz-button
-                  nzType="primary"
-                  nzSize="small"
-                  [disabled]="!inputMessage.trim() || sending()"
-                  (click)="send()"
-                >
-                  <span nz-icon nzType="send" nzTheme="outline"></span>
-                  Send
-                </button>
-              </div>
-            </nz-input-group>
-            <!-- <ng-template #sendBtn>
+            <textarea
+              nz-input
+              [(ngModel)]="inputMessage"
+              placeholder="Type your message… (Enter to send)"
+              [nzAutosize]="{ minRows: 2, maxRows: 6 }"
+              [disabled]="sending()"
+              (keydown)="onKeydown($event)"
+            ></textarea>
+            <div class="chat-input-actions">
+              <span class="input-hint">Shift+Enter for new line</span>
               <button
                 nz-button
-                nzType="text"
+                nzType="primary"
                 nzSize="small"
                 [disabled]="!inputMessage.trim() || sending()"
+                [nzLoading]="sending()"
                 (click)="send()"
               >
                 <span nz-icon nzType="send" nzTheme="outline"></span>
+                Send
               </button>
-            </ng-template> -->
+            </div>
           </div>
         }
       </ng-container>
@@ -808,6 +801,78 @@ import { environment } from '../../core/config/environment';
               transform: translateY(-1px);
             }
           }
+
+          /* ── Markdown tables ─────────────────────────── */
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin: 8px 0;
+          }
+
+          thead tr th {
+            background: #f0f0ff;
+            padding: 6px 12px;
+            border: 1px solid #d0d0ee;
+            font-weight: 600;
+            text-align: left;
+            color: #434343;
+          }
+
+          tbody tr td {
+            padding: 6px 12px;
+            border: 1px solid #e8e8e8;
+          }
+
+          tbody tr:nth-child(even) td {
+            background: #f9f9ff;
+          }
+
+          /* ── Markdown headings ───────────────────────── */
+          .chat-h1 {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 10px 0 4px;
+            border-bottom: 1px solid #e8e8e8;
+            padding-bottom: 4px;
+          }
+
+          .chat-h2 {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 8px 0 4px;
+          }
+
+          .chat-h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 6px 0 4px;
+            color: #434343;
+          }
+
+          .chat-h4,
+          .chat-h5,
+          .chat-h6 {
+            font-size: 13px;
+            font-weight: 600;
+            margin: 4px 0;
+            color: #595959;
+          }
+
+          hr {
+            border: none;
+            border-top: 1px solid #e8e8e8;
+            margin: 8px 0;
+          }
+
+          blockquote {
+            border-left: 3px solid #667eea;
+            margin: 4px 0;
+            padding: 4px 12px;
+            background: #f8f7ff;
+            color: #595959;
+            border-radius: 0 4px 4px 0;
+          }
         }
       }
 
@@ -832,15 +897,15 @@ import { environment } from '../../core/config/environment';
         }
       }
 
-      .chat-input-area {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
       .chat-input-actions {
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .input-hint {
+        font-size: 11px;
+        color: #bfbfbf;
       }
 
       @keyframes typing {
@@ -864,6 +929,9 @@ import { environment } from '../../core/config/environment';
 
       /* ── Input area ───────────────────────────────── */
       .chat-input-area {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
         padding: 12px 16px;
         border-top: 1px solid #f0f0f0;
         background: #fff;
@@ -894,7 +962,15 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   /** Whether current user is staff/admin (has access to analytics, reports) */
   readonly isStaffOrAdmin = computed(() => {
     const role = this.authService.currentUser()?.role;
-    return ['ADMIN', 'ICT_STAFF', 'SUPERVISOR'].includes(role || '');
+    return [
+      'ADMIN',
+      'DEVELOPER',
+      'TECHNICAL',
+      'MIS_HEAD',
+      'ITS_HEAD',
+      'DIRECTOR',
+      'SECRETARY',
+    ].includes(role || '');
   });
 
   inputMessage = '';
@@ -1017,6 +1093,14 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   sendQuick(text: string) {
     this.inputMessage = text;
     this.send();
+  }
+
+  /** Send on Enter, allow Shift+Enter for new lines */
+  onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.send();
+    }
   }
 
   deleteSession(id: number) {
@@ -1164,42 +1248,24 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   }
 
   renderMarkdown(content: string): string {
-    // Simple markdown rendering — bold, code, lists, links, KB article links
-    let html = content
-      // Remove ticket-data blocks from display
-      .replace(/```ticket-data[\s\S]*?```/g, '')
-      // Code blocks
-      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-      // Inline code
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Bold
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      // Italic
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      // KB article links: [KB: Title](kb:ID) → clickable link to /knowledge-base/ID
-      .replace(
-        /\[KB:\s*([^\]]+)\]\(kb:(\d+)\)/g,
-        '<a class="kb-link" href="/knowledge-base/$2">📖 $1</a>',
-      )
-      // Report download links: [...](/reports/download?...) → button-style download link
-      .replace(
-        /\[([^\]]+)\]\((\/reports\/download[^)]*)\)/g,
-        '<a class="report-download-link" href="$2">📥 $1</a>',
-      )
-      // Standard markdown links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-      // Numbered lists
-      .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
-      // Bullet lists
-      .replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>')
-      // Wrap consecutive <li> in <ul>
-      .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
-      // Paragraphs (double newline)
-      .replace(/\n\n/g, '</p><p>')
-      // Single newlines
-      .replace(/\n/g, '<br>');
-    // Wrap in paragraph
-    if (!html.startsWith('<')) html = '<p>' + html + '</p>';
+    // Strip ticket-data fenced blocks (not for display)
+    const src = content.replace(/```ticket-data[\s\S]*?```/g, '').trim();
+
+    // Full GFM parse: headings, tables, lists, code blocks, bold, italic, links
+    let html = marked.parse(src) as string;
+
+    // Post-process: style KB article links  → [KB: Title](kb:ID) parsed as <a href="kb:ID">
+    html = html.replace(
+      /<a href="kb:(\d+)">([^<]+)<\/a>/gi,
+      '<a class="kb-link" href="/knowledge-base/$1">📖 $2</a>',
+    );
+
+    // Post-process: style report download links → [text](/reports/download?...)
+    html = html.replace(
+      /<a href="(\/reports\/download[^"]*)"[^>]*>([^<]+)<\/a>/gi,
+      '<a class="report-download-link" href="$1">📥 $2</a>',
+    );
+
     return html;
   }
 

@@ -467,6 +467,29 @@ export class TicketRepository {
     });
   }
 
+  async findNoteById(noteId: number) {
+    return this.prisma.ticketNote.findUnique({
+      where: { id: noteId },
+      include: { user: true },
+    });
+  }
+
+  async updateNote(
+    noteId: number,
+    data: { isInternal?: boolean; content?: string },
+  ) {
+    return this.prisma.ticketNote.update({
+      where: { id: noteId },
+      data,
+      include: { user: true },
+    });
+  }
+
+  async deleteNote(noteId: number) {
+    await this.prisma.ticketNote.delete({ where: { id: noteId } });
+    return true;
+  }
+
   async addAttachment(
     ticketId: number,
     filename: string,

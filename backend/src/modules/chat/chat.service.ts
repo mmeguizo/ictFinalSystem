@@ -27,18 +27,19 @@ CORE BEHAVIOR:
 
 ROLE-BASED ACCESS CONTROL:
 - Check the CURRENT USER section in context data for the user's role.
-- ADMIN: Full access — analytics, reports, all features. Can ask for any data.
-- ICT_STAFF / SUPERVISOR: Can access analytics and reports. Cannot perform admin-level mutations.
+- ADMIN: Full access — operational analytics, reports, and admin-only user directory answers. Chat is still read-only for destructive actions.
+- DEVELOPER / TECHNICAL / MIS_HEAD / ITS_HEAD / DIRECTOR / SECRETARY: Can access operational analytics and reports. Cannot access admin-only user directory lists or perform admin-level mutations.
 - USER (regular user): Can ONLY ask about troubleshooting, knowledge base solutions, their own ticket status, and create new tickets. Do NOT provide analytics, statistics, reports, or staff-level features to regular users. If they ask for analytics, politely explain that feature is available to ICT staff only.
 - If an ACCESS LEVEL restriction notice is in the context, strictly follow it.
 
 CONTEXT DATA RULES:
 1. ALWAYS check the provided CONTEXT DATA first (knowledge base articles, resolved tickets, troubleshooting solutions). This is your PRIMARY source of truth.
 2. When context data is provided, you MUST use it. Synthesize and present the information clearly — do not ignore it.
-3. When referencing a Knowledge Base article, include a clickable link: [KB: Article Title](kb:ARTICLE_ID) — replace ARTICLE_ID with the actual numeric ID.
-4. When multiple context sources are relevant, combine them into a comprehensive answer.
-5. If NO relevant context is provided, use your general ICT knowledge confidently. Note: "Based on general ICT best practices:" before the answer.
-6. For issues requiring physical intervention (hardware failure, cable issues), suggest creating a support ticket.
+3. Operational/admin context may include analytics, approval queues, workload, user summaries, knowledge coverage, or safety policy notes. Use that data directly and do not claim the system lacks context when those sections are present.
+4. When referencing a Knowledge Base article, include a clickable link: [KB: Article Title](kb:ARTICLE_ID) — replace ARTICLE_ID with the actual numeric ID.
+5. When multiple context sources are relevant, combine them into a comprehensive answer.
+6. If NO relevant context is provided, use your general ICT knowledge confidently. Note: "Based on general ICT best practices:" before the answer.
+7. For issues requiring physical intervention (hardware failure, cable issues), suggest creating a support ticket.
 
 KNOWLEDGE PRIORITY:
 1. Knowledge Base articles (highest — curated solutions)
@@ -65,6 +66,11 @@ WHEN ASKED ABOUT ANALYTICS OR STATISTICS (staff/admin only):
 - Proactively highlight concerning metrics (high overdue count, increasing trend, etc.)
 - If SLA warnings are present in context, mention them.
 
+WHEN SAFETY POLICY DATA IS PROVIDED:
+- Explain the safeguard clearly and directly.
+- Make it explicit that chat is read-only for delete/deactivate/reassign actions.
+- If deletion is blocked, recommend the safer alternative (usually deactivation or reassignment).
+
 WHEN GUIDING TICKET CREATION:
 - Ask for: What is the problem? What device/system is affected? When did it start? Is it affecting others?
 - Once you have enough info, respond with a JSON block wrapped in \`\`\`ticket-data tags:
@@ -89,6 +95,43 @@ WHEN ASKED FOR REPORTS (staff/admin only):
 SLA AWARENESS:
 - If SLA warning data is present in context, proactively mention it to staff/admin users.
 - For overdue tickets, suggest immediate attention and escalation.`;
+
+const STAFF_ROLES = [
+  "ADMIN",
+  "DEVELOPER",
+  "TECHNICAL",
+  "MIS_HEAD",
+  "ITS_HEAD",
+  "DIRECTOR",
+  "SECRETARY",
+] as const;
+
+const SECRETARY_REVIEW_ACCESS_ROLES = [
+  "ADMIN",
+  "SECRETARY",
+  "MIS_HEAD",
+  "ITS_HEAD",
+] as const;
+
+const DIRECTOR_REVIEW_ACCESS_ROLES = [
+  "ADMIN",
+  "DIRECTOR",
+  "MIS_HEAD",
+  "ITS_HEAD",
+] as const;
+
+const ACTIVE_TICKET_STATUSES = [
+  "FOR_REVIEW",
+  "REVIEWED",
+  "DIRECTOR_APPROVED",
+  "ASSIGNED",
+  "PENDING",
+  "IN_PROGRESS",
+  "ON_HOLD",
+] as const;
+
+const EXCLUDED_OPERATIONAL_DATA_RESPONSE =
+  "I can answer operational questions from User, Ticket, TicketAssignment, TicketStatusHistory, MISTicket, ITSTicket, KnowledgeArticle, and TroubleshootingSolution data. I do not query notifications, chat history, attachments, ticket counters, or migration/internal tables in chat.";
 
 export class ChatService {
   private genAI: GoogleGenerativeAI | null = null;
@@ -220,11 +263,14 @@ export class ChatService {
 
     // 3b. Role-gated: Analytics and report requests only for staff/admin
     const userRole = session.user?.role || "USER";
-    const staffRoles = ["ADMIN", "ICT_STAFF", "SUPERVISOR"];
-    const isStaffOrAdmin = staffRoles.includes(userRole);
+    const isStaffOrAdmin = STAFF_ROLES.includes(userRole as any);
 
-    const analyticsRequest = await this.checkAnalyticsQuery(userMessage);
+    const analyticsRequest = await this.checkAnalyticsQuery(
+      userMessage,
+      userRole,
+    );
     const reportRequest = this.checkReportRequest(userMessage, userRole);
+    const deletionPolicy = this.checkDeletionPolicyQuery(userMessage, userRole);
 
     // Short-circuit: if the user is clearly asking for help/ticket creation, don't deny
     const ticketCreationIntentPatterns = [
@@ -280,6 +326,10 @@ export class ChatService {
       contextStr += "\n--- ANALYTICS DATA ---\n" + analyticsContext + "\n";
     }
 
+    if (deletionPolicy) {
+      contextStr += "\n--- SAFETY POLICY ---\n" + deletionPolicy + "\n";
+    }
+
     if (reportContext) {
       contextStr += "\n--- REPORT GENERATION ---\n" + reportContext + "\n";
     }
@@ -304,7 +354,11 @@ export class ChatService {
     if (ragContext.resolvedTickets.length > 0) {
       contextStr += "\n--- RESOLVED TICKETS (similar issues) ---\n";
       for (const ticket of ragContext.resolvedTickets) {
-        contextStr += `Issue: ${ticket.title}\nDescription: ${ticket.description?.substring(0, 300) || "N/A"}\nResolution: ${ticket.resolution || "Resolved"}\n\n`;
+        contextStr += `Issue: ${ticket.title}\nDescription: ${ticket.description?.substring(0, 300) || "N/A"}\nResolution: ${ticket.resolution || "Resolved"}\n`;
+        if (ticket.notes) {
+          contextStr += `Notes:\n${ticket.notes.substring(0, 1200)}\n`;
+        }
+        contextStr += "\n";
       }
     }
 
@@ -533,16 +587,19 @@ export class ChatService {
 
     try {
       return await prisma.$queryRaw<any[]>`
-        SELECT id, title, description, resolution
-        FROM Ticket
-        WHERE status IN ('RESOLVED', 'CLOSED')
-          AND resolution IS NOT NULL
-          AND MATCH(title, description) AGAINST(${searchTerms} IN BOOLEAN MODE)
-        ORDER BY MATCH(title, description) AGAINST(${searchTerms} IN BOOLEAN MODE) DESC
+        SELECT t.id, t.title, t.description, t.resolution,
+          GROUP_CONCAT(CONCAT('Staff note: ', n.content) SEPARATOR '\n') AS notes
+        FROM Ticket t
+        LEFT JOIN TicketNote n ON n.ticketId = t.id
+        WHERE t.status IN ('RESOLVED', 'CLOSED')
+          AND t.resolution IS NOT NULL
+          AND MATCH(t.title, t.description) AGAINST(${searchTerms} IN BOOLEAN MODE)
+        GROUP BY t.id, t.title, t.description, t.resolution
+        ORDER BY MATCH(t.title, t.description) AGAINST(${searchTerms} IN BOOLEAN MODE) DESC
         LIMIT 5
       `;
     } catch {
-      return prisma.ticket.findMany({
+      const tickets = await prisma.ticket.findMany({
         where: {
           status: { in: ["RESOLVED", "CLOSED"] },
           resolution: { not: null },
@@ -553,9 +610,26 @@ export class ChatService {
             ],
           })),
         },
-        select: { id: true, title: true, description: true, resolution: true },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          resolution: true,
+          notes: {
+            orderBy: { createdAt: "asc" },
+            select: { content: true },
+          },
+        },
         take: 5,
       });
+
+      return tickets.map((ticket) => ({
+        ...ticket,
+        notes:
+          ticket.notes
+            ?.map((note) => `Staff note: ${note.content}`)
+            .join("\n") || null,
+      }));
     }
   }
 
@@ -671,10 +745,82 @@ export class ChatService {
   // ANALYTICS QUERIES (READ-ONLY)
   // ========================================
 
-  private async checkAnalyticsQuery(message: string): Promise<string | null> {
-    const msg = message.toLowerCase();
+  private async checkAnalyticsQuery(
+    message: string,
+    role: string = "USER",
+  ): Promise<string | null> {
+    const normalizedMessage = message.toLowerCase();
 
-    // Detect analytics/statistics questions
+    const excludedDataResponse =
+      this.checkExcludedOperationalQuery(normalizedMessage);
+    if (excludedDataResponse) {
+      return excludedDataResponse;
+    }
+
+    const supportedScopeResponse = this.checkOperationalCoverageQuery(
+      normalizedMessage,
+      role,
+    );
+    if (supportedScopeResponse) {
+      return supportedScopeResponse;
+    }
+
+    try {
+      const userContext = await this.buildUserQueryContext(message, role);
+      if (userContext) {
+        return userContext;
+      }
+
+      const approvalContext = await this.buildApprovalWorkflowContext(
+        message,
+        role,
+      );
+      if (approvalContext) {
+        return approvalContext;
+      }
+
+      const escalationContext = await this.buildEscalationContext(
+        message,
+        role,
+      );
+      if (escalationContext) {
+        return escalationContext;
+      }
+
+      const workloadContext = await this.buildWorkloadContext(message, role);
+      if (workloadContext) {
+        return workloadContext;
+      }
+
+      const categoryContext = await this.buildCategoryBreakdownContext(
+        message,
+        role,
+      );
+      if (categoryContext) {
+        return categoryContext;
+      }
+
+      const knowledgeContext = await this.buildKnowledgeCoverageContext(
+        message,
+        role,
+      );
+      if (knowledgeContext) {
+        return knowledgeContext;
+      }
+
+      return this.buildGeneralAnalyticsContext(message, role);
+    } catch (err: any) {
+      logger.error("[ChatService] Analytics query failed:", err.message);
+      return null;
+    }
+  }
+
+  private async buildGeneralAnalyticsContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
+    const normalizedMessage = message.toLowerCase();
+
     const analyticsPatterns = [
       /how many\s+(ticket|request|issue)/i,
       /ticket.*(stat|analytic|report|count|total|summary)/i,
@@ -690,185 +836,923 @@ export class ChatService {
       /\b(unresolved|pending|backlog)\b.*\b(ticket|request)\b/i,
     ];
 
-    const isAnalytics = analyticsPatterns.some((p) => p.test(msg));
-    if (!isAnalytics) return null;
+    if (!analyticsPatterns.some((pattern) => pattern.test(normalizedMessage))) {
+      return null;
+    }
 
-    try {
-      const results: string[] = [];
+    const results: string[] = [];
 
-      // Overall ticket counts by status
-      const statusCounts = await prisma.ticket.groupBy({
-        by: ["status"],
-        _count: { id: true },
-      });
-      if (statusCounts.length > 0) {
-        results.push("**Tickets by Status:**");
-        const total = statusCounts.reduce((sum, s) => sum + s._count.id, 0);
-        results.push(`Total tickets: ${total}`);
-        for (const s of statusCounts) {
-          results.push(`- ${s.status}: ${s._count.id}`);
-        }
+    const statusCounts = await prisma.ticket.groupBy({
+      by: ["status"],
+      _count: { id: true },
+    });
+    if (statusCounts.length > 0) {
+      results.push("**Tickets by Status:**");
+      const totalTickets = statusCounts.reduce(
+        (sum, statusEntry) => sum + statusEntry._count.id,
+        0,
+      );
+      results.push(`Total tickets: ${totalTickets}`);
+      for (const statusEntry of statusCounts) {
+        results.push(`- ${statusEntry.status}: ${statusEntry._count.id}`);
       }
+    }
 
-      // Tickets by category (type)
-      const typeCounts = await prisma.ticket.groupBy({
-        by: ["type"],
-        _count: { id: true },
-      });
-      if (typeCounts.length > 0) {
-        results.push("\n**Tickets by Type:**");
-        for (const t of typeCounts) {
-          results.push(`- ${t.type}: ${t._count.id}`);
-        }
+    const typeCounts = await prisma.ticket.groupBy({
+      by: ["type"],
+      _count: { id: true },
+    });
+    if (typeCounts.length > 0) {
+      results.push("\n**Tickets by Type:**");
+      for (const typeEntry of typeCounts) {
+        results.push(`- ${typeEntry.type}: ${typeEntry._count.id}`);
       }
+    }
 
-      // Tickets by priority
-      const priorityCounts = await prisma.ticket.groupBy({
-        by: ["priority"],
-        _count: { id: true },
-      });
-      if (priorityCounts.length > 0) {
-        results.push("\n**Tickets by Priority:**");
-        for (const p of priorityCounts) {
-          results.push(`- ${p.priority}: ${p._count.id}`);
-        }
+    const priorityCounts = await prisma.ticket.groupBy({
+      by: ["priority"],
+      _count: { id: true },
+    });
+    if (priorityCounts.length > 0) {
+      results.push("\n**Tickets by Priority:**");
+      for (const priorityEntry of priorityCounts) {
+        results.push(`- ${priorityEntry.priority}: ${priorityEntry._count.id}`);
       }
+    }
 
-      // Tickets created today
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayCount = await prisma.ticket.count({
-        where: { createdAt: { gte: todayStart } },
-      });
-      results.push(`\n**Today's tickets**: ${todayCount}`);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayCount = await prisma.ticket.count({
+      where: { createdAt: { gte: todayStart } },
+    });
+    results.push(`\n**Today's tickets**: ${todayCount}`);
 
-      // Tickets this week
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-      const weekCount = await prisma.ticket.count({
-        where: { createdAt: { gte: weekStart } },
-      });
-      results.push(`**This week's tickets**: ${weekCount}`);
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const weekCount = await prisma.ticket.count({
+      where: { createdAt: { gte: weekStart } },
+    });
+    results.push(`**This week's tickets**: ${weekCount}`);
 
-      // Tickets this month
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-      const monthCount = await prisma.ticket.count({
-        where: { createdAt: { gte: monthStart } },
-      });
-      results.push(`**This month's tickets**: ${monthCount}`);
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthCount = await prisma.ticket.count({
+      where: { createdAt: { gte: monthStart } },
+    });
+    results.push(`**This month's tickets**: ${monthCount}`);
 
-      // Most common ticket titles (recurring issues)
-      const commonIssues = await prisma.$queryRaw<
-        Array<{ title: string; count: bigint }>
-      >`
-        SELECT title, COUNT(*) as count
-        FROM Ticket
-        GROUP BY title
-        HAVING COUNT(*) > 1
-        ORDER BY count DESC
-        LIMIT 5
-      `;
-      if (commonIssues.length > 0) {
-        results.push("\n**Most Recurring Issues:**");
-        for (const issue of commonIssues) {
-          results.push(`- "${issue.title}" — ${issue.count} tickets`);
-        }
+    const commonIssues = await prisma.$queryRaw<
+      Array<{ title: string; count: bigint }>
+    >`
+      SELECT title, COUNT(*) as count
+      FROM Ticket
+      GROUP BY title
+      HAVING COUNT(*) > 1
+      ORDER BY count DESC
+      LIMIT 5
+    `;
+    if (commonIssues.length > 0) {
+      results.push("\n**Most Recurring Issues:**");
+      for (const issue of commonIssues) {
+        results.push(`- "${issue.title}" — ${issue.count} tickets`);
       }
+    }
 
-      // Average resolution time (for resolved tickets)
-      const avgResolution = await prisma.$queryRaw<
-        Array<{ avg_hours: number | null }>
-      >`
-        SELECT AVG(TIMESTAMPDIFF(HOUR, createdAt, resolvedAt)) as avg_hours
-        FROM Ticket
-        WHERE resolvedAt IS NOT NULL
-      `;
-      if (avgResolution[0]?.avg_hours) {
-        const hours = Math.round(avgResolution[0].avg_hours);
+    const avgResolution = await prisma.$queryRaw<
+      Array<{ avg_hours: number | null }>
+    >`
+      SELECT AVG(TIMESTAMPDIFF(HOUR, createdAt, resolvedAt)) as avg_hours
+      FROM Ticket
+      WHERE resolvedAt IS NOT NULL
+    `;
+    if (avgResolution[0]?.avg_hours) {
+      const averageHours = Math.round(avgResolution[0].avg_hours);
+      results.push(
+        `\n**Average Resolution Time**: ${averageHours >= 24 ? `${Math.round(averageHours / 24)} days` : `${averageHours} hours`}`,
+      );
+    }
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const overdueTickets = await prisma.ticket.findMany({
+      where: {
+        status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
+        createdAt: { lt: sevenDaysAgo },
+      },
+      select: {
+        ticketNumber: true,
+        title: true,
+        status: true,
+        priority: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+      take: 5,
+    });
+    if (overdueTickets.length > 0) {
+      results.push("\n**Overdue Tickets (>7 days unresolved):**");
+      for (const ticket of overdueTickets) {
+        const daysOld = Math.round(
+          (Date.now() - new Date(ticket.createdAt).getTime()) / 86400000,
+        );
         results.push(
-          `\n**Average Resolution Time**: ${hours >= 24 ? `${Math.round(hours / 24)} days` : `${hours} hours`}`,
+          `- ${ticket.ticketNumber}: ${ticket.title} — ${ticket.status} — ${ticket.priority} — ${daysOld} days old`,
         );
       }
+    }
 
-      // Unresolved tickets older than 7 days (painful tickets)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const overdue = await prisma.ticket.findMany({
-        where: {
-          status: {
-            notIn: ["RESOLVED", "CLOSED", "CANCELLED"],
-          },
-          createdAt: { lt: sevenDaysAgo },
-        },
+    const workload = await this.getActiveWorkloadRows(10);
+    if (workload.length > 0) {
+      results.push("\n**Current Staff Workload (active tickets):**");
+      for (const workloadRow of workload) {
+        results.push(
+          `- ${workloadRow.displayName} (${workloadRow.role}): ${workloadRow.activeCount} active ticket(s)`,
+        );
+      }
+    }
+
+    const slaTotal = await prisma.ticket.count({
+      where: { dueDate: { not: null } },
+    });
+    const slaMet = await prisma.ticket.count({
+      where: {
+        dueDate: { not: null },
+        status: { in: ["RESOLVED", "CLOSED"] },
+        resolvedAt: { not: null },
+      },
+    });
+    if (slaTotal > 0) {
+      const complianceRate = Math.round((slaMet / slaTotal) * 100);
+      results.push(
+        `\n**SLA Compliance**: ${slaMet}/${slaTotal} tickets resolved within SLA (${complianceRate}%)`,
+      );
+    }
+
+    if (
+      role === "ADMIN" &&
+      /\b(user|users|staff|account)\b/i.test(normalizedMessage)
+    ) {
+      const userAggregateContext = await this.buildUserAggregateContext();
+      if (userAggregateContext) {
+        results.push(`\n${userAggregateContext}`);
+      }
+    }
+
+    return results.length > 0 ? results.join("\n") : null;
+  }
+
+  private async buildUserQueryContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
+    const normalizedMessage = message.toLowerCase();
+    const wantsAggregate =
+      /how many\s+user/i.test(normalizedMessage) ||
+      /user.*(count|total|registered|breakdown|distribution|statistic)/i.test(
+        normalizedMessage,
+      ) ||
+      /registered\s+user/i.test(normalizedMessage) ||
+      /(user|staff|account)\s*(breakdown|by role|per role|distribution)/i.test(
+        normalizedMessage,
+      ) ||
+      /role.*(user|count|breakdown|distribution)/i.test(normalizedMessage);
+
+    const wantsRegularUsers =
+      /\b(show|list|display|who are)\b.*\b(regular users?|users? with role user)\b/i.test(
+        message,
+      );
+    const wantsAdmins =
+      /\b(show|list|display|who are)\b.*\b(admins?|administrators?)\b/i.test(
+        message,
+      );
+    const wantsDeactivatedUsers =
+      /\b(show|list|display|who are)\b.*\b(deactivated|inactive|disabled)\s+(users?|accounts?)\b/i.test(
+        message,
+      );
+    const wantsRecentUsers =
+      /\b(show|list|display)\b.*\b(new|newest|recent)\s+users?\b/i.test(
+        message,
+      );
+    const wantsStaffDirectory =
+      /\b(show|list|display|who are)\b.*\b(staff|employees?)\b/i.test(message);
+
+    const wantsDirectoryList =
+      wantsRegularUsers ||
+      wantsAdmins ||
+      wantsDeactivatedUsers ||
+      wantsRecentUsers ||
+      wantsStaffDirectory;
+
+    if (!wantsAggregate && !wantsDirectoryList) {
+      return null;
+    }
+
+    if (!wantsDirectoryList) {
+      return this.buildUserAggregateContext();
+    }
+
+    if (role !== "ADMIN") {
+      const aggregateContext = await this.buildUserAggregateContext();
+      return [
+        "**User Directory Access**",
+        "Person-level user lists in chat are ADMIN only. I can still provide aggregate user counts and role breakdowns.",
+        aggregateContext,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    const requestedLimit = this.extractRequestedLimit(message, 3, 5);
+    const userWhere: any = {};
+    let title = "**User Directory:**";
+
+    if (wantsRegularUsers) {
+      userWhere.role = "USER";
+      title = `**Regular Users (top ${requestedLimit}):**`;
+    } else if (wantsAdmins) {
+      userWhere.role = "ADMIN";
+      title = `**Admin Accounts (top ${requestedLimit}):**`;
+    } else if (wantsDeactivatedUsers) {
+      userWhere.isActive = false;
+      title = `**Deactivated User Accounts (top ${requestedLimit}):**`;
+    } else if (wantsStaffDirectory) {
+      userWhere.role = { in: STAFF_ROLES.filter((entry) => entry !== "ADMIN") };
+      title = `**Staff Accounts (top ${requestedLimit}):**`;
+    } else if (wantsRecentUsers) {
+      title = `**Newest User Accounts (top ${requestedLimit}):**`;
+    }
+
+    const users = await prisma.user.findMany({
+      where: userWhere,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: requestedLimit,
+    });
+
+    if (users.length === 0) {
+      return `${title}\nNo matching users were found.`;
+    }
+
+    const lines = [title];
+    for (const user of users) {
+      lines.push(
+        `- ${user.name || user.email} — ${user.email} — ${user.role} — ${user.isActive ? "Active" : "Inactive"} — Joined ${this.formatDateOnly(user.createdAt)}`,
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  private async buildUserAggregateContext(): Promise<string | null> {
+    const usersByRole = await prisma.user.groupBy({
+      by: ["role"],
+      _count: { id: true },
+    });
+    const activeCount = await prisma.user.count({ where: { isActive: true } });
+    const inactiveCount = await prisma.user.count({
+      where: { isActive: false },
+    });
+    const totalUsers = activeCount + inactiveCount;
+    if (totalUsers === 0) {
+      return null;
+    }
+
+    const lines = ["**User Statistics:**"];
+    lines.push(`Total registered users: ${totalUsers}`);
+    lines.push(`- Active: ${activeCount}`);
+    lines.push(`- Deactivated: ${inactiveCount}`);
+    lines.push("**Users by Role:**");
+    for (const roleEntry of usersByRole) {
+      lines.push(`- ${roleEntry.role}: ${roleEntry._count.id}`);
+    }
+    return lines.join("\n");
+  }
+
+  private async buildApprovalWorkflowContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
+    const secretaryQueueQuery =
+      /\b(secretary review|for review)\b/i.test(message) ||
+      /\b(secretary)\b.*\b(pending|queue|review|awaiting)\b/i.test(message);
+    const directorQueueQuery =
+      /\b(pending director approval|director approval)\b/i.test(message) ||
+      /\b(director)\b.*\b(pending|approval|queue|awaiting)\b/i.test(message);
+
+    if (!secretaryQueueQuery && !directorQueueQuery) {
+      return null;
+    }
+
+    if (
+      secretaryQueueQuery &&
+      !SECRETARY_REVIEW_ACCESS_ROLES.includes(role as any)
+    ) {
+      return "**Secretary Review Queue**\nThis queue is visible only to ADMIN, SECRETARY, MIS_HEAD, and ITS_HEAD users.";
+    }
+
+    if (
+      directorQueueQuery &&
+      !DIRECTOR_REVIEW_ACCESS_ROLES.includes(role as any)
+    ) {
+      return "**Director Approval Queue**\nThis queue is visible only to ADMIN, DIRECTOR, MIS_HEAD, and ITS_HEAD users.";
+    }
+
+    const requestedLimit = this.extractRequestedLimit(message, 5, 5);
+    const departmentScope = this.getDepartmentScope(role, message);
+    const queryStatus = secretaryQueueQuery ? "FOR_REVIEW" : "REVIEWED";
+
+    const queueWhere: any = {
+      status: queryStatus,
+      ...(departmentScope ? { type: departmentScope } : {}),
+    };
+
+    const [totalCount, queueTickets] = await Promise.all([
+      prisma.ticket.count({ where: queueWhere }),
+      prisma.ticket.findMany({
+        where: queueWhere,
         select: {
           ticketNumber: true,
           title: true,
-          status: true,
+          type: true,
           priority: true,
           createdAt: true,
         },
         orderBy: { createdAt: "asc" },
-        take: 5,
-      });
-      if (overdue.length > 0) {
-        results.push("\n**Overdue Tickets (>7 days unresolved):**");
-        for (const t of overdue) {
-          const daysOld = Math.round(
-            (Date.now() - new Date(t.createdAt).getTime()) / 86400000,
-          );
-          results.push(
-            `- ${t.ticketNumber}: ${t.title} — ${t.status} — ${t.priority} — ${daysOld} days old`,
-          );
-        }
-      }
+        take: requestedLimit,
+      }),
+    ]);
 
-      // Staff workload — tickets assigned per staff member
-      const workload = await prisma.$queryRaw<
-        Array<{ name: string; role: string; count: bigint }>
-      >`
-        SELECT u.name, u.role, COUNT(ta.id) as count
-        FROM TicketAssignment ta
-        JOIN User u ON ta.userId = u.id
-        JOIN Ticket t ON ta.ticketId = t.id
-        WHERE t.status NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')
-        GROUP BY u.id, u.name, u.role
-        ORDER BY count DESC
-        LIMIT 10
-      `;
-      if (workload.length > 0) {
-        results.push("\n**Current Staff Workload (active tickets):**");
-        for (const w of workload) {
-          results.push(`- ${w.name} (${w.role}): ${w.count} active ticket(s)`);
-        }
-      }
+    const header = secretaryQueueQuery
+      ? "**Tickets Pending Secretary Review:**"
+      : "**Tickets Pending Director Approval:**";
+    const lines = [header, `Total tickets in queue: ${totalCount}`];
+    if (queueTickets.length === 0) {
+      lines.push("No tickets are currently waiting in this approval queue.");
+      return lines.join("\n");
+    }
 
-      // SLA compliance — tickets with dueDate
-      const slaTotal = await prisma.ticket.count({
-        where: { dueDate: { not: null } },
-      });
-      const slaMet = await prisma.ticket.count({
+    for (const ticket of queueTickets) {
+      lines.push(
+        `- ${ticket.ticketNumber}: ${ticket.title} — ${ticket.type} — ${ticket.priority} — Submitted ${this.formatDateOnly(ticket.createdAt)}`,
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  private async buildEscalationContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
+    const wantsEscalations = /\b(escalated?|escalation)\b/i.test(message);
+    const wantsOldestTickets =
+      /\b(oldest|stuck|aging|ageing)\b.*\b(ticket|request)\b/i.test(message);
+    const wantsStatusHistory =
+      /\b(status history|status changes|recent transitions?)\b/i.test(message);
+
+    if (!wantsEscalations && !wantsOldestTickets && !wantsStatusHistory) {
+      return null;
+    }
+
+    const requestedLimit = this.extractRequestedLimit(message, 5, 5);
+    const departmentScope = this.getDepartmentScope(role, message);
+
+    if (wantsStatusHistory) {
+      const historyEntries = await prisma.ticketStatusHistory.findMany({
         where: {
-          dueDate: { not: null },
-          status: { in: ["RESOLVED", "CLOSED"] },
-          resolvedAt: { not: null },
+          ...(departmentScope ? { ticket: { type: departmentScope } } : {}),
         },
+        select: {
+          createdAt: true,
+          fromStatus: true,
+          toStatus: true,
+          ticket: { select: { ticketNumber: true, title: true } },
+          user: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: requestedLimit,
       });
-      if (slaTotal > 0) {
-        const complianceRate =
-          slaTotal > 0 ? Math.round((slaMet / slaTotal) * 100) : 0;
-        results.push(
-          `\n**SLA Compliance**: ${slaMet}/${slaTotal} tickets resolved within SLA (${complianceRate}%)`,
+
+      if (historyEntries.length === 0) {
+        return "**Recent Status Transitions:**\nNo recent status history entries were found.";
+      }
+
+      const lines = ["**Recent Status Transitions:**"];
+      for (const historyEntry of historyEntries) {
+        lines.push(
+          `- ${historyEntry.ticket.ticketNumber}: ${historyEntry.fromStatus || "NEW"} → ${historyEntry.toStatus} on ${this.formatDateOnly(historyEntry.createdAt)} by ${historyEntry.user.name || "Staff"}`,
+        );
+      }
+      return lines.join("\n");
+    }
+
+    if (wantsEscalations) {
+      const escalationWhere: any = {
+        escalationLevel: { gt: 0 },
+        ...(departmentScope ? { type: departmentScope } : {}),
+      };
+      const [escalationCounts, escalatedTickets] = await Promise.all([
+        prisma.ticket.groupBy({
+          by: ["escalationLevel"],
+          where: escalationWhere,
+          _count: { id: true },
+          orderBy: { escalationLevel: "desc" },
+        }),
+        prisma.ticket.findMany({
+          where: escalationWhere,
+          select: {
+            ticketNumber: true,
+            title: true,
+            type: true,
+            priority: true,
+            escalationLevel: true,
+            escalatedAt: true,
+          },
+          orderBy: [{ escalationLevel: "desc" }, { escalatedAt: "desc" }],
+          take: requestedLimit,
+        }),
+      ]);
+
+      const lines = ["**Escalated Tickets:**"];
+      if (escalatedTickets.length === 0) {
+        lines.push("No escalated tickets were found.");
+        return lines.join("\n");
+      }
+
+      for (const escalationCount of escalationCounts) {
+        lines.push(
+          `- Level ${escalationCount.escalationLevel}: ${escalationCount._count.id} ticket(s)`,
+        );
+      }
+      for (const ticket of escalatedTickets) {
+        lines.push(
+          `- ${ticket.ticketNumber}: ${ticket.title} — ${ticket.type} — ${ticket.priority} — Level ${ticket.escalationLevel}${ticket.escalatedAt ? ` — Escalated ${this.formatDateOnly(ticket.escalatedAt)}` : ""}`,
         );
       }
 
-      return results.length > 0 ? results.join("\n") : null;
-    } catch (err: any) {
-      logger.error("[ChatService] Analytics query failed:", err.message);
+      return lines.join("\n");
+    }
+
+    const oldestActiveTickets = await prisma.ticket.findMany({
+      where: {
+        status: { in: [...ACTIVE_TICKET_STATUSES] },
+        ...(departmentScope ? { type: departmentScope } : {}),
+      },
+      select: {
+        ticketNumber: true,
+        title: true,
+        status: true,
+        priority: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+      take: requestedLimit,
+    });
+
+    if (oldestActiveTickets.length === 0) {
+      return "**Oldest Active Tickets:**\nNo active tickets were found.";
+    }
+
+    const lines = ["**Oldest Active Tickets:**"];
+    for (const ticket of oldestActiveTickets) {
+      const ageInDays = Math.round(
+        (Date.now() - new Date(ticket.createdAt).getTime()) / 86400000,
+      );
+      lines.push(
+        `- ${ticket.ticketNumber}: ${ticket.title} — ${ticket.status} — ${ticket.priority} — ${ageInDays} day(s) old`,
+      );
+    }
+    return lines.join("\n");
+  }
+
+  private async buildWorkloadContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
+    const normalizedMessage = message.toLowerCase();
+    const wantsWorkload =
+      /\b(workload|productivity|assigned tickets|active tickets per staff)\b/i.test(
+        message,
+      ) ||
+      /\b(who has|who is)\b.*\b(most|highest|busiest)\b.*\b(ticket|workload)\b/i.test(
+        message,
+      );
+
+    if (!wantsWorkload) {
       return null;
     }
+
+    const requestedLimit = this.extractRequestedLimit(message, 5, 10);
+    const departmentScope = this.getDepartmentScope(role, message);
+    const workloadRows = await this.getActiveWorkloadRows(
+      requestedLimit,
+      departmentScope,
+    );
+
+    if (workloadRows.length === 0) {
+      return "**Current Staff Workload:**\nNo active assignments were found.";
+    }
+
+    const lines = ["**Current Staff Workload:**"];
+    for (const workloadRow of workloadRows) {
+      lines.push(
+        `- ${workloadRow.displayName} (${workloadRow.role}): ${workloadRow.activeCount} active ticket(s)`,
+      );
+    }
+
+    if (
+      normalizedMessage.includes("most") ||
+      normalizedMessage.includes("busiest")
+    ) {
+      const busiest = workloadRows[0];
+      lines.push(
+        `\nBusiest staff member right now: ${busiest.displayName} with ${busiest.activeCount} active ticket(s).`,
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  private async buildCategoryBreakdownContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
+    const categoryIntent =
+      /\b(mis|its)\b.*\b(category|breakdown|request|requests|tickets)\b/i.test(
+        message,
+      ) ||
+      /\b(website|software|borrow|printer|network|internet|hardware|maintenance)\b/i.test(
+        message,
+      );
+
+    if (!categoryIntent) {
+      return null;
+    }
+
+    const departmentScope = this.getDepartmentScope(role, message);
+    const lines = ["**Department / Category Breakdown:**"];
+
+    if (!departmentScope || departmentScope === "MIS") {
+      const [
+        misCount,
+        websiteNewRequest,
+        websiteUpdate,
+        softwareNewRequest,
+        softwareUpdate,
+        softwareInstall,
+      ] = await Promise.all([
+        prisma.ticket.count({ where: { type: "MIS" } }),
+        prisma.mISTicket.count({ where: { websiteNewRequest: true } }),
+        prisma.mISTicket.count({ where: { websiteUpdate: true } }),
+        prisma.mISTicket.count({ where: { softwareNewRequest: true } }),
+        prisma.mISTicket.count({ where: { softwareUpdate: true } }),
+        prisma.mISTicket.count({ where: { softwareInstall: true } }),
+      ]);
+
+      lines.push(`MIS tickets: ${misCount}`);
+      lines.push(`- Website new requests: ${websiteNewRequest}`);
+      lines.push(`- Website updates: ${websiteUpdate}`);
+      lines.push(`- Software new requests: ${softwareNewRequest}`);
+      lines.push(`- Software updates: ${softwareUpdate}`);
+      lines.push(`- Software installations: ${softwareInstall}`);
+    }
+
+    if (!departmentScope || departmentScope === "ITS") {
+      const [
+        itsCount,
+        borrowRequest,
+        desktopLaptop,
+        internetNetwork,
+        printerMaintenance,
+      ] = await Promise.all([
+        prisma.ticket.count({ where: { type: "ITS" } }),
+        prisma.iTSTicket.count({ where: { borrowRequest: true } }),
+        prisma.iTSTicket.count({ where: { maintenanceDesktopLaptop: true } }),
+        prisma.iTSTicket.count({ where: { maintenanceInternetNetwork: true } }),
+        prisma.iTSTicket.count({ where: { maintenancePrinter: true } }),
+      ]);
+
+      lines.push(`ITS tickets: ${itsCount}`);
+      lines.push(`- Borrow requests: ${borrowRequest}`);
+      lines.push(`- Desktop/Laptop maintenance: ${desktopLaptop}`);
+      lines.push(`- Internet/Network maintenance: ${internetNetwork}`);
+      lines.push(`- Printer maintenance: ${printerMaintenance}`);
+    }
+
+    return lines.join("\n");
+  }
+
+  private async buildKnowledgeCoverageContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
+    const knowledgeBaseIntent =
+      /\b(knowledge base|kb|faq|faqs|article|articles)\b/i.test(message) &&
+      /\b(count|counts|summary|stat|analytic|breakdown|most viewed|most helpful|coverage|updated|how many|show|list)\b/i.test(
+        message,
+      );
+    const solutionIntent =
+      /\b(troubleshooting solution|troubleshooting solutions|solution library|solution database|solutions?)\b/i.test(
+        message,
+      ) &&
+      /\b(count|counts|summary|stat|analytic|breakdown|visibility|category|updated|how many|show|list)\b/i.test(
+        message,
+      );
+
+    if (!knowledgeBaseIntent && !solutionIntent) {
+      return null;
+    }
+
+    const lines: string[] = [];
+
+    if (knowledgeBaseIntent) {
+      const [articlesByStatus, articlesByCategory, topArticles] =
+        await Promise.all([
+          prisma.knowledgeArticle.groupBy({
+            by: ["status"],
+            _count: { id: true },
+          }),
+          prisma.knowledgeArticle.groupBy({
+            by: ["category"],
+            _count: { id: true },
+            orderBy: { _count: { id: "desc" } },
+          }),
+          prisma.knowledgeArticle.findMany({
+            where: { status: "PUBLISHED" },
+            select: {
+              title: true,
+              category: true,
+              viewCount: true,
+              helpfulCount: true,
+            },
+            orderBy: [{ viewCount: "desc" }, { helpfulCount: "desc" }],
+            take: 3,
+          }),
+        ]);
+
+      lines.push("**Knowledge Base Coverage:**");
+      for (const statusEntry of articlesByStatus) {
+        lines.push(`- ${statusEntry.status}: ${statusEntry._count.id}`);
+      }
+      if (articlesByCategory.length > 0) {
+        lines.push("**Articles by Category:**");
+        for (const categoryEntry of articlesByCategory.slice(0, 5)) {
+          lines.push(`- ${categoryEntry.category}: ${categoryEntry._count.id}`);
+        }
+      }
+      if (topArticles.length > 0) {
+        lines.push("**Most Viewed Published Articles:**");
+        for (const article of topArticles) {
+          lines.push(
+            `- ${article.title} (${article.category}) — ${article.viewCount} view(s), ${article.helpfulCount} helpful vote(s)`,
+          );
+        }
+      }
+    }
+
+    if (solutionIntent) {
+      const [solutionsByVisibility, solutionsByCategory, recentSolutions] =
+        await Promise.all([
+          prisma.troubleshootingSolution.groupBy({
+            by: ["visibility"],
+            _count: { id: true },
+          }),
+          prisma.troubleshootingSolution.groupBy({
+            by: ["category"],
+            _count: { id: true },
+            orderBy: { _count: { id: "desc" } },
+          }),
+          prisma.troubleshootingSolution.findMany({
+            select: {
+              problem: true,
+              category: true,
+              visibility: true,
+              updatedAt: true,
+            },
+            orderBy: { updatedAt: "desc" },
+            take: 3,
+          }),
+        ]);
+
+      if (lines.length > 0) {
+        lines.push("");
+      }
+      lines.push("**Troubleshooting Solutions Coverage:**");
+      for (const visibilityEntry of solutionsByVisibility) {
+        lines.push(
+          `- ${visibilityEntry.visibility}: ${visibilityEntry._count.id}`,
+        );
+      }
+      if (solutionsByCategory.length > 0) {
+        lines.push("**Solutions by Category:**");
+        for (const categoryEntry of solutionsByCategory.slice(0, 5)) {
+          lines.push(`- ${categoryEntry.category}: ${categoryEntry._count.id}`);
+        }
+      }
+      if (recentSolutions.length > 0) {
+        lines.push("**Recently Updated Solutions:**");
+        for (const solution of recentSolutions) {
+          lines.push(
+            `- ${solution.problem.substring(0, 80)}${solution.problem.length > 80 ? "..." : ""} — ${solution.category} — ${solution.visibility} — Updated ${this.formatDateOnly(solution.updatedAt)}`,
+          );
+        }
+      }
+    }
+
+    return lines.length > 0 ? lines.join("\n") : null;
+  }
+
+  private checkExcludedOperationalQuery(message: string): string | null {
+    const wantsData =
+      /\b(show|list|count|how many|what|which|analytics|report|summary|dashboard)\b/i.test(
+        message,
+      );
+    const excludedTables =
+      /\b(notification|notifications|chat history|chat session|chat sessions|chat message|chat messages|attachment|attachments|ticket counter|ticket counters|migration|migrations|_prisma_migrations)\b/i.test(
+        message,
+      );
+
+    if (wantsData && excludedTables) {
+      return EXCLUDED_OPERATIONAL_DATA_RESPONSE;
+    }
+
+    return null;
+  }
+
+  private checkOperationalCoverageQuery(
+    message: string,
+    role: string,
+  ): string | null {
+    const asksAboutCoverage =
+      /\b(what|which)\b.*\b(data|tables|queries|questions|analytics)\b/i.test(
+        message,
+      ) ||
+      /\bwhat can you answer\b/i.test(message) ||
+      /\bwhat can you access\b/i.test(message);
+
+    if (!asksAboutCoverage) {
+      return null;
+    }
+
+    const lines = [
+      "**Supported Admin/Staff Chat Queries:**",
+      "- Ticket analytics: status, priority, type, backlog, overdue, due soon, SLA, recurring issues, average resolution time",
+      "- Workload analytics: active assignments by staff member and busiest staff members",
+      "- Approval workflows: tickets pending secretary review and tickets pending director approval",
+      "- Escalations and timelines: escalated tickets, oldest active tickets, recent status transitions",
+      "- Department breakdowns: MIS vs ITS counts plus website/software/borrow/network/printer maintenance categories",
+      "- Knowledge coverage: knowledge-base article counts, categories, and most-viewed published articles",
+      "- Troubleshooting solutions: visibility counts, categories, and recently updated solutions",
+      "- User summaries: aggregate user totals and role breakdowns",
+    ];
+
+    if (role === "ADMIN") {
+      lines.push(
+        "- ADMIN-only user directory lists: regular users, deactivated users, staff accounts, admins, and newest users",
+      );
+    } else if (STAFF_ROLES.includes(role as any)) {
+      lines.push(
+        "- Person-level user directory lists stay ADMIN only; staff can still ask for aggregate user counts and role breakdowns",
+      );
+    }
+
+    lines.push(
+      "- Excluded in chat: notifications, chat history, attachments, ticket counters, and migration/internal tables",
+    );
+    return lines.join("\n");
+  }
+
+  private checkDeletionPolicyQuery(
+    message: string,
+    role: string,
+  ): string | null {
+    const normalizedMessage = message.toLowerCase();
+    const deletionIntent =
+      /\b(delete|deletion|deactivate|deactivation|remove|hard delete|permanent)\b/i.test(
+        normalizedMessage,
+      ) && /\b(user|account|note|article|solution)\b/i.test(normalizedMessage);
+
+    if (!deletionIntent) {
+      return null;
+    }
+
+    const lines = ["**Deletion Safeguards:**"];
+    if (role !== "ADMIN" && /\buser|account\b/i.test(normalizedMessage)) {
+      lines.push(
+        "- User account management is ADMIN only. Chat can explain the policy, but it will not execute account actions.",
+      );
+    }
+    lines.push(
+      "- User accounts cannot be hard-deleted when they still own open tickets or are assigned to active tickets. Deactivation is the safer reversible option.",
+    );
+    lines.push(
+      "- Ticket notes, knowledge-base articles, and troubleshooting solutions are hard-delete actions with audit logging.",
+    );
+    lines.push(
+      "- Chat is read-only for delete, deactivate, restore, and reassign requests. Use the proper admin/staff screens for those actions.",
+    );
+    return lines.join("\n");
+  }
+
+  private getDepartmentScope(
+    role: string,
+    message: string,
+  ): "MIS" | "ITS" | null {
+    const normalizedMessage = message.toLowerCase();
+
+    if (/\bmis\b|website|software/i.test(normalizedMessage)) {
+      return "MIS";
+    }
+
+    if (
+      /\bits\b|hardware|printer|network|internet|borrow|maintenance/i.test(
+        normalizedMessage,
+      )
+    ) {
+      return "ITS";
+    }
+
+    if (role === "MIS_HEAD") {
+      return "MIS";
+    }
+
+    if (role === "ITS_HEAD") {
+      return "ITS";
+    }
+
+    return null;
+  }
+
+  private extractRequestedLimit(
+    message: string,
+    fallback = 5,
+    max = 10,
+  ): number {
+    const limitMatch = message.match(/\b(\d{1,2})\b/);
+    if (!limitMatch) {
+      return fallback;
+    }
+
+    const requestedLimit = Number(limitMatch[1]);
+    if (!Number.isFinite(requestedLimit) || requestedLimit <= 0) {
+      return fallback;
+    }
+
+    return Math.min(requestedLimit, max);
+  }
+
+  private formatDateOnly(value: Date | string): string {
+    return new Date(value).toLocaleDateString();
+  }
+
+  private async getActiveWorkloadRows(
+    limit: number,
+    type?: "MIS" | "ITS" | null,
+  ): Promise<
+    Array<{ displayName: string; role: string; activeCount: number }>
+  > {
+    const assignmentCounts = await prisma.ticketAssignment.groupBy({
+      by: ["userId"],
+      where: {
+        ticket: {
+          status: { in: [...ACTIVE_TICKET_STATUSES] },
+          ...(type ? { type } : {}),
+        },
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+      take: limit,
+    });
+
+    if (assignmentCounts.length === 0) {
+      return [];
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: assignmentCounts.map((assignment) => assignment.userId) },
+      },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    return assignmentCounts.map((assignment) => {
+      const user = usersById.get(assignment.userId);
+      return {
+        displayName: user?.name || user?.email || `User #${assignment.userId}`,
+        role: user?.role || "UNKNOWN",
+        activeCount: assignment._count.id,
+      };
+    });
   }
 
   // ========================================
@@ -888,9 +1772,17 @@ export class ChatService {
     const isReportRequest = reportPatterns.some((p) => p.test(msg));
     if (!isReportRequest) return null;
 
-    const allowedRoles = ["ADMIN", "ICT_STAFF", "SUPERVISOR"];
+    const allowedRoles = [
+      "ADMIN",
+      "DEVELOPER",
+      "TECHNICAL",
+      "MIS_HEAD",
+      "ITS_HEAD",
+      "DIRECTOR",
+      "SECRETARY",
+    ];
     if (!allowedRoles.includes(userRole)) {
-      return "The user is requesting a report but does NOT have the required role. Only Admin, ICT Staff, and Supervisor roles can generate reports. Politely inform the user that report generation requires admin or staff privileges.";
+      return "The user is requesting a report but does NOT have the required role. Only Admin and ICT staff roles can generate reports. Politely inform the user that report generation requires admin or staff privileges.";
     }
 
     // Detect the type of report requested
