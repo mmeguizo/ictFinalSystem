@@ -1,7 +1,7 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** March 13, 2026 (Session 3)
+> **Last Updated:** May 11, 2026
 
 ---
 
@@ -29,7 +29,7 @@
 - [x] Notification bell component with badge + dropdown
 - [x] Notifications page (/notifications)
 - [x] Real-time table refresh (secretary-approval, my-tickets, ticket-detail auto-refresh on WS events)
-- [~] User deactivation (schema fields exist: isActive, deactivatedAt — no service methods)
+- [x] User deactivation (service methods + admin UI + deactivate-first delete workflow)
 
 ---
 
@@ -355,16 +355,28 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 
 ## Summary Matrix
 
-| Feature                              | Status   | Completion                                                                                                   |
-| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------ |
-| 1a. AI-Powered Self-Service Portal   | **Done** | ~92% (portal + KB + AI suggestions + chatbot + RAG pipeline + markdown rendering + operational chat answers) |
-| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                                                           |
-| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)                                         |
-| 1d. Integrated Reporting & Analytics | **Done** | ~94% (analytics + charts + trends + PDF/Excel + Excel-from-chat + staff/admin chat queries)                  |
-| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                                                       |
-| 1f. Ticket Lifecycle Management      | **Done** | ~98% (full workflow + satisfaction survey + note management)                                                 |
-| AI Training Pipeline                 | **Done** | ~95% (auto-extract solutions + notes in RAG + visibility enforcement)                                        |
-| Infrastructure                       | **Done** | ~97%                                                                                                         |
+| Feature                              | Status   | Completion                                                                                                                              |
+| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 1a. AI-Powered Self-Service Portal   | **Done** | ~93% (portal + KB + AI suggestions + chatbot + RAG pipeline + markdown rendering + operational chat answers + fixed quick-menu routing) |
+| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                                                                                      |
+| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)                                                                    |
+| 1d. Integrated Reporting & Analytics | **Done** | ~94% (analytics + charts + trends + PDF/Excel + Excel-from-chat + staff/admin chat queries)                                             |
+| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                                                                                  |
+| 1f. Ticket Lifecycle Management      | **Done** | ~98% (full workflow + satisfaction survey + note management)                                                                            |
+| AI Training Pipeline                 | **Done** | ~95% (auto-extract solutions + notes in RAG + visibility enforcement)                                                                   |
+| Infrastructure                       | **Done** | ~97%                                                                                                                                    |
+
+---
+
+## Recent Fixes & Improvements (May 11, 2026)
+
+### Bug Fixes
+
+- **User quick-menu chat routing fixed** — Regular-user prompts for Internet / Network, Printer Issues, Software / Apps, and Check Ticket Status no longer get blocked by the staff-only analytics/report denial branch.
+- **Ticket-status prompt no longer misread as analytics** — Analytics matching now requires real reporting terms, so "status of my tickets" stays in the ticket-status flow instead of matching the `stat` substring in "status".
+- **Category analytics detection tightened** — Bare troubleshooting words like `internet`, `printer`, and `software` no longer trigger department breakdown analytics unless the message also asks for counts, summaries, reports, or breakdowns.
+- **Ticket-status fallback improved** — When a user asks about their tickets but has none yet, chat now returns a direct "no recent tickets" response instead of falling through to a generic answer.
+- **Report detection narrowed** — Bare mentions of Excel no longer count as report requests unless the message is actually asking for an Excel report/export.
 
 ---
 
@@ -396,6 +408,7 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 ### Documentation
 
 - **Client-meeting documentation refresh** — Updated `CHANGELOG.md`, `docs/USER_MANUAL.md`, `docs/BACKEND_API_MANUAL.md`, and `CLIENT_FEATURE_REPORT.md` to cover operational chat answers, admin-only user-directory questions, delete safeguards, and the finalized report-access role list.
+- **Copilot handoff context** — Added `.copilot-context.md` at the repo root so future Copilot chats can resume from the latest AI chat/admin safeguards workstream and validation steps.
 
 ---
 

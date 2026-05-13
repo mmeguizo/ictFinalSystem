@@ -283,6 +283,7 @@ export class ChatService {
 
     if (
       !isStaffOrAdmin &&
+      !ticketContext &&
       !hasTicketCreationIntent &&
       (analyticsRequest || reportRequest)
     ) {
@@ -707,6 +708,8 @@ export class ChatService {
         }
         return status;
       }
+
+      return "You do not have any recent support tickets yet. If you are currently experiencing an issue, I can help troubleshoot it or create a new support ticket for you.";
     }
 
     return null;
@@ -822,18 +825,18 @@ export class ChatService {
     const normalizedMessage = message.toLowerCase();
 
     const analyticsPatterns = [
-      /how many\s+(ticket|request|issue)/i,
-      /ticket.*(stat|analytic|report|count|total|summary)/i,
-      /(stat|analytic|report|summary|dashboard|overview).*(ticket|request|issue)/i,
+      /how many\s+(tickets?|requests?|issues?)/i,
+      /ticket.*\b(statistics?|analytics?|report|count|total|summary)\b/i,
+      /\b(statistics?|analytics?|report|summary|dashboard|overview)\b.*(ticket|request|issue)/i,
       /most\s+(common|frequent|painful|problematic|recurring)/i,
       /ticket.*(per|by)\s+(day|week|month|category|status|priority|type)/i,
       /(average|mean|median).*(resolution|response|time)/i,
       /\b(workload|performance|productivity)\b/i,
       /(busiest|peak|slowest)\s*(day|time|period|month)/i,
-      /\b(sla|overdue|compliance|breach)\b.*\b(ticket|request|count|report|status|rate|data)\b/i,
-      /\b(ticket|request|count|report|status|rate|data)\b.*\b(sla|overdue|compliance|breach)\b/i,
-      /\bdeadline\b.*\b(ticket|request|count|report|sla|compliance)\b/i,
-      /\b(unresolved|pending|backlog)\b.*\b(ticket|request)\b/i,
+      /\b(sla|overdue|compliance|breach)\b.*\b(tickets?|requests?|count|report|status|rate|data)\b/i,
+      /\b(tickets?|requests?|count|report|status|rate|data)\b.*\b(sla|overdue|compliance|breach)\b/i,
+      /\bdeadline\b.*\b(tickets?|requests?|count|report|sla|compliance)\b/i,
+      /\b(unresolved|pending|backlog)\b.*\b(tickets?|requests?)\b/i,
     ];
 
     if (!analyticsPatterns.some((pattern) => pattern.test(normalizedMessage))) {
@@ -1386,13 +1389,15 @@ export class ChatService {
     message: string,
     role: string,
   ): Promise<string | null> {
+    const categoryKeywords =
+      /\b(website|software|borrow|printer|network|internet|hardware|maintenance)\b/i;
+    const analyticsKeywords =
+      /\b(show|list|count|how many|breakdown|summary|analytics|statistics|stats|report|reports|dashboard|overview|distribution|compare)\b/i;
     const categoryIntent =
       /\b(mis|its)\b.*\b(category|breakdown|request|requests|tickets)\b/i.test(
         message,
       ) ||
-      /\b(website|software|borrow|printer|network|internet|hardware|maintenance)\b/i.test(
-        message,
-      );
+      (analyticsKeywords.test(message) && categoryKeywords.test(message));
 
     if (!categoryIntent) {
       return null;
@@ -1766,7 +1771,7 @@ export class ChatService {
       /\b(generate|create|make|download|export|give me|produce|prepare)\b.*\b(report|excel|spreadsheet|xlsx|csv)\b/i,
       /\b(report|excel|spreadsheet)\b.*\b(generate|create|download|export)\b/i,
       /\b(ticket|data)\b.*\b(report|export)\b/i,
-      /\bexcel\b/i,
+      /\bexcel\b.*\b(report|spreadsheet|export|download|file)\b/i,
     ];
 
     const isReportRequest = reportPatterns.some((p) => p.test(msg));
