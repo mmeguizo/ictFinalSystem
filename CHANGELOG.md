@@ -5,52 +5,47 @@ All notable changes to the ICT Support Ticketing System will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.4.0] - 2026-07-15
+## [1.4.0] - 2026-03-12
 
-### Added — AI Intelligence Upgrade & Excel Report Generation
+### Added - Analytics Page & SLA Tracking
 
-#### AI Smartness Improvements
+This release implements Phase 1 of the SLA & Analytics roadmap.
 
-- **Rewritten system prompt** — AI is now "expert-level" with detailed behavior rules: synthesizes multiple context sources, provides step-by-step solutions, infers likely issues from vague queries, and personalizes responses based on user role/name.
-- **Stop-word filtering** — Keyword extraction now filters 90+ common English stop words (the, is, are, my, your, how, etc.) so only meaningful terms reach the search engine. Previously, queries like "how do I fix my printer" would search for ALL words including "how", "do", "I", "my" — now it correctly searches for "fix" and "printer".
-- **OR-based fulltext search** — Changed MySQL BOOLEAN MODE searches from AND (`+keyword1 +keyword2`) to OR (`keyword1 keyword2`). Previously, ALL keywords had to match; now ANY keyword match returns results, dramatically improving recall for natural language questions.
-- **Increased context limits** — KB article content passed to AI increased from 500 → 1500 characters. Search results increased from 3 → 5 per source (KB articles, resolved tickets). Vector similarity threshold lowered from 0.45 → 0.40 for broader matches.
-- **User context injection** — AI now receives the current user's name and role, enabling personalized responses ("Hi Mark, here's what I found...") and role-appropriate detail levels.
-- **Tuned generation parameters** — Temperature lowered from 0.7 → 0.4 for more factual responses. Max output tokens increased from 1024 → 4096 to prevent truncated answers. Added topP=0.9 for better response quality.
-- **Conversation history expanded** — AI now considers last 20 messages (up from 10) for better multi-turn conversation context.
+#### actualDuration Tracking (Chunk E1)
+- **Backend**: When a ticket status changes to `RESOLVED`, the system now automatically calculates and saves `actualDuration` (hours from creation to resolution)
+- **Backend**: When a ticket status changes to `CLOSED` without a prior resolution, `actualDuration` is also calculated
+- This enables future SLA compliance reporting and staff performance metrics
 
-#### Excel Report Generation
+#### Analytics Page Foundation (Chunk D1)
+- **New Route**: `/analytics` — Dedicated analytics page accessible to ADMIN, DIRECTOR, MIS_HEAD, ITS_HEAD, SECRETARY roles
+- **Date Range Filter**: Date range picker to filter analytics by time period
+- **Overview Statistics**: Total tickets, open/active, resolved/closed, and overdue counts
+- **SLA Compliance**: Visual compliance rate with circular progress indicator
+- **SLA Status**: Overdue, Due Today, and Due Soon metrics with color-coded indicators
+- **Ticket Type Breakdown**: MIS vs ITS distribution with progress bars
+- **Status Breakdown**: Table showing ticket counts per status with visual distribution bars
+- **Priority Breakdown**: Table showing ticket counts per priority level
+- **Navigation**: Analytics menu item added to sidebar for authorized roles
 
-- **New report download endpoint** — `GET /reports/download?type=full-report&from=&to=` REST endpoint that generates and streams Excel files.
-- **6 report types**: `full-report` (all sheets), `ticket-summary`, `ticket-status`, `ticket-category`, `ticket-priority`, `ticket-monthly`.
-- **Professional Excel formatting** — Blue header row, alternating row colors, auto-column widths, CHMSU branding.
-- **Full report includes**: Summary sheet, By Status, By Category, By Priority, Monthly Trend (with resolution rates), and All Tickets list (up to 1000 rows).
-- **Role-restricted** — Only ADMIN, ICT_STAFF, and SUPERVISOR roles can download reports.
-- **AI-triggered downloads** — Users can ask the AI chatbot "generate a report" or "download excel" and the AI provides clickable download buttons directly in the chat.
-- **Frontend download handler** — Report links in chat messages render as green download buttons that authenticate and stream the file.
+#### Frontend GraphQL Queries
+- Added `TICKET_ANALYTICS` query with date range filter support
+- Added `SLA_METRICS` query for real-time SLA compliance data
+- Added `TicketAnalytics`, `SLAMetrics`, `StatusCount`, `TypeCount`, `PriorityCount` interfaces
 
-#### Bug Fixes (from 2.3.x)
-
-- **Solutions page `totalPages` error** — Added missing `totalPages` field to `PaginatedSolutions` GraphQL type and computed it in the service.
-- **Admin chat sessions** — Added `allChatSessions` query (admin-only) so admins can view all user chat sessions.
-- **FAB pulse animation** — Reduced from infinite to 3 iterations so it stops after initial attention grab.
-
-#### Files Modified
-
-- `backend/src/modules/chat/chat.service.ts` — Rewritten system prompt, stop-word filtering, OR-based search, user context injection, report detection, increased limits/tokens
-- `backend/src/modules/solutions/solution.service.ts` — Stop-word filtering, OR-based fulltext search for `searchForContext()`
-- `backend/src/modules/reports/report.service.ts` — **NEW** — Excel report generation with ExcelJS (6 report types, styled sheets)
-- `backend/src/index.ts` — Added `GET /reports/download` REST endpoint with auth + role check
-- `backend/package.json` — Added `exceljs` dependency
-- `backend/src/modules/solutions/solution.types.ts` — Added `totalPages` to `PaginatedSolutions`
-- `backend/src/modules/solutions/solution.service.ts` — Computed `totalPages` in pagination
-- `backend/src/modules/chat/chat.types.ts` — Added `ChatSessionWithUser` type and `allChatSessions` query
-- `backend/src/modules/chat/chat.resolvers.ts` — Added `allChatSessions` resolver with ADMIN role check
-- `frontend/src/app/shared/components/chat-widget.component.ts` — Report download link rendering + click handler, auth-based file download, green button styling, FAB pulse fix
+### Files Modified
+- `backend/src/modules/tickets/ticket.repository.ts` — actualDuration calculation on status change
+- `frontend/src/app/core/services/ticket.service.ts` — Analytics GraphQL queries and interfaces
+- `frontend/src/app/features/analytics/analytics.page.ts` — New analytics component
+- `frontend/src/app/features/analytics/analytics.page.html` — Analytics page template
+- `frontend/src/app/features/analytics/analytics.page.scss` — Analytics page styles
+- `frontend/src/app/app.routes.ts` — Analytics route with approverGuard
+- `frontend/src/app/layout/main-layout.ts` — Analytics navigation menu item
+- `PROJECT_STATUS.md` — Updated completion status for Chunks E1 and D1
+- `CHANGELOG.md` — This entry
 
 ---
 
-## [2.2.0] - 2026-03-13
+## [1.3.0] - 2025-12-19
 
 ### Fixed — SLA Tracker & Real-Time Updates
 

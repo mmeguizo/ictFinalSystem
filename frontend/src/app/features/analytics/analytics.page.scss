@@ -1,150 +1,126 @@
 .analytics-container {
   padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
-.analytics-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-
-  h2 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 600;
+  .analytics-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .date-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
   }
 
-  .header-actions {
+  .stats-row {
+    margin-bottom: 16px;
+  }
+
+  // SLA Compliance Card
+  .sla-card {
+    min-height: 200px;
+  }
+
+  .sla-compliance-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+
+    .sla-label {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #8c8c8c;
+    }
+  }
+
+  // SLA Status List
+  .sla-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 12px 0;
+  }
+
+  .sla-status-item {
     display: flex;
     align-items: center;
     gap: 12px;
   }
-}
 
-.stat-row {
-  margin-bottom: 20px;
-}
+  .sla-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
 
-.stat-card {
-  border-radius: 8px;
-  transition: box-shadow 0.2s;
-  height: 100%;
+    &.overdue {
+      background-color: #ff4d4f;
+    }
 
-  &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    &.today {
+      background-color: #faad14;
+    }
+
+    &.soon {
+      background-color: #1890ff;
+    }
   }
 
-  &.total {
-    border-left: 4px solid #1890ff;
-  }
-
-  &.overdue {
-    border-left: 4px solid #ff4d4f;
-  }
-
-  &.due-today {
-    border-left: 4px solid #fa8c16;
-  }
-
-  &.due-soon {
-    border-left: 4px solid #faad14;
-  }
-
-  &.sla-compliance {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-.compliance-gauge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 0;
-
-  .compliance-label {
-    margin-top: 8px;
+  .sla-status-label {
+    flex: 1;
     font-size: 14px;
-    color: rgba(0, 0, 0, 0.65);
-    font-weight: 500;
-  }
-}
-
-.compliance-value {
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.charts-row {
-  margin-bottom: 20px;
-}
-
-.chart-wrapper {
-  height: 300px;
-  position: relative;
-
-  &.chart-lg {
-    height: 400px;
-  }
-}
-
-.overdue-table-card {
-  margin-top: 16px;
-}
-
-.overdue-alert {
-  margin-bottom: 16px;
-}
-
-.overdue-hours {
-  color: #ff4d4f;
-  font-weight: 600;
-}
-
-.unassigned {
-  color: rgba(0, 0, 0, 0.35);
-  font-style: italic;
-}
-
-.no-data {
-  color: rgba(0, 0, 0, 0.35);
-}
-
-.staff-chart-card,
-.staff-table-card {
-  margin-bottom: 16px;
-}
-
-// Responsive
-@media (max-width: 768px) {
-  .analytics-container {
-    padding: 12px;
+    color: #595959;
   }
 
-  .analytics-header {
+  .sla-status-value {
+    font-size: 20px;
+    font-weight: 600;
+
+    &.danger {
+      color: #ff4d4f;
+    }
+
+    &.warning {
+      color: #faad14;
+    }
+
+    &.info {
+      color: #1890ff;
+    }
+  }
+
+  // Type Breakdown
+  .type-breakdown {
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
   }
 
-  .chart-wrapper {
-    height: 250px;
-  }
-}
+  .type-item {
+    .type-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
 
-// Dark mode support for cards
-:host ::ng-deep {
-  .ant-card {
-    border-radius: 8px;
-  }
-
-  .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
-    border-radius: 8px 8px 0 0;
+    .type-count {
+      font-size: 18px;
+      font-weight: 600;
+      color: #262626;
+    }
   }
 }
