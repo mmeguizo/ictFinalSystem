@@ -226,6 +226,13 @@ export class MainLayout {
         path: '/docs',
         roles: ['ADMIN'],
       },
+      // Analytics - available to admin and leadership roles
+      {
+        icon: 'bar-chart',
+        label: 'Analytics',
+        path: '/analytics',
+        roles: ['ADMIN', 'DIRECTOR', 'MIS_HEAD', 'ITS_HEAD', 'SECRETARY'],
+      },
     ];
 
     // Filter items based on user role

@@ -1,7 +1,7 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** May 11, 2026
+> **Last Updated:** March 12, 2026
 
 ---
 
@@ -156,22 +156,21 @@ Dashboards and reports with charts, graphs, trends, and exportable data for ICT 
 - [x] Backend: `staffPerformance` query (per-staff assigned, resolved, avg resolution, SLA compliance)
 - [x] Dashboard page with basic stat cards (total, ongoing, in-progress, resolved, etc.)
 - [x] Recent tickets table on dashboard
-- [x] **Dedicated Analytics page with charts (/analytics)**
-- [x] **Trend analysis (tickets over time — created vs resolved per day)**
-- [x] **Staff performance metrics (avg resolution time per staff)**
-- [x] **Date range picker for reports**
-- [x] **Export to PDF/Excel (jsPDF + xlsx libraries)**
+- [x] **Dedicated Analytics page with charts**
+- [ ] **Trend analysis (tickets over time)**
+- [ ] **Staff performance metrics (avg resolution time per staff)**
 - [ ] **Department comparison reports**
+- [ ] **Export to PDF/Excel**
+- [x] **Date range picker for reports**
 
 ### Next Steps (Chunked)
 
-#### Chunk D1: Analytics Page Foundation ✅
-
-1. [x] Install chart library (ng2-charts + chart.js)
+#### Chunk D1: Analytics Page Foundation
+1. [x] Install chart library (ng2-charts or ngx-echarts)
 2. [x] Create analytics feature module with route /analytics
 3. [x] Add navigation link for admin/head roles
 4. [x] Create basic layout with date range picker calling `ticketAnalytics` query
-5. [ ] Test: Navigate to /analytics, see raw data from API
+5. [x] Test: Navigate to /analytics, see raw data from API
 
 #### Chunk D2: Charts — Tickets Overview ✅
 
@@ -211,19 +210,18 @@ Service Level Agreements are enforced automatically — the system tracks proces
 - [x] Backend: `slaMetrics` query (overdue, dueToday, dueSoon)
 - [x] Frontend: SLA Processing Time Tracker on ticket detail (5-step timeline with progress)
 - [x] Frontend: SLA reminder banner/modal on login (awareness for users)
-- [x] Backend: `actualDuration` field — auto-calculated on RESOLVED/CLOSED status change
-- [x] **SLA dashboard tab (overdue tickets list, SLA compliance rate, avg resolution time)**
-- [x] **SLA breach notifications (node-cron, every 5 minutes)**
-- [x] **SLA breach escalation (2-level: staff+head → admin+director)**
+- [~] Backend: `actualDuration` field — now automatically calculated on RESOLVED/CLOSED status
+- [ ] **SLA dashboard page (overdue tickets list, SLA compliance rate)**
+- [ ] **SLA breach notifications (scheduled cron job)**
+- [ ] **SLA breach escalation (auto-assign to manager)**
 - [ ] **Performance scorecards per staff member**
 - [ ] **SLA compliance percentage charts**
 
 ### Next Steps (Chunked)
 
-#### Chunk E1: actualDuration Tracking ✅
-
+#### Chunk E1: actualDuration Tracking
 1. [x] When ticket status changes to RESOLVED or CLOSED, calculate and save `actualDuration` (time from creation to resolution in hours)
-2. [ ] Test: Resolve ticket, verify actualDuration is populated in DB
+2. [x] Test: Resolve ticket, verify actualDuration is populated in DB
 
 #### Chunk E2: SLA Breach Cron Job ✅
 
@@ -355,82 +353,12 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 
 ## Summary Matrix
 
-| Feature                              | Status   | Completion                                                                                                                              |
-| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 1a. AI-Powered Self-Service Portal   | **Done** | ~93% (portal + KB + AI suggestions + chatbot + RAG pipeline + markdown rendering + operational chat answers + fixed quick-menu routing) |
-| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                                                                                      |
-| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)                                                                    |
-| 1d. Integrated Reporting & Analytics | **Done** | ~94% (analytics + charts + trends + PDF/Excel + Excel-from-chat + staff/admin chat queries)                                             |
-| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                                                                                  |
-| 1f. Ticket Lifecycle Management      | **Done** | ~98% (full workflow + satisfaction survey + note management)                                                                            |
-| AI Training Pipeline                 | **Done** | ~95% (auto-extract solutions + notes in RAG + visibility enforcement)                                                                   |
-| Infrastructure                       | **Done** | ~97%                                                                                                                                    |
-
----
-
-## Recent Fixes & Improvements (May 11, 2026)
-
-### Bug Fixes
-
-- **User quick-menu chat routing fixed** — Regular-user prompts for Internet / Network, Printer Issues, Software / Apps, and Check Ticket Status no longer get blocked by the staff-only analytics/report denial branch.
-- **Ticket-status prompt no longer misread as analytics** — Analytics matching now requires real reporting terms, so "status of my tickets" stays in the ticket-status flow instead of matching the `stat` substring in "status".
-- **Category analytics detection tightened** — Bare troubleshooting words like `internet`, `printer`, and `software` no longer trigger department breakdown analytics unless the message also asks for counts, summaries, reports, or breakdowns.
-- **Ticket-status fallback improved** — When a user asks about their tickets but has none yet, chat now returns a direct "no recent tickets" response instead of falling through to a generic answer.
-- **Report detection narrowed** — Bare mentions of Excel no longer count as report requests unless the message is actually asking for an Excel report/export.
-
----
-
-## Recent Fixes & Improvements (May 7, 2026)
-
-### New Features
-
-- **Delete ticket notes** — Staff roles can delete any note via the ticket detail page. Regular users are blocked at the API level.
-- **Toggle note visibility** — Staff can flip a note between Internal (staff-only) and Public (visible to ticket creator) without leaving the page.
-- **AI training pipeline from resolved tickets** — Auto-creates a TroubleshootingSolution when any ticket reaches RESOLVED/CLOSED status. Staff notes are included in the extracted solution content. Solutions start as INTERNAL so staff can review before publishing.
-- **Staff notes in AI chat context** — The AI chat assistant now retrieves staff notes from resolved tickets via the RAG pipeline, giving the AI access to technician observations and workarounds.
-- **Solution visibility enforcement** — USER role cannot see INTERNAL troubleshooting solutions via GraphQL API; restricted at resolver level.
-- **Operational chat answers for staff/admin** — The chat assistant now runs safe table-backed queries for approval queues, escalations, workloads, KB/solution coverage, and department-specific ticket breakdowns instead of relying only on generic analytics summaries.
-- **Admin-only user directory answers in chat** — Aggregate user counts are available to staff/admin, while person-level user lists stay ADMIN only in chat.
-- **Deletion safeguard policy surfaced in chat** — The assistant now explains why hard-delete can be blocked and recommends deactivation/reassignment without attempting destructive actions.
-- **Chat widget: rich markdown** — Full GFM markdown support using `marked` v18 (tables, headers, blockquotes, code blocks, HR). Custom compact heading renderer prevents oversized H1 text in chat bubbles.
-- **Chat widget: Enter-to-send** — Enter key sends message; Shift+Enter inserts newline.
-
-### Bug Fixes
-
-- **Send button disappearing** — `nz-input-group` wrapper applied `overflow: hidden` which clipped the Send button on mouse-out; replaced with plain flex layout.
-- **Build error: `ticketId` in note queries** — Three GQL query selections were missing `ticketId` on note sub-fields causing TS2345 at build time.
-- **Phantom roles** — `ICT_STAFF` and `SUPERVISOR` role strings (not in Prisma enum) replaced with correct values in 4 backend locations.
-- **Report access role alignment** — Added `SECRETARY` to the REST report-download permission check so chat-generated report links and backend authorization use the same staff role list.
-- **Auth token key mismatch** — HTTP interceptor now reads correct `auth_token` key.
-- **JWT_SECRET guard** — Backend refuses to start in production without a secure `JWT_SECRET`.
-- **Form subscription memory leak** — `valueChanges` subscriptions in MIS/ITS forms were never unsubscribed; fixed with proper cleanup.
-
-### Documentation
-
-- **Client-meeting documentation refresh** — Updated `CHANGELOG.md`, `docs/USER_MANUAL.md`, `docs/BACKEND_API_MANUAL.md`, and `CLIENT_FEATURE_REPORT.md` to cover operational chat answers, admin-only user-directory questions, delete safeguards, and the finalized report-access role list.
-- **Copilot handoff context** — Added `.copilot-context.md` at the repo root so future Copilot chats can resume from the latest AI chat/admin safeguards workstream and validation steps.
-
----
-
-## Recent Fixes & Improvements (March 13, 2026)
-
-### Bug Fixes
-
-- **Gemini JSON truncation** — Increased `maxOutputTokens` from 1024 to 2048; added partial JSON recovery for truncated responses
-- **SLA tracker not updating on assignment** — `manualAssign()` now properly records `DIRECTOR_APPROVED → ASSIGNED` status history entry (was missing, causing SLA tracker Step 3 to appear stuck)
-- **Real-time SLA tracker for ticket creator** — `assignUser()` now publishes `TICKET_STATUS_CHANGED` event (was only publishing `TICKET_ASSIGNED` per-user), so the ticket creator's SLA tracker updates without page reload
-- **Developer can't start work on SCHEDULED tickets** — Added `SCHEDULED` to `canUpdateStatus` workable statuses; added "Start Work" button for `SCHEDULED` status in ticket detail
-
-### Improvements
-
-- **AI clean_ticket actionable** — Added "Apply to Description" button that copies AI-rewritten description into the form's Additional Notes field
-- **SLA reminder popup scoped** — Auto-popup now only shows for regular users (USER role); "Learn More" button remains for all roles
-- **Status transition `SCHEDULED → IN_PROGRESS`** — Added default comment in repository
-
-### Documentation (Session 3)
-
-- **In-app Documentation page** — Created `/docs` route with Changelog and User Manual tabs rendered as styled HTML
-- **Admin sidebar link** — "Documentation" menu item with book icon visible to ADMIN role (all roles can access via URL)
-- **CHANGELOG.md updated** — Added v2.2.0, v2.1.0, v2.0.0 entries covering all work since December 2025
-- **User Manual created** — Comprehensive `docs/USER_MANUAL.md` with 19 sections covering all features, roles, and workflows
-- **Interactive navigation** — Table of Contents links scroll smoothly to sections; "Back to TOC" buttons after each section; floating back-to-top button (appears after scrolling 300px)
+| Feature | Status | Completion |
+|---------|--------|------------|
+| 1a. AI-Powered Self-Service Portal | Partial | ~30% (basic portal, no AI) |
+| 1b. Automated Ticket Routing | Partial | ~60% (rule-based, no AI) |
+| 1c. Real-Time Tracking | **Done** | ~90% (WebSocket + signals) |
+| 1d. Integrated Reporting & Analytics | Partial | ~40% (analytics page, date filter, no charts/export) |
+| 1e. SLA Enforcement & Performance | Partial | ~50% (utils + tracker + actualDuration, no dashboard) |
+| 1f. Ticket Lifecycle Management | **Done** | ~95% (full workflow) |
+| Infrastructure | **Done** | ~95% |

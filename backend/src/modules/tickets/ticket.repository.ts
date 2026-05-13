@@ -368,17 +368,16 @@ export class TicketRepository {
 
     if (status === TicketStatus.RESOLVED) {
       updateData.resolvedAt = now;
-      // Calculate actualDuration in hours (from creation to resolution)
-      const createdAt = new Date(ticket.createdAt);
-      const durationMs = now.getTime() - createdAt.getTime();
-      updateData.actualDuration = Math.round(durationMs / (1000 * 60 * 60));
+      // Calculate actualDuration in hours from creation to resolution
+      const durationMs = now.getTime() - ticket.createdAt.getTime();
+      updateData.actualDuration = Math.ceil(durationMs / (1000 * 60 * 60));
     } else if (status === TicketStatus.CLOSED) {
       updateData.closedAt = now;
-      // If ticket was closed without being resolved first, calculate actualDuration
-      if (!ticket.resolvedAt && !ticket.actualDuration) {
-        const createdAt = new Date(ticket.createdAt);
-        const durationMs = now.getTime() - createdAt.getTime();
-        updateData.actualDuration = Math.round(durationMs / (1000 * 60 * 60));
+      // If ticket was never resolved (e.g., direct close), calculate actualDuration
+      if (!ticket.actualDuration) {
+        const referenceDate = ticket.resolvedAt || ticket.createdAt;
+        const durationMs = now.getTime() - referenceDate.getTime();
+        updateData.actualDuration = Math.ceil(durationMs / (1000 * 60 * 60));
       }
     }
 
