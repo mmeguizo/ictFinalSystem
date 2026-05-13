@@ -65,6 +65,8 @@ interface SLAStep {
   status: SLAStepStatus;
 }
 
+type StatusHistoryEntry = TicketDetail['statusHistory'][number];
+
 @Component({
   selector: 'app-ticket-detail',
   imports: [
@@ -164,6 +166,13 @@ export class TicketDetailPage implements OnInit {
   readonly reopenDescription = signal('');
   readonly reopenComment = signal('');
   readonly reopening = signal(false);
+
+  // ========================================
+  // DESCRIPTION INLINE EDIT STATE
+  // ========================================
+  readonly editingDescription = signal(false);
+  readonly descriptionDraft = signal('');
+  readonly savingDescription = signal(false);
 
   // Secretary Review state (for admin/secretary)
   readonly showSecretaryReviewModal = signal(false);
@@ -306,6 +315,16 @@ export class TicketDetailPage implements OnInit {
     return t?.status === 'CANCELLED' && this.isMyTicket();
   });
 
+  /**
+   * Ticket creator can edit the description while the ticket is still open.
+   * Terminal statuses (RESOLVED, CLOSED, CANCELLED) lock the description.
+   */
+  readonly canEditDescription = computed(() => {
+    const t = this.ticket();
+    if (!t || !this.isMyTicket()) return false;
+    return !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(t.status);
+  });
+
   /** Check if current user is assigned to this ticket */
   readonly isAssignedToMe = computed(() => {
     const t = this.ticket();
@@ -332,12 +351,12 @@ export class TicketDetailPage implements OnInit {
     return this.isDepartmentHead() && t.status === 'ASSIGNED';
   });
 
-  /** Check if department head can update resolution (PENDING, IN_PROGRESS, ON_HOLD, RESOLVED) */
+  /** Check if department head can update resolution before the ticket is resolved */
   readonly canUpdateResolution = computed(() => {
     const t = this.ticket();
     if (!t) return false;
     if (!this.isDepartmentHead()) return false;
-    return ['PENDING', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED'].includes(t.status);
+    return ['PENDING', 'IN_PROGRESS', 'ON_HOLD'].includes(t.status);
   });
 
   /**
@@ -374,7 +393,7 @@ export class TicketDetailPage implements OnInit {
     return role ? staffRoles.includes(role) : false;
   });
 
-  /** Filtered notes - hide internal notes from regular users */
+  /** Filtered notes - hide internal notes and resolution details from regular users */
   readonly visibleNotes = computed(() => {
     const t = this.ticket();
     if (!t?.notes) return [];
@@ -383,7 +402,7 @@ export class TicketDetailPage implements OnInit {
     if (this.canViewInternalNotes()) {
       return t.notes;
     }
-    return t.notes.filter((note) => !note.isInternal);
+    return t.notes.filter((note) => !note.isInternal && !this.isResolutionNote(note));
   });
 
   /** Check if user can add internal notes (staff only) */
@@ -708,6 +727,69 @@ export class TicketDetailPage implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  getUserStatusHistoryComment(history: StatusHistoryEntry): string | null {
+    const transitionKey = `${history.fromStatus ?? ''}->${history.toStatus}`;
+    const comment = history.comment?.trim();
+
+    if (history.toStatus === 'RESOLVED') {
+      return null;
+    }
+
+    const genericComments: Record<string, string> = {
+      'FOR_REVIEW->REVIEWED': 'Reviewed',
+      'REVIEWED->DIRECTOR_APPROVED': 'Approved',
+      'DIRECTOR_APPROVED->ASSIGNED': 'Assigned to department',
+      'ASSIGNED->PENDING': 'Acknowledged',
+      'PENDING->IN_PROGRESS': 'Work started',
+      'ASSIGNED->IN_PROGRESS': 'Work started',
+      'IN_PROGRESS->ON_HOLD': 'Work paused',
+      'ON_HOLD->IN_PROGRESS': 'Work resumed',
+      'RESOLVED->CLOSED': 'Ticket closed',
+    };
+
+    if (genericComments[transitionKey]) {
+      return genericComments[transitionKey];
+    }
+
+    if (!comment) {
+      return null;
+    }
+
+    if (/^Resolution added:/i.test(comment)) {
+      return null;
+    }
+
+    if (/^Rejected by secretary:/i.test(comment)) {
+      return comment.replace(/^Rejected by secretary:/i, 'Rejected:');
+    }
+
+    if (/^Disapproved by director:/i.test(comment)) {
+      return comment.replace(/^Disapproved by director:/i, 'Disapproved:');
+    }
+
+    if (/^Approved by director$/i.test(comment)) {
+      return 'Approved';
+    }
+
+    if (/^Reviewed by secretary$/i.test(comment)) {
+      return 'Reviewed';
+    }
+
+    if (/^Acknowledged by .*?, assigned to developer: .*$/i.test(comment)) {
+      return 'Acknowledged';
+    }
+
+    if (/^Auto-assigned to .* department head$/i.test(comment)) {
+      return 'Assigned to department';
+    }
+
+    return comment;
+  }
+
+  private isResolutionNote(note: TicketNote): boolean {
+    return /^\*\*Resolution:\*\*/i.test(note.content.trim());
   }
 
   getStatusColor(status: string): string {
@@ -1071,6 +1153,43 @@ export class TicketDetailPage implements OnInit {
     this.reopenDescription.set(t.description || '');
     this.reopenComment.set('');
     this.showReopenModal.set(true);
+  }
+
+  // ========================================
+  // DESCRIPTION INLINE EDIT METHODS
+  // ========================================
+
+  openDescEdit(): void {
+    const t = this.ticket();
+    if (!t) return;
+    this.descriptionDraft.set(t.description || '');
+    this.editingDescription.set(true);
+  }
+
+  cancelDescEdit(): void {
+    this.editingDescription.set(false);
+    this.descriptionDraft.set('');
+  }
+
+  saveDescription(): void {
+    const t = this.ticket();
+    if (!t || !this.descriptionDraft().trim()) return;
+    this.savingDescription.set(true);
+    this.ticketService.updateTicketDescription(t.id, this.descriptionDraft()).subscribe({
+      next: (updated) => {
+        // Patch the description in the local signal without a full reload
+        this.ticket.update((current) =>
+          current ? { ...current, description: updated.description } : current,
+        );
+        this.editingDescription.set(false);
+        this.savingDescription.set(false);
+        this.message.success('Description updated.');
+      },
+      error: (err) => {
+        this.savingDescription.set(false);
+        this.message.error(err?.message || 'Failed to update description.');
+      },
+    });
   }
 
   /**

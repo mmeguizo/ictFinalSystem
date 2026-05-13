@@ -1193,6 +1193,56 @@ export class TicketService {
     return this.repository.findById(ticketId);
   }
 
+  /**
+   * Update the description of an open ticket.
+   * Only the original creator can edit, and only while the ticket is not
+   * in a terminal state (RESOLVED, CLOSED, CANCELLED).
+   */
+  async updateTicketDescription(
+    ticketId: number,
+    userId: number,
+    description: string,
+  ) {
+    const ticket = await this.repository.findById(ticketId);
+    if (!ticket) throw new Error("Ticket not found");
+
+    if (ticket.createdById !== userId) {
+      throw new Error("Only the ticket creator can edit the description");
+    }
+
+    const terminalStatuses: TicketStatus[] = [
+      TicketStatus.RESOLVED,
+      TicketStatus.CLOSED,
+      TicketStatus.CANCELLED,
+    ];
+    if (terminalStatuses.includes(ticket.status as TicketStatus)) {
+      throw new Error(
+        "Cannot edit the description of a resolved, closed, or cancelled ticket",
+      );
+    }
+
+    const trimmed = description.trim();
+    if (!trimmed) throw new Error("Description cannot be empty");
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: { description: trimmed },
+      });
+
+      await tx.ticketNote.create({
+        data: {
+          ticketId,
+          userId,
+          content: "Description updated by submitter.",
+          isInternal: false,
+        },
+      });
+    });
+
+    return this.repository.findById(ticketId);
+  }
+
   // ========================================
   // HEAD WORKFLOW METHODS (Simplified)
   // ========================================
@@ -1353,16 +1403,15 @@ export class TicketService {
       throw new Error("Ticket not found");
     }
 
-    // Allow resolution update on active tickets
+    // Allow resolution update only until the ticket is resolved.
     const allowedStatuses: string[] = [
       TicketStatus.PENDING,
       TicketStatus.IN_PROGRESS,
       TicketStatus.ON_HOLD,
-      TicketStatus.RESOLVED,
     ];
     if (!allowedStatuses.includes(ticket.status)) {
       throw new Error(
-        "Ticket must be in PENDING, IN_PROGRESS, ON_HOLD, or RESOLVED status to update resolution",
+        "Ticket must be in PENDING, IN_PROGRESS, or ON_HOLD status to update resolution",
       );
     }
 
@@ -1414,13 +1463,13 @@ export class TicketService {
         });
       }
 
-      // Add public note with the resolution visible to user
+      // Keep troubleshooting details internal. Users only see the status change.
       await tx.ticketNote.create({
         data: {
           ticketId,
           userId: headId,
           content: `**Resolution:**\n${resolution.trim()}${options?.comment ? `\n\n**Notes:** ${options.comment}` : ""}`,
-          isInternal: false,
+          isInternal: true,
         },
       });
     });

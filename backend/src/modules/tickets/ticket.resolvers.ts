@@ -525,6 +525,24 @@ export const ticketResolvers = {
       );
     },
 
+    /**
+     * Update the description of an open ticket (creator only, non-terminal status)
+     */
+    updateTicketDescription: async (
+      _: any,
+      { ticketId, input }: { ticketId: number; input: { description: string } },
+      context: any,
+    ) => {
+      if (!context.currentUser) {
+        throw new Error("Unauthorized");
+      }
+      return ticketService.updateTicketDescription(
+        ticketId,
+        context.currentUser.id,
+        input.description,
+      );
+    },
+
     // ========================================
     // HEAD WORKFLOW MUTATIONS (Simplified)
     // ========================================

@@ -38,8 +38,59 @@
 
         <nz-divider></nz-divider>
 
-        <h4>Description</h4>
-        <p style="white-space: pre-wrap">{{ t.description }}</p>
+        <!-- Description — inline editable for ticket creator on open tickets -->
+        <div class="desc-header">
+          <h4 style="margin: 0">Description</h4>
+          @if (canEditDescription() && !editingDescription()) {
+            <button
+              nz-button
+              nzType="text"
+              nzSize="small"
+              class="desc-edit-btn"
+              nz-tooltip
+              nzTooltipTitle="Edit description"
+              (click)="openDescEdit()"
+            >
+              <span nz-icon nzType="edit" nzTheme="outline"></span> Edit
+            </button>
+          }
+        </div>
+
+        @if (editingDescription()) {
+          <div class="desc-editor">
+            <textarea
+              nz-input
+              [nzAutosize]="{ minRows: 4, maxRows: 12 }"
+              [ngModel]="descriptionDraft()"
+              (ngModelChange)="descriptionDraft.set($event)"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="Add more details about your issue…"
+            ></textarea>
+            <div class="desc-editor-actions">
+              <button
+                nz-button
+                nzType="primary"
+                nzSize="small"
+                [nzLoading]="savingDescription()"
+                [disabled]="!descriptionDraft().trim()"
+                (click)="saveDescription()"
+              >
+                <span nz-icon nzType="save"></span> Save
+              </button>
+              <button
+                nz-button
+                nzType="default"
+                nzSize="small"
+                [disabled]="savingDescription()"
+                (click)="cancelDescEdit()"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        } @else {
+          <p style="white-space: pre-wrap">{{ t.description }}</p>
+        }
       </nz-card>
 
       <!-- Approval Status Card -->
@@ -361,8 +412,8 @@
             </nz-descriptions>
           }
 
-          <!-- Resolution Display -->
-          @if (t.resolution) {
+          <!-- Resolution Display (staff only for now) -->
+          @if (!isRegularUser() && t.resolution) {
             <nz-divider nzText="Resolution"></nz-divider>
             <div class="monitor-report">
               <div class="report-section">
@@ -681,21 +732,38 @@
             <nz-timeline>
               @for (history of t.statusHistory; track history.id) {
                 <nz-timeline-item>
-                  <p>
-                    <strong>{{ history.user.name }}</strong> changed status
-                    @if (history.fromStatus) {
-                      from
-                      <nz-tag [nzColor]="getStatusColor(history.fromStatus)">{{
-                        history.fromStatus
+                  @if (isRegularUser()) {
+                    <p class="status-history-title status-history-title-user">
+                      @if (history.fromStatus) {
+                        <nz-tag [nzColor]="getStatusColor(history.fromStatus)">{{
+                          history.fromStatus
+                        }}</nz-tag>
+                        <span class="status-history-arrow">to</span>
+                      }
+                      <nz-tag [nzColor]="getStatusColor(history.toStatus)">{{
+                        history.toStatus
                       }}</nz-tag>
-                    }
-                    to
-                    <nz-tag [nzColor]="getStatusColor(history.toStatus)">{{
-                      history.toStatus
-                    }}</nz-tag>
-                  </p>
-                  @if (history.comment) {
-                    <p class="comment">{{ history.comment }}</p>
+                    </p>
+                  } @else {
+                    <p class="status-history-title">
+                      <strong>{{ history.user.name }}</strong> changed status
+                      @if (history.fromStatus) {
+                        from
+                        <nz-tag [nzColor]="getStatusColor(history.fromStatus)">{{
+                          history.fromStatus
+                        }}</nz-tag>
+                      }
+                      to
+                      <nz-tag [nzColor]="getStatusColor(history.toStatus)">{{
+                        history.toStatus
+                      }}</nz-tag>
+                    </p>
+                  }
+                  @if (
+                    isRegularUser() ? getUserStatusHistoryComment(history) : history.comment;
+                    as statusComment
+                  ) {
+                    <p class="comment">{{ statusComment }}</p>
                   }
                   <p class="timestamp">{{ formatDate(history.createdAt) }}</p>
                 </nz-timeline-item>

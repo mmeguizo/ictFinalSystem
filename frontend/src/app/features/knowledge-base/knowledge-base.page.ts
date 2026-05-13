@@ -21,6 +21,7 @@ import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { QuillModule } from 'ngx-quill';
 import { KnowledgeBaseService, KnowledgeArticle } from '../../core/services/knowledge-base.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ActivatedRoute } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -63,6 +64,7 @@ export class KnowledgeBasePage {
   private readonly kbService = inject(KnowledgeBaseService);
   private readonly authService = inject(AuthService);
   private readonly message = inject(NzMessageService);
+  private readonly route = inject(ActivatedRoute);
   private readonly destroy$ = new Subject<void>();
 
   // State
@@ -128,6 +130,17 @@ export class KnowledgeBasePage {
 
     this.loadArticles();
     this.loadCategories();
+
+    // Auto-open article when navigating from chat KB link (?article=ID)
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe((params) => {
+      const articleId = params['article'];
+      if (articleId) {
+        this.kbService.getArticle(Number(articleId)).subscribe({
+          next: (article) => this.openArticle(article),
+          error: () => this.message.error('Could not load the article.'),
+        });
+      }
+    });
   }
 
   onSearchInput(value: string): void {

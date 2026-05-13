@@ -252,6 +252,10 @@ export const ticketTypeDefs = gql`
     comment: String
   }
 
+  input UpdateTicketDescriptionInput {
+    description: String!
+  }
+
   # Input for head to acknowledge ticket and assign developer
   input AcknowledgeAndAssignInput {
     assignedDeveloperName: String!
@@ -342,6 +346,10 @@ export const ticketTypeDefs = gql`
     updateTicketNote(noteId: Int!, input: UpdateTicketNoteInput!): TicketNote!
     deleteTicketNote(noteId: Int!): Boolean!
     reopenTicket(ticketId: Int!, input: ReopenTicketInput): Ticket!
+    updateTicketDescription(
+      ticketId: Int!
+      input: UpdateTicketDescriptionInput!
+    ): Ticket!
     # Head workflow: acknowledge ticket and assign developer name
     acknowledgeAndAssignDeveloper(
       ticketId: Int!

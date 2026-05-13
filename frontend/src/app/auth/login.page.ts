@@ -1,5 +1,21 @@
-import { ChangeDetectionStrategy, Component, Injector, inject, signal, OnInit, computed } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, Validators, FormControl, FormGroup, AbstractControl, ValidationErrors } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  inject,
+  signal,
+  OnInit,
+  computed,
+} from '@angular/core';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  Validators,
+  FormControl,
+  FormGroup,
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
@@ -23,7 +39,6 @@ type LoginForm = FormGroup<{
   password: FormControl<string>;
 }>;
 
-
 function mapRoleToRoute(role: unknown): string {
   const r = typeof role === 'string' ? role.toUpperCase() : '';
   switch (r) {
@@ -44,11 +59,22 @@ function mapRoleToRoute(role: unknown): string {
   }
 }
 
-
-
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, NzCardModule, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule, NzDividerModule, NzSpinModule, NzIconModule, NzGridModule, NzTypographyModule, NgOptimizedImage],
+  imports: [
+    ReactiveFormsModule,
+    NzCardModule,
+    NzFormModule,
+    NzInputModule,
+    NzButtonModule,
+    NzAlertModule,
+    NzDividerModule,
+    NzSpinModule,
+    NzIconModule,
+    NzGridModule,
+    NzTypographyModule,
+    NgOptimizedImage,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login.page.html',
   styleUrls: ['./login.style.scss'],
@@ -81,16 +107,20 @@ export class LoginPage {
     password: this.fb.control('', { validators: [Validators.required, Validators.minLength(6)] }),
   });
 
-   ngOnInit(): void {
+  ngOnInit(): void {
     // Check for Auth0 errors in URL on page load
     this.checkAuth0Errors();
   }
-
 
   readonly busy = signal(false);
   readonly ssoBusy = signal(false);
   readonly error = signal<string | null>(null);
   readonly loggedIn = signal(false);
+  readonly showPassword = signal(false);
+
+  togglePassword(): void {
+    this.showPassword.update((v) => !v);
+  }
 
   get emailInvalid(): boolean {
     const c = this.form.controls.email;
@@ -128,9 +158,8 @@ export class LoginPage {
       if (result.data?.login) {
         const { token, user } = result.data.login;
 
-      // ✅ Update AuthService signals (this makes guards work)
-      this.appAuthService.setAuth(user, token);
-
+        // ✅ Update AuthService signals (this makes guards work)
+        this.appAuthService.setAuth(user, token);
 
         localStorage.setItem('auth_token', token);
         localStorage.setItem('current_user', JSON.stringify(user));
@@ -144,27 +173,27 @@ export class LoginPage {
           // console.log(`Navigating to ${route}...`);
           this.router.navigateByUrl(route).then(
             (success) => {}, // console.log('Navigation success:', success),
-            (error) => console.error('Navigation error:', error)
+            (error) => console.error('Navigation error:', error),
           );
         }, 100);
         return;
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      const errMsg = err?.message || err?.graphQLErrors?.[0]?.message || 'Login failed. Please try again.';
+      const errMsg =
+        err?.message || err?.graphQLErrors?.[0]?.message || 'Login failed. Please try again.';
       this.error.set(errMsg);
       this.busy.set(false);
     }
   }
 
-    private checkAuth0Errors(): void {
+  private checkAuth0Errors(): void {
     const error = this.route.snapshot.queryParams['error'];
     const errorDescription = this.route.snapshot.queryParams['error_description'];
 
     if (error) {
       // Display error as toast
-      const displayMessage = errorDescription ||
-        'Authentication failed. Please try again.';
+      const displayMessage = errorDescription || 'Authentication failed. Please try again.';
 
       this.message.error(displayMessage, { nzDuration: 5000 });
 
@@ -184,7 +213,6 @@ export class LoginPage {
       });
     }
   }
-
 
   // Start Auth0 login redirect flow
   loginWithAuth0(): void {

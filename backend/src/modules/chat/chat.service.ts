@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, Content } from "@google/generative-ai";
+import { Prisma } from "@prisma/client";
 import { config } from "../../config";
 import { logger } from "../../lib/logger";
 import { prisma } from "../../lib/prisma";
@@ -306,7 +307,9 @@ export class ChatService {
     const reportContext = isStaffOrAdmin ? reportRequest : null;
 
     // 3d. SLA context for staff/admin — proactive SLA awareness
-    const slaContext = isStaffOrAdmin ? await this.getSLAContext() : null;
+    const slaContext = isStaffOrAdmin
+      ? await this.getSLAContext(userMessage, userRole)
+      : null;
 
     // 4. Search for relevant context (RAG — fulltext + vector)
     const ragContext = await this.retrieveContext(userMessage);
@@ -823,6 +826,8 @@ export class ChatService {
     role: string,
   ): Promise<string | null> {
     const normalizedMessage = message.toLowerCase();
+    const departmentScope = this.getDepartmentScope(role, message);
+    const analyticsWhere = departmentScope ? { type: departmentScope } : {};
 
     const analyticsPatterns = [
       /how many\s+(tickets?|requests?|issues?)/i,
@@ -845,8 +850,13 @@ export class ChatService {
 
     const results: string[] = [];
 
+    if (departmentScope) {
+      results.push(`**Analytics Scope**: ${departmentScope} tickets only`);
+    }
+
     const statusCounts = await prisma.ticket.groupBy({
       by: ["status"],
+      where: analyticsWhere,
       _count: { id: true },
     });
     if (statusCounts.length > 0) {
@@ -863,6 +873,7 @@ export class ChatService {
 
     const typeCounts = await prisma.ticket.groupBy({
       by: ["type"],
+      where: analyticsWhere,
       _count: { id: true },
     });
     if (typeCounts.length > 0) {
@@ -874,6 +885,7 @@ export class ChatService {
 
     const priorityCounts = await prisma.ticket.groupBy({
       by: ["priority"],
+      where: analyticsWhere,
       _count: { id: true },
     });
     if (priorityCounts.length > 0) {
@@ -886,7 +898,7 @@ export class ChatService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayCount = await prisma.ticket.count({
-      where: { createdAt: { gte: todayStart } },
+      where: { ...analyticsWhere, createdAt: { gte: todayStart } },
     });
     results.push(`\n**Today's tickets**: ${todayCount}`);
 
@@ -894,7 +906,7 @@ export class ChatService {
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
     weekStart.setHours(0, 0, 0, 0);
     const weekCount = await prisma.ticket.count({
-      where: { createdAt: { gte: weekStart } },
+      where: { ...analyticsWhere, createdAt: { gte: weekStart } },
     });
     results.push(`**This week's tickets**: ${weekCount}`);
 
@@ -902,20 +914,24 @@ export class ChatService {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
     const monthCount = await prisma.ticket.count({
-      where: { createdAt: { gte: monthStart } },
+      where: { ...analyticsWhere, createdAt: { gte: monthStart } },
     });
     results.push(`**This month's tickets**: ${monthCount}`);
 
+    const commonIssuesWhere = departmentScope
+      ? Prisma.sql`WHERE type = ${departmentScope}`
+      : Prisma.empty;
     const commonIssues = await prisma.$queryRaw<
       Array<{ title: string; count: bigint }>
-    >`
+    >(Prisma.sql`
       SELECT title, COUNT(*) as count
       FROM Ticket
+      ${commonIssuesWhere}
       GROUP BY title
       HAVING COUNT(*) > 1
       ORDER BY count DESC
       LIMIT 5
-    `;
+    `);
     if (commonIssues.length > 0) {
       results.push("\n**Most Recurring Issues:**");
       for (const issue of commonIssues) {
@@ -923,13 +939,16 @@ export class ChatService {
       }
     }
 
+    const avgResolutionWhere = departmentScope
+      ? Prisma.sql`WHERE resolvedAt IS NOT NULL AND type = ${departmentScope}`
+      : Prisma.sql`WHERE resolvedAt IS NOT NULL`;
     const avgResolution = await prisma.$queryRaw<
       Array<{ avg_hours: number | null }>
-    >`
+    >(Prisma.sql`
       SELECT AVG(TIMESTAMPDIFF(HOUR, createdAt, resolvedAt)) as avg_hours
       FROM Ticket
-      WHERE resolvedAt IS NOT NULL
-    `;
+      ${avgResolutionWhere}
+    `);
     if (avgResolution[0]?.avg_hours) {
       const averageHours = Math.round(avgResolution[0].avg_hours);
       results.push(
@@ -941,6 +960,7 @@ export class ChatService {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const overdueTickets = await prisma.ticket.findMany({
       where: {
+        ...analyticsWhere,
         status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
         createdAt: { lt: sevenDaysAgo },
       },
@@ -966,7 +986,7 @@ export class ChatService {
       }
     }
 
-    const workload = await this.getActiveWorkloadRows(10);
+    const workload = await this.getActiveWorkloadRows(10, departmentScope);
     if (workload.length > 0) {
       results.push("\n**Current Staff Workload (active tickets):**");
       for (const workloadRow of workload) {
@@ -976,20 +996,34 @@ export class ChatService {
       }
     }
 
-    const slaTotal = await prisma.ticket.count({
-      where: { dueDate: { not: null } },
-    });
-    const slaMet = await prisma.ticket.count({
+    const completedSlaTickets = await prisma.ticket.findMany({
       where: {
+        ...analyticsWhere,
         dueDate: { not: null },
         status: { in: ["RESOLVED", "CLOSED"] },
-        resolvedAt: { not: null },
+        OR: [{ resolvedAt: { not: null } }, { closedAt: { not: null } }],
+      },
+      select: {
+        dueDate: true,
+        resolvedAt: true,
+        closedAt: true,
       },
     });
+
+    const slaTotal = completedSlaTickets.length;
+    const slaMet = completedSlaTickets.filter((ticket) => {
+      const completedAt = ticket.resolvedAt || ticket.closedAt;
+      return (
+        completedAt != null &&
+        ticket.dueDate != null &&
+        completedAt <= ticket.dueDate
+      );
+    }).length;
+
     if (slaTotal > 0) {
       const complianceRate = Math.round((slaMet / slaTotal) * 100);
       results.push(
-        `\n**SLA Compliance**: ${slaMet}/${slaTotal} tickets resolved within SLA (${complianceRate}%)`,
+        `\n**SLA Compliance**: ${slaMet}/${slaTotal} completed ticket(s) met SLA (${complianceRate}%)`,
       );
     }
 
@@ -1820,16 +1854,22 @@ Tell the user which report type you detected based on their request, and offer t
   // SLA CONTEXT (Staff/Admin only)
   // ========================================
 
-  private async getSLAContext(): Promise<string | null> {
+  private async getSLAContext(
+    message: string,
+    role: string,
+  ): Promise<string | null> {
     try {
       const now = new Date();
       const todayEnd = new Date(now);
       todayEnd.setHours(23, 59, 59, 999);
+      const departmentScope = this.getDepartmentScope(role, message);
+      const slaWhere = departmentScope ? { type: departmentScope } : {};
 
       const [overdueCount, dueTodayCount, dueSoonCount] = await Promise.all([
         // Overdue: dueDate < now AND not resolved/closed
         prisma.ticket.count({
           where: {
+            ...slaWhere,
             dueDate: { lt: now },
             status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
           },
@@ -1837,6 +1877,7 @@ Tell the user which report type you detected based on their request, and offer t
         // Due today
         prisma.ticket.count({
           where: {
+            ...slaWhere,
             dueDate: { gte: now, lte: todayEnd },
             status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
           },
@@ -1844,6 +1885,7 @@ Tell the user which report type you detected based on their request, and offer t
         // Due within 3 days
         prisma.ticket.count({
           where: {
+            ...slaWhere,
             dueDate: {
               gte: now,
               lte: new Date(now.getTime() + 3 * 86400000),
@@ -1858,6 +1900,9 @@ Tell the user which report type you detected based on their request, and offer t
       }
 
       const parts: string[] = [];
+      if (departmentScope) {
+        parts.push(`Scope: ${departmentScope} tickets only`);
+      }
       if (overdueCount > 0)
         parts.push(`⚠️ ${overdueCount} ticket(s) are OVERDUE`);
       if (dueTodayCount > 0)

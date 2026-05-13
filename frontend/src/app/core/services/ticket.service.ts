@@ -522,6 +522,16 @@ const REOPEN_TICKET = gql`
   }
 `;
 
+const UPDATE_TICKET_DESCRIPTION = gql`
+  mutation UpdateTicketDescription($ticketId: Int!, $input: UpdateTicketDescriptionInput!) {
+    updateTicketDescription(ticketId: $ticketId, input: $input) {
+      id
+      ticketNumber
+      description
+    }
+  }
+`;
+
 /**
  * Mutation for head to acknowledge ticket and assign developer
  */
@@ -1256,6 +1266,30 @@ export class TicketService {
             throw new Error('Failed to reopen ticket');
           }
           return result.data.reopenTicket;
+        }),
+      );
+  }
+
+  /**
+   * Update the description of an open ticket (creator only, non-terminal status)
+   */
+  updateTicketDescription(
+    ticketId: number,
+    description: string,
+  ): Observable<{ id: number; description: string }> {
+    return this.apollo
+      .mutate<{
+        updateTicketDescription: { id: number; ticketNumber: string; description: string };
+      }>({
+        mutation: UPDATE_TICKET_DESCRIPTION,
+        variables: { ticketId, input: { description } },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.updateTicketDescription) {
+            throw new Error('Failed to update description');
+          }
+          return result.data.updateTicketDescription;
         }),
       );
   }

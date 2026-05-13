@@ -633,11 +633,11 @@ export class MyTicketsPage implements OnInit {
 
   /**
    * Check if ticket can have resolution updated by department head
-   * (After work is done - PENDING, IN_PROGRESS, ON_HOLD, RESOLVED statuses)
+   * before it is marked resolved.
    */
   canUpdateResolution(ticket: TicketListItem): boolean {
     if (!this.isDepartmentHead()) return false;
-    const allowedStatuses = ['PENDING', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED'];
+    const allowedStatuses = ['PENDING', 'IN_PROGRESS', 'ON_HOLD'];
     return allowedStatuses.includes(ticket.status);
   }
 

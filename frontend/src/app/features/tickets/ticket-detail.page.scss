@@ -8,6 +8,41 @@
   }
 }
 
+/* ── Description inline edit ────────────────── */
+.desc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.desc-edit-btn {
+  color: #1677ff;
+  padding: 0 4px;
+  font-size: 12px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.desc-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  textarea {
+    resize: vertical;
+  }
+}
+
+.desc-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .approval-card {
   nz-alert {
     margin-bottom: 16px;
@@ -26,6 +61,22 @@
     color: #faad14;
     font-weight: 500;
   }
+}
+
+.status-history-title {
+  margin-bottom: 8px;
+}
+
+.status-history-title-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-history-arrow {
+  color: #595959;
+  font-size: 13px;
 }
 
 .add-note-form {

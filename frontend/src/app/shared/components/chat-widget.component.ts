@@ -1189,7 +1189,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
       if (href.startsWith('/knowledge-base/')) {
         event.preventDefault();
         event.stopPropagation();
-        this.router.navigate([href]);
+        const articleId = href.split('/knowledge-base/')[1];
+        this.isOpen.set(false);
+        this.router.navigate(['/knowledge-base'], { queryParams: { article: articleId } });
         return;
       }
 
