@@ -1283,6 +1283,7 @@ export class TicketService {
       dateFinished?: Date;
       status?: TicketStatus;
       comment?: string;
+      solutionVisibility?: string;
     },
   ) {
     const ticket = await this.repository.findById(ticketId);
@@ -1398,9 +1399,14 @@ export class TicketService {
       newStatus === TicketStatus.RESOLVED ||
       newStatus === TicketStatus.CLOSED
     ) {
+      const solutionVisibility = options?.solutionVisibility || "INTERNAL";
       import("../../solutions/solution.service")
         .then(({ solutionService }) =>
-          solutionService.createFromResolvedTicket(ticketId, headId),
+          solutionService.createFromResolvedTicket(
+            ticketId,
+            headId,
+            solutionVisibility,
+          ),
         )
         .catch((err) => console.error("Failed to auto-create solution:", err));
     }

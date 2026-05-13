@@ -14,6 +14,14 @@ export const chatResolvers = {
       if (!ctx.currentUser) throw new Error("Authentication required");
       return chatService.getSession(args.id, ctx.currentUser.id);
     },
+
+    allChatSessions: async (_: any, __: any, ctx: any) => {
+      if (!ctx.currentUser) throw new Error("Authentication required");
+      if (ctx.currentUser.role !== "ADMIN") {
+        throw new Error("Only admins can view all chat sessions");
+      }
+      return chatService.getAllSessions();
+    },
   },
 
   Mutation: {
@@ -131,6 +139,17 @@ export const chatResolvers = {
       if (!parent.ticketId) return null;
       if (parent.ticket) return parent.ticket;
       return prisma.ticket.findUnique({ where: { id: parent.ticketId } });
+    },
+  },
+
+  ChatSessionWithUser: {
+    user: async (parent: any) => {
+      if (parent.user) return parent.user;
+      return prisma.user.findUnique({ where: { id: parent.userId } });
+    },
+    messageCount: (parent: any) => {
+      if (parent._count?.messages !== undefined) return parent._count.messages;
+      return 0;
     },
   },
 };

@@ -55,9 +55,25 @@ export const chatTypeDefs = gql`
     embeddingsFailed: Int!
   }
 
+  type ChatSessionWithUser {
+    id: Int!
+    userId: Int!
+    user: User!
+    title: String!
+    status: ChatSessionStatus!
+    ticketId: Int
+    messageCount: Int
+    createdAt: String!
+    updatedAt: String!
+  }
+
   extend type Query {
     chatSessions: [ChatSession!]!
     chatSession(id: Int!): ChatSession
+    """
+    Admin-only: view all chat sessions across all users
+    """
+    allChatSessions: [ChatSessionWithUser!]!
   }
 
   extend type Mutation {

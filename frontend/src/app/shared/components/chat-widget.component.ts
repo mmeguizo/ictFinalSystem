@@ -7,9 +7,13 @@ import {
   inject,
   signal,
   computed,
+  DestroyRef,
+  OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -21,6 +25,8 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.service';
+import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../core/config/environment';
 
 @Component({
   selector: 'app-chat-widget',
@@ -40,19 +46,16 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <!-- Floating Chat Button -->
-    <button
-      class="chat-fab"
-      nz-button
-      nzType="primary"
-      nzShape="circle"
-      nzSize="large"
-      nz-tooltip
-      nzTooltipTitle="AI Support Chat"
-      (click)="toggleDrawer()"
-    >
-      <span nz-icon [nzType]="isOpen() ? 'close' : 'message'" nzTheme="outline"></span>
-    </button>
+    <!-- Floating AI Chat Button — Redesigned -->
+    <div class="chat-fab-wrapper" (click)="toggleDrawer()">
+      <div class="chat-fab" [class.active]="isOpen()">
+        <div class="fab-icon">
+          <span nz-icon [nzType]="isOpen() ? 'close' : 'robot'" nzTheme="outline"></span>
+        </div>
+        <span class="fab-label" [class.hidden]="isOpen()">AI Assistant</span>
+      </div>
+      <div class="fab-pulse" [class.hidden]="isOpen()"></div>
+    </div>
 
     <!-- Chat Drawer -->
     <nz-drawer
@@ -67,17 +70,30 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
       nzWrapClassName="chat-drawer-wrapper"
     >
       <ng-container *nzDrawerContent>
-        <!-- Header -->
+        <!-- Header — Gradient branded -->
         <div class="chat-header">
           <div class="chat-header-left">
             @if (activeSession()) {
-              <button nz-button nzType="text" nzSize="small" (click)="backToSessions()">
+              <button
+                nz-button
+                nzType="text"
+                nzSize="small"
+                class="back-btn"
+                (click)="backToSessions()"
+              >
                 <span nz-icon nzType="arrow-left"></span>
               </button>
               <span class="chat-header-title">{{ activeSession()!.title }}</span>
             } @else {
-              <span nz-icon nzType="robot" nzTheme="outline" class="header-icon"></span>
-              <span class="chat-header-title">ICT AI Assistant</span>
+              <div class="header-brand">
+                <div class="brand-icon">
+                  <span nz-icon nzType="robot" nzTheme="outline"></span>
+                </div>
+                <div class="brand-text">
+                  <span class="chat-header-title">ICT AI Assistant</span>
+                  <span class="header-subtitle">Powered by Gemini</span>
+                </div>
+              </div>
             }
           </div>
           <div class="chat-header-actions">
@@ -152,41 +168,85 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
             } @else {
               @if (messages().length === 0) {
                 <div class="chat-welcome">
-                  <span nz-icon nzType="robot" nzTheme="outline" class="welcome-icon"></span>
-                  <h3>How can I help you?</h3>
-                  <p>
-                    Ask about any ICT issue — I'll try to find a solution from our knowledge base.
-                    If I can't help, I'll create a support ticket for you.
-                  </p>
-                  <div class="quick-prompts">
-                    <button
-                      nz-button
-                      nzSize="small"
-                      (click)="sendQuick('My internet is not working')"
-                    >
-                      🌐 Internet issues
-                    </button>
-                    <button
-                      nz-button
-                      nzSize="small"
-                      (click)="sendQuick('My printer is not printing')"
-                    >
-                      🖨️ Printer problems
-                    </button>
-                    <button
-                      nz-button
-                      nzSize="small"
-                      (click)="sendQuick('What is the status of my tickets?')"
-                    >
-                      📋 Check ticket status
-                    </button>
-                    <button
-                      nz-button
-                      nzSize="small"
-                      (click)="sendQuick('I need software installed')"
-                    >
-                      💿 Software install
-                    </button>
+                  <div class="welcome-hero">
+                    <div class="welcome-icon-wrapper">
+                      <span nz-icon nzType="robot" nzTheme="outline" class="welcome-icon"></span>
+                    </div>
+                    <h3>Hi! I'm your ICT AI Assistant</h3>
+                    <p>
+                      @if (isStaffOrAdmin()) {
+                        I can help you check analytics, generate reports, monitor SLA compliance,
+                        troubleshoot issues, and search our knowledge base.
+                      } @else {
+                        I can troubleshoot your issues, look up solutions from our knowledge base,
+                        or help you create a support ticket.
+                      }
+                    </p>
+                  </div>
+                  <div class="quick-categories">
+                    <p class="quick-label">Common issues I can help with:</p>
+                    <div class="quick-prompts">
+                      <button class="quick-btn" (click)="sendQuick('My internet is not working')">
+                        <span class="quick-emoji">🌐</span>
+                        <span class="quick-text">Internet / Network</span>
+                      </button>
+                      <button class="quick-btn" (click)="sendQuick('My printer is not printing')">
+                        <span class="quick-emoji">🖨️</span>
+                        <span class="quick-text">Printer Issues</span>
+                      </button>
+                      <button
+                        class="quick-btn"
+                        (click)="sendQuick('I need software installed or updated')"
+                      >
+                        <span class="quick-emoji">💻</span>
+                        <span class="quick-text">Software / Apps</span>
+                      </button>
+                      <button
+                        class="quick-btn"
+                        (click)="sendQuick('I have a problem with my account or password')"
+                      >
+                        <span class="quick-emoji">🔐</span>
+                        <span class="quick-text">Account / Password</span>
+                      </button>
+                      <button
+                        class="quick-btn"
+                        (click)="sendQuick('What is the status of my tickets?')"
+                      >
+                        <span class="quick-emoji">📋</span>
+                        <span class="quick-text">Check Ticket Status</span>
+                      </button>
+                      @if (isStaffOrAdmin()) {
+                        <button
+                          class="quick-btn"
+                          (click)="sendQuick('Show me the ICT statistics and analytics')"
+                        >
+                          <span class="quick-emoji">📊</span>
+                          <span class="quick-text">ICT Analytics</span>
+                        </button>
+                        <button
+                          class="quick-btn"
+                          (click)="sendQuick('Generate a full Excel report of all tickets')"
+                        >
+                          <span class="quick-emoji">📥</span>
+                          <span class="quick-text">Download Report</span>
+                        </button>
+                        <button
+                          class="quick-btn"
+                          (click)="sendQuick('Show me overdue tickets and SLA warnings')"
+                        >
+                          <span class="quick-emoji">⚠️</span>
+                          <span class="quick-text">SLA Warnings</span>
+                        </button>
+                      } @else {
+                        <button
+                          class="quick-btn"
+                          (click)="sendQuick('I want to create a support ticket')"
+                        >
+                          <span class="quick-emoji">🎫</span>
+                          <span class="quick-text">Create Ticket</span>
+                        </button>
+                      }
+                    </div>
                   </div>
                 </div>
               }
@@ -198,7 +258,11 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
                       <span nz-icon nzType="robot" nzTheme="outline"></span>
                     </div>
                   }
-                  <div class="message-bubble" [innerHTML]="renderMarkdown(msg.content)"></div>
+                  <div
+                    class="message-bubble"
+                    [innerHTML]="renderMarkdown(msg.content)"
+                    (click)="onMessageClick($event)"
+                  ></div>
                   @if (msg.role === 'USER') {
                     <div class="message-avatar user">
                       <span nz-icon nzType="user" nzTheme="outline"></span>
@@ -268,55 +332,156 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
         display: contents;
       }
 
-      .chat-fab {
+      /* ── Floating AI Button (Redesigned) ──────────── */
+      .chat-fab-wrapper {
         position: fixed;
         bottom: 24px;
         right: 24px;
         z-index: 1000;
-        width: 56px;
-        height: 56px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+      }
+
+      .chat-fab {
         display: flex;
         align-items: center;
-        justify-content: center;
+        gap: 10px;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50px;
+        color: #fff;
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        z-index: 2;
 
-        span[nz-icon] {
-          font-size: 24px;
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 24px rgba(102, 126, 234, 0.5);
+        }
+
+        &.active {
+          padding: 12px;
+          border-radius: 50%;
         }
       }
 
+      .fab-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+      }
+
+      .fab-label {
+        font-weight: 600;
+        font-size: 14px;
+        white-space: nowrap;
+        transition: all 0.3s;
+        &.hidden {
+          display: none;
+        }
+      }
+
+      .fab-pulse {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        border-radius: 50px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        animation: fab-ping 2s cubic-bezier(0, 0, 0.2, 1) 3;
+        z-index: 1;
+        &.hidden {
+          display: none;
+        }
+      }
+
+      @keyframes fab-ping {
+        0% {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 0.5;
+        }
+        75%,
+        100% {
+          transform: translate(-50%, -50%) scale(1.6);
+          opacity: 0;
+        }
+      }
+
+      /* ── Header ─────────────────────────────────────── */
       .chat-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 16px;
+        padding: 14px 16px;
         border-bottom: 1px solid #f0f0f0;
-        background: #fafafa;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
       }
 
       .chat-header-left {
         display: flex;
         align-items: center;
         gap: 8px;
+        flex: 1;
+        min-width: 0;
+      }
 
-        .header-icon {
-          font-size: 20px;
-          color: #1890ff;
-        }
-        .chat-header-title {
-          font-weight: 600;
-          font-size: 15px;
-        }
+      .back-btn {
+        color: #fff !important;
+      }
+
+      .header-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+      }
+
+      .brand-text {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chat-header-title {
+        font-weight: 600;
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .header-subtitle {
+        font-size: 11px;
+        opacity: 0.8;
       }
 
       .chat-header-actions {
         display: flex;
         gap: 4px;
+
+        button {
+          color: #fff !important;
+        }
       }
 
-      /* Session list */
+      /* ── Session list ─────────────────────────────── */
       .chat-session-list {
-        height: calc(100vh - 57px);
+        height: calc(100vh - 65px);
         overflow-y: auto;
         padding: 8px;
       }
@@ -326,7 +491,7 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
         align-items: center;
         justify-content: space-between;
         padding: 12px;
-        border-radius: 8px;
+        border-radius: 10px;
         cursor: pointer;
         transition: background 0.2s;
         margin-bottom: 4px;
@@ -362,14 +527,15 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
         gap: 4px;
       }
 
-      /* Chat messages */
+      /* ── Chat messages ────────────────────────────── */
       .chat-messages {
-        height: calc(100vh - 57px - 56px);
+        height: calc(100vh - 65px - 56px);
         overflow-y: auto;
         padding: 16px;
         display: flex;
         flex-direction: column;
         gap: 12px;
+        background: #fafbfc;
       }
 
       .chat-loading,
@@ -386,31 +552,107 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
         margin-top: 8px;
       }
 
+      /* ── Welcome Screen ───────────────────────────── */
       .chat-welcome {
-        text-align: center;
-        padding: 32px 16px;
+        padding: 24px 8px;
+      }
 
-        .welcome-icon {
-          font-size: 48px;
-          color: #1890ff;
-          margin-bottom: 16px;
+      .welcome-hero {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+
+      .welcome-icon-wrapper {
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        animation: float 3s ease-in-out infinite;
+      }
+
+      .welcome-icon {
+        font-size: 32px;
+        color: #fff;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
         }
-        h3 {
-          margin: 8px 0;
+        50% {
+          transform: translateY(-6px);
         }
-        p {
+      }
+
+      .chat-welcome h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0 0 6px;
+      }
+
+      .chat-welcome .welcome-hero p {
+        font-size: 13px;
+        color: #8c8c8c;
+        line-height: 1.6;
+        margin: 0;
+      }
+
+      .quick-categories {
+        .quick-label {
+          font-size: 12px;
+          font-weight: 600;
           color: #8c8c8c;
-          margin-bottom: 16px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 12px;
         }
       }
 
       .quick-prompts {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
-        justify-content: center;
       }
 
+      .quick-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid #e8e8e8;
+        border-radius: 12px;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.2s;
+
+        &:hover {
+          border-color: #667eea;
+          background: #f8f7ff;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+      }
+
+      .quick-emoji {
+        font-size: 20px;
+        flex-shrink: 0;
+      }
+
+      .quick-text {
+        font-size: 12px;
+        font-weight: 500;
+        color: #333;
+        line-height: 1.3;
+      }
+
+      /* ── Messages ─────────────────────────────────── */
       .message {
         display: flex;
         gap: 8px;
@@ -435,8 +677,8 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
       .message-avatar {
         width: 32px;
         height: 32px;
-        border-radius: 50%;
-        background: #e6f7ff;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -444,34 +686,35 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
 
         span[nz-icon] {
           font-size: 16px;
-          color: #1890ff;
+          color: #fff;
         }
 
         &.user {
-          background: #f6ffed;
+          background: linear-gradient(135deg, #52c41a, #389e0d);
           span[nz-icon] {
-            color: #52c41a;
+            color: #fff;
           }
         }
       }
 
       .message-bubble {
         padding: 10px 14px;
-        border-radius: 12px;
+        border-radius: 14px;
         line-height: 1.5;
         word-break: break-word;
         max-width: 80%;
       }
 
       .message-user .message-bubble {
-        background: #1890ff;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border-bottom-right-radius: 4px;
       }
 
       .message-assistant .message-bubble {
-        background: #f0f0f0;
+        background: #fff;
         color: #262626;
+        border: 1px solid #e8e8e8;
         border-bottom-left-radius: 4px;
 
         :host ::ng-deep {
@@ -487,20 +730,63 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
             padding-left: 20px;
           }
           code {
-            background: #e8e8e8;
-            padding: 2px 4px;
-            border-radius: 3px;
+            background: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 4px;
             font-size: 13px;
           }
           pre {
-            background: #262626;
+            background: #1a1a2e;
             color: #e8e8e8;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 10px 14px;
+            border-radius: 8px;
             overflow-x: auto;
           }
           strong {
             font-weight: 600;
+          }
+          a.kb-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #f0f5ff;
+            border: 1px solid #adc6ff;
+            border-radius: 4px;
+            color: #2f54eb;
+            font-size: 13px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+
+            &:hover {
+              background: #d6e4ff;
+              border-color: #597ef7;
+            }
+          }
+
+          a.report-download-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            margin: 4px 0;
+            background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(82, 196, 26, 0.3);
+
+            &:hover {
+              background: linear-gradient(135deg, #73d13d 0%, #52c41a 100%);
+              box-shadow: 0 4px 8px rgba(82, 196, 26, 0.4);
+              transform: translateY(-1px);
+            }
           }
         }
       }
@@ -513,7 +799,7 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
         .dot {
           width: 8px;
           height: 8px;
-          background: #8c8c8c;
+          background: #667eea;
           border-radius: 50%;
           animation: typing 1.4s infinite;
 
@@ -545,20 +831,23 @@ import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.
         margin: 4px 0;
       }
 
-      /* Input area */
+      /* ── Input area ───────────────────────────────── */
       .chat-input-area {
         padding: 12px 16px;
         border-top: 1px solid #f0f0f0;
-        background: #fafafa;
+        background: #fff;
       }
     `,
   ],
 })
-export class ChatWidgetComponent implements AfterViewChecked {
+export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   @ViewChild('messagesContainer') messagesContainer?: ElementRef<HTMLDivElement>;
 
   private readonly chatService = inject(ChatService);
+  private readonly authService = inject(AuthService);
   private readonly message = inject(NzMessageService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private shouldScroll = false;
 
   // State
@@ -571,7 +860,25 @@ export class ChatWidgetComponent implements AfterViewChecked {
   readonly sending = signal(false);
   readonly creatingTicket = signal(false);
 
+  /** Whether current user is staff/admin (has access to analytics, reports) */
+  readonly isStaffOrAdmin = computed(() => {
+    const role = this.authService.currentUser()?.role;
+    return ['ADMIN', 'ICT_STAFF', 'SUPERVISOR'].includes(role || '');
+  });
+
   inputMessage = '';
+
+  ngOnInit() {
+    // Listen for external requests to open chat (e.g., from submit-ticket page)
+    this.chatService.openChat$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.isOpen.set(true);
+      if (this.sessions().length === 0) {
+        this.loadSessions();
+      }
+      // Start a new chat session automatically
+      this.startNewChat();
+    });
+  }
 
   toggleDrawer() {
     const open = !this.isOpen();
@@ -746,8 +1053,78 @@ export class ChatWidgetComponent implements AfterViewChecked {
       });
   }
 
+  /**
+   * Handle clicks inside message bubbles — intercept report download links
+   */
+  onMessageClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    const link = target.closest('a') as HTMLAnchorElement;
+    if (link) {
+      const href = link.getAttribute('href') || '';
+      // Intercept report download links
+      if (href.startsWith('/reports/download')) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.downloadReport(href);
+        return;
+      }
+      // Intercept KB links for in-app navigation
+      if (href.startsWith('/knowledge-base/')) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.router.navigate([href]);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Download an Excel report via the REST endpoint with auth
+   */
+  private downloadReport(reportPath: string) {
+    const token = this.authService.getToken();
+    if (!token) {
+      this.message.error('Please log in to download reports');
+      return;
+    }
+
+    // Build the full URL from the API base
+    const baseUrl = environment.apiUrl.replace('/graphql', '');
+    const fullUrl = `${baseUrl}${reportPath}`;
+
+    this.message.loading('Generating report...');
+
+    fetch(fullUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((err) => {
+            throw new Error(err.error || 'Download failed');
+          });
+        }
+        return res.blob();
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // Extract filename from reportPath or use default
+        const type = new URLSearchParams(reportPath.split('?')[1]).get('type') || 'report';
+        a.download = `ICT_Report_${type}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        this.message.success('Report downloaded!');
+      })
+      .catch((err) => {
+        this.message.error(err.message || 'Failed to download report');
+      });
+  }
+
   renderMarkdown(content: string): string {
-    // Simple markdown rendering — bold, code, lists, links
+    // Simple markdown rendering — bold, code, lists, links, KB article links
     let html = content
       // Remove ticket-data blocks from display
       .replace(/```ticket-data[\s\S]*?```/g, '')
@@ -759,6 +1136,18 @@ export class ChatWidgetComponent implements AfterViewChecked {
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       // Italic
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      // KB article links: [KB: Title](kb:ID) → clickable link to /knowledge-base/ID
+      .replace(
+        /\[KB:\s*([^\]]+)\]\(kb:(\d+)\)/g,
+        '<a class="kb-link" href="/knowledge-base/$2">📖 $1</a>',
+      )
+      // Report download links: [...](/reports/download?...) → button-style download link
+      .replace(
+        /\[([^\]]+)\]\((\/reports\/download[^)]*)\)/g,
+        '<a class="report-download-link" href="$2">📥 $1</a>',
+      )
+      // Standard markdown links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
       // Numbered lists
       .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
       // Bullet lists

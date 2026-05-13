@@ -432,6 +432,8 @@ model TroubleshootingSolution {
   solution    String   @db.LongText
   category    String // NETWORK, SOFTWARE, HARDWARE, ACCOUNT, PRINTER, SECURITY, OTHER
   tags        String?  @db.Text // comma-separated
+  /// INTERNAL = staff/dev only, PUBLIC = visible to end-users for self-service
+  visibility  String   @default("INTERNAL") // INTERNAL | PUBLIC
   /// Optional link to the ticket that this solution resolved
   ticketId    Int?
   ticket      Ticket?  @relation("SolutionTicket", fields: [ticketId], references: [id])
@@ -443,6 +445,7 @@ model TroubleshootingSolution {
   updatedAt   DateTime @updatedAt
 
   @@index([category])
+  @@index([visibility])
   @@index([createdById])
   @@index([createdAt])
   @@fulltext([problem, solution])

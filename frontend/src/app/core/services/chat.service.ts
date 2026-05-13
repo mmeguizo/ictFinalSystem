@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Apollo, gql } from 'apollo-angular';
-import { map, Observable } from 'rxjs';
+import { map, Observable, Subject } from 'rxjs';
 
 // ========================================
 // GraphQL Operations
@@ -137,6 +137,14 @@ export interface TicketFromChat {
 @Injectable({ providedIn: 'root' })
 export class ChatService {
   private readonly apollo = inject(Apollo);
+
+  /** Emits when any component wants to open the chat widget with a new session */
+  readonly openChat$ = new Subject<void>();
+
+  /** Call this from any page (e.g., submit-ticket) to open the AI chat widget */
+  requestOpenChat(): void {
+    this.openChat$.next();
+  }
 
   getSessions(): Observable<ChatSession[]> {
     return this.apollo

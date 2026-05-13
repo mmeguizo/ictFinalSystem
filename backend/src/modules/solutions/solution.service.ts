@@ -35,7 +35,8 @@ export class SolutionService {
       prisma.troubleshootingSolution.count({ where }),
     ]);
 
-    return { items, totalCount, page, pageSize };
+    const totalPages = Math.ceil(totalCount / pageSize);
+    return { items, totalCount, page, pageSize, totalPages };
   }
 
   /**
@@ -127,16 +128,87 @@ export class SolutionService {
    * Full-text search solutions for AI context retrieval
    */
   async searchForContext(query: string, limit = 5): Promise<any[]> {
+    // Extract meaningful keywords, filter stop words
+    const stopWords = new Set([
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "could",
+      "should",
+      "i",
+      "you",
+      "he",
+      "she",
+      "it",
+      "we",
+      "they",
+      "me",
+      "my",
+      "your",
+      "what",
+      "which",
+      "who",
+      "how",
+      "when",
+      "where",
+      "why",
+      "not",
+      "no",
+      "but",
+      "and",
+      "or",
+      "if",
+      "then",
+      "so",
+      "just",
+      "about",
+      "up",
+      "out",
+      "on",
+      "off",
+      "in",
+      "to",
+      "for",
+      "of",
+      "with",
+      "at",
+      "by",
+      "from",
+      "please",
+      "know",
+      "check",
+      "tell",
+      "show",
+      "many",
+      "much",
+      "any",
+    ]);
+
     const keywords = query
+      .toLowerCase()
       .split(/\s+/)
-      .filter((w) => w.length >= 2)
       .map((k) => k.replace(/[^a-zA-Z0-9]/g, ""))
-      .filter(Boolean)
-      .slice(0, 10);
+      .filter((w) => w.length >= 3 && !stopWords.has(w))
+      .slice(0, 8);
 
     if (keywords.length === 0) return [];
 
-    const searchTerms = keywords.map((k) => `+${k}`).join(" ");
+    // Use OR-based search (natural language mode) for better recall
+    const searchTerms = keywords.join(" ");
 
     try {
       return await prisma.$queryRaw<any[]>`
@@ -151,7 +223,7 @@ export class SolutionService {
       // Fallback to LIKE
       return prisma.troubleshootingSolution.findMany({
         where: {
-          OR: keywords.slice(0, 3).map((kw) => ({
+          OR: keywords.slice(0, 5).map((kw) => ({
             OR: [{ problem: { contains: kw } }, { solution: { contains: kw } }],
           })),
         },
@@ -175,6 +247,7 @@ export class SolutionService {
   async createFromResolvedTicket(
     ticketId: number,
     resolvedById: number,
+    visibility: string = "INTERNAL",
   ): Promise<void> {
     try {
       // Skip if solution already exists for this ticket
@@ -239,6 +312,7 @@ export class SolutionService {
           solution,
           category,
           tags: tags || null,
+          visibility: visibility === "PUBLIC" ? "PUBLIC" : "INTERNAL",
           ticketId,
           createdById: resolvedById,
         },
