@@ -1,5 +1,6 @@
 import { User, Role } from "@prisma/client";
 import argon2 from "argon2";
+import { prisma } from "../../lib/prisma";
 import { UserRepository, userRepository } from "./user.repository";
 import { StorageService, storageService } from "../storage/storage.service";
 import { JWTService, jwtService } from "../auth/jwt.service";
@@ -269,8 +270,41 @@ export class UserService {
       throw new ValidationError("Cannot delete your own account");
     }
 
-    await this.userRepo.findByIdOrThrow(userId);
-    logger.info(`Deleting user ${userId} by admin ${adminId}`);
+    const user = await this.userRepo.findByIdOrThrow(userId);
+
+    // Block deletion if user has open (unresolved) tickets they created
+    const openTickets = await prisma.ticket.count({
+      where: {
+        createdById: userId,
+        status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] },
+      },
+    });
+    if (openTickets > 0) {
+      throw new ValidationError(
+        `Cannot delete user: they have ${openTickets} open ticket(s). Deactivate the account instead to preserve ticket history.`,
+      );
+    }
+
+    // Block deletion if user is currently assigned to active tickets
+    const assignedTickets = await prisma.ticketAssignment.count({
+      where: {
+        userId,
+        ticket: { status: { notIn: ["RESOLVED", "CLOSED", "CANCELLED"] } },
+      },
+    });
+    if (assignedTickets > 0) {
+      throw new ValidationError(
+        `Cannot delete user: they are assigned to ${assignedTickets} active ticket(s). Reassign or resolve those tickets first.`,
+      );
+    }
+
+    logger.warn("Admin permanently deleted a user account", {
+      action: "HARD_DELETE_USER",
+      userId,
+      userEmail: (user as any).email,
+      adminId,
+      at: new Date(),
+    });
     await this.userRepo.delete(userId);
   }
 }

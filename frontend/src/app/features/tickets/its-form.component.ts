@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  output,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
@@ -97,8 +105,12 @@ export class ITSFormComponent {
     }),
   });
 
+  private readonly destroyRef = inject(DestroyRef);
+
   constructor() {
-    this.formGroup.valueChanges.subscribe(() => this.contentChanged.emit());
+    this.formGroup.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.contentChanged.emit());
   }
 
   borrowGroup = this.formGroup.get('itsBorrow') as FormGroup;

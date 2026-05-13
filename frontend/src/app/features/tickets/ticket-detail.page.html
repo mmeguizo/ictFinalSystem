@@ -759,6 +759,57 @@
                     <nz-tag nzColor="orange">Internal</nz-tag>
                   }
                   <span class="note-time">{{ formatDate(note.createdAt) }}</span>
+
+                  @if (canManageNotes()) {
+                    <span class="note-actions">
+                      @if (!note.isInternal) {
+                        <button
+                          nz-button
+                          nzType="default"
+                          nzSize="small"
+                          nz-tooltip
+                          nzTooltipTitle="Make internal (hidden from requester)"
+                          [nzLoading]="togglingNoteId() === note.id"
+                          [disabled]="deletingNoteId() === note.id"
+                          (click)="toggleNoteInternal(note)"
+                        >
+                          <span nz-icon nzType="eye-invisible" nzTheme="outline"></span>
+                          Make Internal
+                        </button>
+                      } @else {
+                        <button
+                          nz-button
+                          nzType="default"
+                          nzSize="small"
+                          nz-tooltip
+                          nzTooltipTitle="Make public (visible to requester)"
+                          [nzLoading]="togglingNoteId() === note.id"
+                          [disabled]="deletingNoteId() === note.id"
+                          (click)="toggleNoteInternal(note)"
+                        >
+                          <span nz-icon nzType="eye" nzTheme="outline"></span>
+                          Make Public
+                        </button>
+                      }
+                      <button
+                        nz-button
+                        nzType="default"
+                        nzDanger
+                        nzSize="small"
+                        nz-popconfirm
+                        nzPopconfirmTitle="Delete this note?"
+                        nzOkText="Delete"
+                        nzCancelText="Cancel"
+                        nzPopconfirmPlacement="top"
+                        [nzLoading]="deletingNoteId() === note.id"
+                        [disabled]="togglingNoteId() === note.id"
+                        (nzOnConfirm)="deleteNote(note.id)"
+                      >
+                        <span nz-icon nzType="delete" nzTheme="outline"></span>
+                        Delete
+                      </button>
+                    </span>
+                  }
                 </div>
                 <div class="note-content">{{ note.content }}</div>
               </div>

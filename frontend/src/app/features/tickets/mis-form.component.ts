@@ -1,12 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   signal,
   computed,
   effect,
   inject,
   output,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FormBuilder,
   FormGroup,
@@ -170,6 +172,7 @@ import { TicketService } from '../../core/services/ticket.service';
 })
 export class MISFormComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   /** Emits when form content changes (for priority suggestion recalculation) */
   readonly contentChanged = output<void>();
@@ -225,7 +228,7 @@ export class MISFormComponent {
     }
 
     // Subscribe to category changes
-    this.categoryControl.valueChanges.subscribe((cat) => {
+    this.categoryControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((cat) => {
       this.category.set(cat);
       if (cat === 'WEBSITE') {
         this.softwareGroup?.reset({
@@ -250,7 +253,7 @@ export class MISFormComponent {
     });
 
     // Emit on any form value change (debounced naturally by Angular)
-    this.formGroup.valueChanges.subscribe(() => {
+    this.formGroup.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.contentChanged.emit();
     });
   }

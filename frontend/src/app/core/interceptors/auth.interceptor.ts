@@ -13,8 +13,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
-  // Get token from auth service
-  const token = localStorage.getItem('auth_token') || '';
+  // Prefer the token stored by AuthService (covers both local login and Auth0 SSO).
+  // Fall back to the legacy 'auth_token' key written by login.page.ts so that
+  // existing local-login sessions continue to work without a re-login.
+  const authService = inject(AuthService);
+  const token = authService.getToken() || localStorage.getItem('auth_token') || '';
   // Clone request and add Authorization header (existing logic)
   const authReq = req.clone({
     setHeaders: {

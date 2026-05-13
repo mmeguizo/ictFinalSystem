@@ -1,4 +1,5 @@
 import { PrismaClient, ArticleStatus } from "@prisma/client";
+import { logger } from "../../lib/logger";
 import { KBRepository, ArticleFilter, PaginationParams } from "./kb.repository";
 
 export class KBService {
@@ -66,6 +67,14 @@ export class KBService {
       throw new Error("Not authorized to delete this article");
     }
 
+    logger.warn("Knowledge base article permanently deleted", {
+      action: "HARD_DELETE_KB_ARTICLE",
+      id,
+      title: (article as any).title,
+      deletedBy: userId,
+      userRole,
+      at: new Date(),
+    });
     return this.repo.delete(id);
   }
 

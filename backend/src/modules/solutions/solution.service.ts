@@ -119,7 +119,18 @@ export class SolutionService {
   /**
    * Delete a solution
    */
-  async deleteSolution(id: number) {
+  async deleteSolution(id: number, actorId?: number) {
+    const solution = await prisma.troubleshootingSolution.findUnique({
+      where: { id },
+      select: { id: true, problem: true },
+    });
+    logger.warn("Troubleshooting solution permanently deleted", {
+      action: "HARD_DELETE_SOLUTION",
+      id,
+      problem: solution?.problem?.substring(0, 80),
+      deletedBy: actorId,
+      at: new Date(),
+    });
     await prisma.troubleshootingSolution.delete({ where: { id } });
     return true;
   }

@@ -36,7 +36,12 @@ import { NzUploadModule } from 'ng-zorro-antd/upload';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
-import { TicketService, TicketDetail, TicketAttachment } from '../../core/services/ticket.service';
+import {
+  TicketService,
+  TicketDetail,
+  TicketAttachment,
+  TicketNote,
+} from '../../core/services/ticket.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { RealtimeService } from '../../core/services/realtime.service';
@@ -143,6 +148,10 @@ export class TicketDetailPage implements OnInit {
   readonly submittingNote = signal(false);
   readonly noteContent = signal('');
   readonly isInternalNote = signal(false);
+
+  // Note management state (delete / toggle-internal)
+  readonly deletingNoteId = signal<number | null>(null);
+  readonly togglingNoteId = signal<number | null>(null);
 
   // Status update state
   readonly updatingStatus = signal(false);
@@ -379,6 +388,9 @@ export class TicketDetailPage implements OnInit {
 
   /** Check if user can add internal notes (staff only) */
   readonly canAddInternalNotes = computed(() => this.canViewInternalNotes());
+
+  /** Check if current user can delete or update notes (all staff roles, not USER) */
+  readonly canManageNotes = computed(() => this.canViewInternalNotes());
 
   // ========================================
   // SLA TIME TRACKING
@@ -847,6 +859,45 @@ export class TicketDetailPage implements OnInit {
           this.submittingNote.set(false);
         },
       });
+  }
+
+  deleteNote(noteId: number): void {
+    const ticket = this.ticket();
+    if (!ticket) return;
+
+    this.deletingNoteId.set(noteId);
+    this.ticketService.deleteTicketNote(noteId).subscribe({
+      next: () => {
+        this.message.success('Note deleted');
+        this.deletingNoteId.set(null);
+        this.loadTicket(ticket.ticketNumber);
+      },
+      error: (err) => {
+        console.error('Failed to delete note:', err);
+        this.message.error('Failed to delete note');
+        this.deletingNoteId.set(null);
+      },
+    });
+  }
+
+  toggleNoteInternal(note: TicketNote): void {
+    const ticket = this.ticket();
+    if (!ticket) return;
+
+    this.togglingNoteId.set(note.id);
+    this.ticketService.updateTicketNote(note.id, { isInternal: !note.isInternal }).subscribe({
+      next: () => {
+        const msg = !note.isInternal ? 'Note marked as internal' : 'Note made public';
+        this.message.success(msg);
+        this.togglingNoteId.set(null);
+        this.loadTicket(ticket.ticketNumber);
+      },
+      error: (err) => {
+        console.error('Failed to update note:', err);
+        this.message.error('Failed to update note');
+        this.togglingNoteId.set(null);
+      },
+    });
   }
 
   // ========================================

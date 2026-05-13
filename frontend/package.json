@@ -47,6 +47,7 @@
     "graphql-ws": "^6.0.7",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
+    "marked": "^18.0.3",
     "ng-zorro-antd": "^20.3.1",
     "ng2-charts": "^8.0.0",
     "ngx-quill": "^28.0.2",

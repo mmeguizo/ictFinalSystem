@@ -29,7 +29,7 @@
 - [x] Notification bell component with badge + dropdown
 - [x] Notifications page (/notifications)
 - [x] Real-time table refresh (secretary-approval, my-tickets, ticket-detail auto-refresh on WS events)
-- [~] User deactivation (schema fields exist: isActive, deactivatedAt — no service methods)
+- [x] User deactivation (service methods + admin UI + deactivate-first delete workflow)
 
 ---
 
@@ -51,31 +51,12 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 - [x] **Smart suggestions (similar past tickets, auto-fill)** — Gemini AI analysis + fulltext similar ticket search + related KB articles
 - [ ] **AI-powered search across tickets**
 
-### Next Steps (Chunked)
+### Chunk A3: AI Chatbot ✅
 
-#### Chunk A1: Knowledge Base Foundation ✅
-
-1. [x] Create `KnowledgeArticle` model in Prisma schema (id, title, content, category, tags, createdBy, viewCount, helpfulCount) — with fulltext index
-2. [x] Create migration and seed with common ICT FAQs — 6 articles across 5 categories
-3. [x] Create knowledge-base repository + service + resolvers (CRUD + search)
-4. [x] Create frontend knowledge-base page with search — card grid, category filters, detail modal, editor
-5. [ ] Test: Admin can create/edit articles, users can search and read
-
-#### Chunk A2: Smart Ticket Suggestions ✅
-
-1. [x] Add backend endpoint that searches existing resolved tickets by keyword similarity — fulltext index on Ticket(title, description), MySQL BOOLEAN MODE search
-2. [x] On ticket creation form, add "Similar Issues" panel that queries as user types — "Analyze with AI" button triggers Gemini analysis
-3. [x] Show matched knowledge base articles alongside similar tickets — collapse panels with similar tickets + related KB articles
-4. [x] Gemini AI integration — analyzes tickets for clean_ticket, summary, category, priority, root cause, solutions, keywords
-5. [ ] Test: Typing a description shows relevant past tickets/articles
-
-#### Chunk A3: AI Chatbot (Future — requires AI service)
-
-1. [ ] Integrate OpenAI/local LLM API for natural language processing
-2. [ ] Create chat interface component
-3. [ ] Implement intent detection (create ticket, check status, search KB)
-4. [ ] Auto-fill ticket form from chat conversation
-5. [ ] Test: User can describe issue in chat, system creates ticket
+1. [x] AI chatbot widget (floating button, conversation history, role-aware)
+2. [x] RAG pipeline (KB + resolved tickets + solutions)
+3. [x] Intent detection (ticket creation, report generation)
+4. [x] Rich markdown rendering (tables, headers, Enter-to-send)
 
 ---
 
@@ -280,6 +261,8 @@ Full end-to-end ticket management from creation through multi-stage approval, as
 - [x] Ticket closure
 - [x] Ticket reopen (creator can reopen CANCELLED tickets)
 - [x] Notes system (internal/public with notifications)
+- [x] **Delete ticket notes** — Staff roles can delete notes; USER role blocked at resolver level
+- [x] **Toggle note visibility** — Staff can switch notes between Internal and Public inline from ticket detail
 - [x] File attachments (upload, download, soft-delete)
 - [x] Control number generation (atomic counter)
 - [x] Polymorphic ticket types (MIS: WEBSITE/SOFTWARE, ITS: borrow/maintenance)
@@ -289,6 +272,27 @@ Full end-to-end ticket management from creation through multi-stage approval, as
 - [ ] **Bulk operations (close multiple, assign multiple)**
 - [ ] **Ticket merge (combine duplicate tickets)**
 - [x] **Satisfaction survey (after resolution — star rating + comments)**
+
+### AI Chatbot / Self-Service Chat
+
+- [x] **AI chatbot widget** — Floating chat button on all pages; conversation history; role-aware responses
+- [x] **RAG context from Knowledge Base** — AI searches KB articles for relevant answers
+- [x] **RAG context from resolved tickets** — AI searches past resolved tickets (title, description, resolution, staff notes) for similar issues
+- [x] **RAG context from Troubleshooting Solutions** — AI searches curated solution database
+- [x] **Ticket creation from chat** — AI can detect intent and guide user to create a ticket
+- [x] **Excel report download from chat** — AI detects report requests and renders clickable download buttons
+- [x] **Operational admin/staff chat queries** — Chat now answers approval queues, escalations, workload, department/category breakdowns, user summaries, and KB/solution coverage from selected Prisma tables
+- [x] **Deletion safeguard policy in chat** — Chat explains deactivate-vs-delete rules and audited hard deletes, but stays read-only for destructive actions
+- [x] **Rich markdown in chat** — Tables, headers, blockquotes, code blocks, bold/italic rendered properly
+- [x] **Enter-to-send keyboard shortcut** — Enter sends message; Shift+Enter inserts newline
+
+### Troubleshooting Solutions Database
+
+- [x] **Solutions CRUD** — Staff can create, edit, delete curated troubleshooting solutions
+- [x] **Auto-extraction from resolved tickets** — When a ticket is resolved, a solution is automatically created from title + description + resolution + staff notes (default visibility: INTERNAL)
+- [x] **Solution visibility control** — PUBLIC / INTERNAL visibility flag; USER role sees PUBLIC only via API
+- [x] **Embedding generation** — Each solution gets a vector embedding for semantic RAG search
+- [x] **Solutions used in AI RAG pipeline** — Semantic search + fulltext search against solution database
 
 ### Next Steps (Chunked)
 

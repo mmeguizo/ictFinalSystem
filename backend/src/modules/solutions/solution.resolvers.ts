@@ -23,11 +23,24 @@ export const solutionResolvers = {
       context: any,
     ) => {
       if (!context.currentUser) throw new Error("Unauthorized");
-      return solutionService.getSolutions(
-        args.filter || undefined,
-        args.page,
-        args.pageSize,
-      );
+
+      const staffRoles = [
+        "ADMIN",
+        "DEVELOPER",
+        "TECHNICAL",
+        "MIS_HEAD",
+        "ITS_HEAD",
+        "SECRETARY",
+        "DIRECTOR",
+      ];
+      const isStaff = staffRoles.includes(context.currentUser.role);
+      const filter: any = { ...(args.filter || {}) };
+
+      if (!isStaff) {
+        filter.visibility = "PUBLIC";
+      }
+
+      return solutionService.getSolutions(filter, args.page, args.pageSize);
     },
 
     troubleshootingSolution: async (
@@ -36,7 +49,25 @@ export const solutionResolvers = {
       context: any,
     ) => {
       if (!context.currentUser) throw new Error("Unauthorized");
-      return solutionService.getSolutionById(id);
+
+      const staffRoles = [
+        "ADMIN",
+        "DEVELOPER",
+        "TECHNICAL",
+        "MIS_HEAD",
+        "ITS_HEAD",
+        "SECRETARY",
+        "DIRECTOR",
+      ];
+      const isStaff = staffRoles.includes(context.currentUser.role);
+
+      const solution = await solutionService.getSolutionById(id);
+      if (!solution) throw new Error("Solution not found");
+      if (!isStaff && solution.visibility !== "PUBLIC") {
+        throw new Error("Solution not found");
+      }
+
+      return solution;
     },
   },
 

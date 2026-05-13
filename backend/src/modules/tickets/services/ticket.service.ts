@@ -16,6 +16,7 @@ import {
 } from "../utils/sla.utils";
 import { NotificationService } from "../../notifications/notification.service";
 import { pubsub, EVENTS } from "../../../lib/pubsub";
+import { logger } from "../../../lib/logger";
 
 export class TicketService {
   private readonly repository: TicketRepository;
@@ -488,6 +489,67 @@ export class TicketService {
     }
 
     return result;
+  }
+
+  /**
+   * Staff roles allowed to manage (delete/update) notes.
+   * USER role is explicitly excluded.
+   */
+  private readonly noteManagerRoles = [
+    "ADMIN",
+    "DEVELOPER",
+    "TECHNICAL",
+    "MIS_HEAD",
+    "ITS_HEAD",
+    "DIRECTOR",
+    "SECRETARY",
+  ];
+
+  /**
+   * Delete a ticket note.
+   * Only staff roles (non-USER) may delete any note.
+   */
+  async deleteNote(noteId: number, userId: number, userRole: string) {
+    if (!this.noteManagerRoles.includes(userRole)) {
+      throw new Error("Forbidden: only staff can delete notes");
+    }
+
+    const note = await this.repository.findNoteById(noteId);
+    if (!note) {
+      throw new Error("Note not found");
+    }
+
+    logger.warn("Ticket note permanently deleted", {
+      action: "HARD_DELETE_TICKET_NOTE",
+      noteId,
+      ticketId: (note as any).ticketId,
+      deletedBy: userId,
+      userRole,
+      at: new Date(),
+    });
+    return this.repository.deleteNote(noteId);
+  }
+
+  /**
+   * Update a ticket note (currently: toggle isInternal and/or content).
+   * Only staff roles (non-USER) may update notes.
+   */
+  async updateNote(
+    noteId: number,
+    userId: number,
+    userRole: string,
+    dto: { isInternal?: boolean; content?: string },
+  ) {
+    if (!this.noteManagerRoles.includes(userRole)) {
+      throw new Error("Forbidden: only staff can update notes");
+    }
+
+    const note = await this.repository.findNoteById(noteId);
+    if (!note) {
+      throw new Error("Note not found");
+    }
+
+    return this.repository.updateNote(noteId, dto);
   }
 
   /**

@@ -458,6 +458,48 @@ export const ticketResolvers = {
     },
 
     /**
+     * Update a ticket note — e.g. mark as internal or fix content.
+     * Only staff roles (ADMIN, DEVELOPER, TECHNICAL, MIS_HEAD, ITS_HEAD, DIRECTOR, SECRETARY) allowed.
+     */
+    updateTicketNote: async (
+      _: any,
+      {
+        noteId,
+        input,
+      }: { noteId: number; input: { isInternal?: boolean; content?: string } },
+      context: any,
+    ) => {
+      if (!context.currentUser) {
+        throw new Error("Unauthorized");
+      }
+      return ticketService.updateNote(
+        noteId,
+        context.currentUser.id,
+        context.currentUser.role,
+        input,
+      );
+    },
+
+    /**
+     * Delete a ticket note entirely.
+     * Only staff roles (ADMIN, DEVELOPER, TECHNICAL, MIS_HEAD, ITS_HEAD, DIRECTOR, SECRETARY) allowed.
+     */
+    deleteTicketNote: async (
+      _: any,
+      { noteId }: { noteId: number },
+      context: any,
+    ) => {
+      if (!context.currentUser) {
+        throw new Error("Unauthorized");
+      }
+      return ticketService.deleteNote(
+        noteId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
+    },
+
+    /**
      * Reopen a rejected/cancelled ticket for re-review
      * Only the original creator can reopen
      */

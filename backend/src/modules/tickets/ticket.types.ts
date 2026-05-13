@@ -242,6 +242,11 @@ export const ticketTypeDefs = gql`
     isInternal: Boolean
   }
 
+  input UpdateTicketNoteInput {
+    isInternal: Boolean
+    content: String
+  }
+
   input ReopenTicketInput {
     updatedDescription: String
     comment: String
@@ -333,6 +338,9 @@ export const ticketTypeDefs = gql`
     ): Ticket!
     unassignTicket(ticketId: Int!, userId: Int!): Ticket!
     addTicketNote(ticketId: Int!, input: CreateTicketNoteInput!): TicketNote!
+    # Note management: staff can update visibility or delete a note
+    updateTicketNote(noteId: Int!, input: UpdateTicketNoteInput!): TicketNote!
+    deleteTicketNote(noteId: Int!): Boolean!
     reopenTicket(ticketId: Int!, input: ReopenTicketInput): Ticket!
     # Head workflow: acknowledge ticket and assign developer name
     acknowledgeAndAssignDeveloper(

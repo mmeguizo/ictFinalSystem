@@ -47,6 +47,7 @@ export const chatTypeDefs = gql`
     description: String!
     type: String!
     priority: String
+    category: String
   }
 
   type BackfillResult {
