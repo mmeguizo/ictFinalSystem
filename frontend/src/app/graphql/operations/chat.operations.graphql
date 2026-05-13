@@ -1,0 +1,64 @@
+fragment ChatSessionFields on ChatSession {
+  id
+  title
+  status
+  ticketId
+  messageCount
+  createdAt
+  updatedAt
+}
+
+fragment ChatMessageFields on ChatMessage {
+  id
+  sessionId
+  role
+  content
+  metadata
+  createdAt
+}
+
+query GetChatSessions {
+  chatSessions {
+    ...ChatSessionFields
+  }
+}
+
+query GetChatSession($id: Int!) {
+  chatSession(id: $id) {
+    ...ChatSessionFields
+    messages {
+      ...ChatMessageFields
+    }
+  }
+}
+
+mutation CreateChatSession($title: String) {
+  createChatSession(title: $title) {
+    ...ChatSessionFields
+  }
+}
+
+mutation SendChatMessage($sessionId: Int!, $message: String!) {
+  sendChatMessage(sessionId: $sessionId, message: $message) {
+    reply
+    metadata
+    session {
+      ...ChatSessionFields
+    }
+  }
+}
+
+mutation CreateTicketFromChat($input: CreateTicketFromChatInput!) {
+  createTicketFromChat(input: $input) {
+    id
+    ticketNumber
+    title
+    status
+    type
+    priority
+  }
+}
+
+mutation DeleteChatSession($id: Int!) {
+  deleteChatSession(id: $id)
+}

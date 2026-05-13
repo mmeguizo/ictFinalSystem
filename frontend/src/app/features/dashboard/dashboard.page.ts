@@ -79,6 +79,7 @@ export class DashboardPage implements OnInit {
   // SLA Reminder Modal
   readonly showSlaModal = signal(false);
   readonly showSlaBanner = signal(true);
+  readonly isRegularUser = computed(() => this.authService.isUser());
 
   /** SLA processing steps for display */
   readonly slaSteps = [
@@ -105,21 +106,14 @@ export class DashboardPage implements OnInit {
     },
     {
       step: 4,
-      name: 'Schedule Visit',
-      description: 'Department head schedules a service visit',
-      expectedMinutes: 5,
-      icon: '📅',
-    },
-    {
-      step: 5,
-      name: 'Acknowledgment',
-      description: 'Admin acknowledges the schedule for service delivery',
+      name: 'Head Acknowledge',
+      description: 'Department head acknowledges and assigns a developer',
       expectedMinutes: 5,
       icon: '🤝',
     },
   ];
 
-  readonly totalSlaMinutes = 25;
+  readonly totalSlaMinutes = 20;
 
   // ========================================
   // TICKET STATISTICS

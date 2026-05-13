@@ -10,20 +10,20 @@
     <div class="sidebar-logo">
       <img src="assets/chmsu-logo.png" alt="CHMSU Logo" width="40" height="40" />
       @if (!isCollapsed) {
-      <h1>ICT TICKET</h1>
+        <h1>ICT TICKET</h1>
       }
     </div>
     <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="isCollapsed">
       @for (item of menuItems(); track item.path) {
-      <li
-        nz-menu-item
-        [routerLink]="item.path"
-        routerLinkActive="ant-menu-item-selected"
-        [routerLinkActiveOptions]="{ exact: item.path === '/tickets' }"
-      >
-        <span nz-icon [nzType]="item.icon"></span>
-        <span>{{ item.label }}</span>
-      </li>
+        <li
+          nz-menu-item
+          [routerLink]="item.path"
+          routerLinkActive="ant-menu-item-selected"
+          [routerLinkActiveOptions]="{ exact: item.path === '/tickets' }"
+        >
+          <span nz-icon [nzType]="item.icon"></span>
+          <span>{{ item.label }}</span>
+        </li>
       }
     </ul>
   </nz-sider>
@@ -203,3 +203,6 @@
     </form>
   </ng-container>
 </nz-modal>
+
+<!-- AI Chat Widget -->
+<app-chat-widget></app-chat-widget>

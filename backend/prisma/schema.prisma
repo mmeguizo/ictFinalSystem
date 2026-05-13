@@ -29,8 +29,7 @@ enum TicketStatus {
   REVIEWED
   DIRECTOR_APPROVED
   ASSIGNED
-  PENDING_ACKNOWLEDGMENT
-  SCHEDULED
+  PENDING
   IN_PROGRESS
   ON_HOLD
   RESOLVED
@@ -80,6 +79,10 @@ model User {
   // Knowledge Base
   knowledgeArticles KnowledgeArticle[] @relation("ArticleAuthor")
 
+  // AI Chat
+  chatSessions             ChatSession[]
+  troubleshootingSolutions TroubleshootingSolution[] @relation("SolutionAuthor")
+
   isActive        Boolean   @default(true)
   deactivatedAt   DateTime?
   deactivatedById Int?
@@ -109,19 +112,12 @@ model Ticket {
   directorApprovedById  Int?
   directorApprovedAt    DateTime?
 
-  // Schedule workflow (Head sets dates, Admin acknowledges)
-  dateToVisit           DateTime?
+  // Head workflow (Head acknowledges, assigns developer, sets dates)
+  assignedDeveloperName String? // Text input - name of developer assigned by head
+  dateToVisit           DateTime? // Date the user should visit (set by head, visible to user)
   targetCompletionDate  DateTime?
-  headScheduledById     Int?
-  headScheduledAt       DateTime?
-  adminAcknowledgedById Int?
-  adminAcknowledgedAt   DateTime?
-
-  // Monitoring (Head adds after visit)
-  monitorNotes    String?   @db.Text
-  recommendations String?   @db.Text
-  monitoredById   Int?
-  monitoredAt     DateTime?
+  resolution            String?   @db.Text // Resolution notes typed by head after work is done
+  dateFinished          DateTime? // Actual date the work was completed
 
   // Escalation tracking
   escalatedAt     DateTime?
@@ -145,6 +141,10 @@ model Ticket {
   attachments   TicketAttachment[]
   statusHistory TicketStatusHistory[]
   notifications Notification[]
+
+  // AI Chat / Solutions
+  chatSessions             ChatSession[]             @relation("ChatTicket")
+  troubleshootingSolutions TroubleshootingSolution[] @relation("SolutionTicket")
 
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -372,4 +372,78 @@ model KnowledgeArticle {
   @@index([createdById])
   @@index([createdAt])
   @@fulltext([title, content])
+}
+
+// ========================================
+// AI CHAT
+// ========================================
+
+enum ChatSessionStatus {
+  ACTIVE
+  CLOSED
+  TICKET_CREATED
+}
+
+enum ChatMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ChatSession {
+  id        Int               @id @default(autoincrement())
+  userId    Int
+  user      User              @relation(fields: [userId], references: [id])
+  title     String            @default("New Chat")
+  status    ChatSessionStatus @default(ACTIVE)
+  /// If the chat resulted in a ticket being created
+  ticketId  Int?
+  ticket    Ticket?           @relation("ChatTicket", fields: [ticketId], references: [id])
+  messages  ChatMessage[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id        Int             @id @default(autoincrement())
+  sessionId Int
+  session   ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      ChatMessageRole
+  content   String          @db.Text
+  /// JSON metadata (e.g. ticket refs, KB article refs, search results)
+  metadata  String?         @db.Text
+  createdAt DateTime        @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// ========================================
+// TROUBLESHOOTING SOLUTIONS (Dev-contributed dataset)
+// ========================================
+
+model TroubleshootingSolution {
+  id          Int      @id @default(autoincrement())
+  problem     String   @db.Text
+  solution    String   @db.LongText
+  category    String // NETWORK, SOFTWARE, HARDWARE, ACCOUNT, PRINTER, SECURITY, OTHER
+  tags        String?  @db.Text // comma-separated
+  /// Optional link to the ticket that this solution resolved
+  ticketId    Int?
+  ticket      Ticket?  @relation("SolutionTicket", fields: [ticketId], references: [id])
+  createdById Int
+  createdBy   User     @relation("SolutionAuthor", fields: [createdById], references: [id])
+  /// Gemini text-embedding-004 vector stored as JSON array of floats
+  embedding   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([createdById])
+  @@index([createdAt])
+  @@fulltext([problem, solution])
 }

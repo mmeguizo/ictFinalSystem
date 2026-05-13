@@ -15,16 +15,16 @@
     </div>
   </div>
 
-  <!-- SLA Processing Time Banner -->
-  @if (showSlaBanner()) {
+  <!-- SLA Processing Time Banner (staff only) -->
+  @if (showSlaBanner() && !isRegularUser()) {
     <div class="sla-banner">
       <div class="sla-banner-content">
         <div class="sla-banner-icon">⏱️</div>
         <div class="sla-banner-text">
           <strong>Service Request Processing Time</strong>
           <span
-            >Your ICT service request goes through <strong>5 steps</strong> with a target total
-            processing time of <strong>25 minutes</strong>. Track your request progress in real-time
+            >Your ICT service request goes through <strong>4 steps</strong> with a target total
+            processing time of <strong>20 minutes</strong>. Track your request progress in real-time
             on the ticket detail page.</span
           >
         </div>

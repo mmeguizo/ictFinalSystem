@@ -1,7 +1,7 @@
 # ICT Ticket System - Backend API Documentation
 
-**Version**: 1.0.0  
-**Last Updated**: December 9, 2025  
+**Version**: 2.0.0  
+**Last Updated**: July 8, 2025  
 **Base URL**: `http://localhost:4000/graphql`
 
 ---
@@ -14,6 +14,8 @@
 4. [API Reference](#api-reference)
    - [Mutations](#mutations)
    - [Queries](#queries)
+   - [AI Chat API](#ai-chat-api)
+   - [Solutions & Vector Search Architecture](#solutions--vector-search-architecture)
 5. [Data Models](#data-models)
 6. [Enums](#enums)
 7. [Business Rules](#business-rules)
@@ -40,7 +42,10 @@ The ICT Ticket System Backend provides a GraphQL API for managing service reques
 ✅ Internal notes for staff communication  
 ✅ Real-time analytics and metrics  
 ✅ File attachment support  
-✅ Role-based access control
+✅ Role-based access control  
+✅ AI Chat Assistant with RAG (vector + full-text search)  
+✅ Auto-saved Solutions Database from resolved tickets  
+✅ Read-only analytics queries via AI Chat
 
 ---
 
@@ -53,6 +58,7 @@ Authorization: Bearer <your-jwt-token>
 ```
 
 The token is obtained during login and contains user information including:
+
 - User ID
 - Email
 - Name
@@ -69,10 +75,10 @@ The token is obtained during login and contains user information including:
 For software and website development requests.
 
 **Categories**:
+
 - `WEBSITE`: Website-related requests
   - New website development
   - Website updates/modifications
-  
 - `SOFTWARE`: Software-related requests
   - New software development
   - Software updates/enhancements
@@ -87,6 +93,7 @@ For software and website development requests.
 For equipment and maintenance requests.
 
 **Request Types**:
+
 - **Borrow**: Equipment borrowing requests
 - **Maintenance**: Equipment repair/maintenance
   - Desktop/Laptop maintenance
@@ -142,15 +149,18 @@ mutation {
 **Auto-Assignment**: System automatically assigns to developer with lowest workload
 
 **Example**:
+
 ```graphql
 mutation {
-  createMISTicket(input: {
-    title: "Department Website Redesign"
-    description: "Need a modern, responsive website for the Computer Science department"
-    category: WEBSITE
-    websiteNewRequest: true
-    priority: HIGH
-  }) {
+  createMISTicket(
+    input: {
+      title: "Department Website Redesign"
+      description: "Need a modern, responsive website for the Computer Science department"
+      category: WEBSITE
+      websiteNewRequest: true
+      priority: HIGH
+    }
+  ) {
     ticketNumber
     status
     dueDate
@@ -206,15 +216,18 @@ mutation {
 **Auto-Assignment**: System automatically assigns to office head with lowest workload
 
 **Example**:
+
 ```graphql
 mutation {
-  createITSTicket(input: {
-    title: "Laptop Screen Not Working"
-    description: "Faculty laptop screen is flickering and has dead pixels"
-    maintenanceDesktopLaptop: true
-    maintenanceDetails: "Dell Latitude 7420, Asset #12345"
-    priority: HIGH
-  }) {
+  createITSTicket(
+    input: {
+      title: "Laptop Screen Not Working"
+      description: "Faculty laptop screen is flickering and has dead pixels"
+      maintenanceDesktopLaptop: true
+      maintenanceDetails: "Dell Latitude 7420, Asset #12345"
+      priority: HIGH
+    }
+  ) {
     ticketNumber
     status
     dueDate
@@ -254,6 +267,7 @@ mutation {
 | `comment` | String | ❌ | Optional comment explaining the change |
 
 **Available Status Transitions**:
+
 ```
 PENDING → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED
                           ↓
@@ -262,12 +276,14 @@ PENDING → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED
                       CANCELLED
 ```
 
-**Access**: 
+**Access**:
+
 - Ticket creator can view history
 - Assigned users can update status
 - ADMIN/OFFICE_HEAD can update any ticket
 
 **Example**:
+
 ```graphql
 mutation {
   updateTicketStatus(
@@ -307,12 +323,14 @@ mutation {
 
 **Access**: ADMIN and OFFICE_HEAD only
 
-**Use Case**: 
+**Use Case**:
+
 - Add additional developers to a complex ticket
 - Reassign to a specialist
 - Balance workload manually
 
 **Example**:
+
 ```graphql
 mutation {
   assignTicket(ticketId: 42, userId: 7) {
@@ -382,6 +400,7 @@ mutation {
 **Internal Notes**: Only visible to ADMIN, DEVELOPER, and OFFICE_HEAD roles
 
 **Example**:
+
 ```graphql
 mutation {
   addTicketNote(
@@ -487,6 +506,7 @@ query {
 ```
 
 **Example**:
+
 ```graphql
 query {
   ticketByNumber(ticketNumber: "MIS-20251209-001") {
@@ -512,9 +532,13 @@ query {
     priority
     type
     dueDate
-    createdBy { name }
+    createdBy {
+      name
+    }
     assignments {
-      user { name }
+      user {
+        name
+      }
     }
     createdAt
   }
@@ -530,12 +554,10 @@ query {
 | `assignedToUserId` | Int | Filter by assigned user |
 
 **Example**:
+
 ```graphql
 query {
-  tickets(filter: {
-    status: IN_PROGRESS
-    type: MIS
-  }) {
+  tickets(filter: { status: IN_PROGRESS, type: MIS }) {
     ticketNumber
     title
     priority
@@ -558,7 +580,9 @@ query {
     status
     priority
     dueDate
-    createdBy { name }
+    createdBy {
+      name
+    }
   }
 }
 ```
@@ -582,7 +606,9 @@ query {
     status
     priority
     assignments {
-      user { name }
+      user {
+        name
+      }
     }
     createdAt
   }
@@ -626,12 +652,10 @@ query {
 | `endDate` | String | ISO date string (e.g., "2025-12-31") |
 
 **Example**:
+
 ```graphql
 query {
-  ticketAnalytics(filter: {
-    startDate: "2025-12-01"
-    endDate: "2025-12-31"
-  }) {
+  ticketAnalytics(filter: { startDate: "2025-12-01", endDate: "2025-12-31" }) {
     total
     byStatus {
       status
@@ -642,6 +666,7 @@ query {
 ```
 
 **Response Example**:
+
 ```json
 {
   "total": 156,
@@ -680,11 +705,216 @@ query {
 ```
 
 **Returns**:
+
 - `overdue`: Number of tickets past their due date
 - `dueToday`: Number of tickets due today
 - `dueSoon`: Number of tickets due within 3 days
 
 **Use Case**: Dashboard alerts and warnings
+
+---
+
+### AI Chat API
+
+#### Chat Sessions Query
+
+Retrieve all chat sessions for the authenticated user.
+
+```graphql
+query {
+  chatSessions {
+    id
+    title
+    status
+    messageCount
+    createdAt
+  }
+}
+```
+
+**Access**: All authenticated users (returns own sessions only)
+
+---
+
+#### Chat Session Detail Query
+
+Retrieve a single chat session with all messages.
+
+```graphql
+query {
+  chatSession(id: Int!) {
+    id
+    title
+    status
+    messages {
+      id
+      role
+      content
+      metadata
+      createdAt
+    }
+  }
+}
+```
+
+**Access**: Session owner only
+
+---
+
+#### Create Chat Session
+
+Start a new AI chat session.
+
+```graphql
+mutation {
+  createChatSession(title: String) {
+    id
+    title
+    status
+    createdAt
+  }
+}
+```
+
+| Field   | Type   | Required | Description                               |
+| ------- | ------ | -------- | ----------------------------------------- |
+| `title` | String | ❌       | Session title (auto-generated if omitted) |
+
+**Access**: All authenticated users
+
+---
+
+#### Send Chat Message
+
+Send a message to the AI and receive a response.
+
+```graphql
+mutation {
+  sendChatMessage(sessionId: Int!, message: String!) {
+    reply
+    metadata
+    session {
+      id
+      title
+    }
+  }
+}
+```
+
+| Field       | Type   | Required | Description                |
+| ----------- | ------ | -------- | -------------------------- |
+| `sessionId` | Int    | ✅       | ID of the chat session     |
+| `message`   | String | ✅       | User's question or request |
+
+**Behavior**:
+
+- The AI retrieves context from the **Solutions Database** (vector + full-text search), **Knowledge Base**, and **past resolved tickets**
+- If the question is about analytics/statistics, the AI runs **read-only** database queries and includes live data
+- Returns `reply` (AI response) and `metadata` (JSON string with `solutionIds`, `kbArticleIds`, etc.)
+
+**Analytics Questions Detected**:
+
+- Ticket counts by status, type, priority
+- Daily / weekly / monthly submission counts
+- Most recurring issues (grouped by title)
+- Average resolution time
+- Overdue ticket count
+
+**Access**: Session owner only
+
+---
+
+#### Delete Chat Session
+
+Delete a chat session and all its messages.
+
+```graphql
+mutation {
+  deleteChatSession(id: Int!)
+}
+```
+
+**Access**: Session owner only
+
+---
+
+#### Create Ticket from Chat
+
+Convert a chat conversation into a support ticket.
+
+```graphql
+mutation {
+  createTicketFromChat(input: CreateTicketFromChatInput!) {
+    id
+    ticketNumber
+    title
+    status
+  }
+}
+```
+
+| Field         | Type   | Required | Description                         |
+| ------------- | ------ | -------- | ----------------------------------- |
+| `sessionId`   | Int    | ✅       | Chat session to link                |
+| `title`       | String | ✅       | Ticket title                        |
+| `description` | String | ✅       | Ticket description                  |
+| `type`        | String | ✅       | `MIS` or `ITS`                      |
+| `priority`    | String | ❌       | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+
+**Access**: Session owner only
+
+---
+
+#### Backfill Solution Embeddings (Admin Only)
+
+Generates vector embeddings for all existing solutions and creates solutions from resolved tickets that don't have one yet.
+
+```graphql
+mutation {
+  backfillSolutionEmbeddings {
+    solutionsCreated
+    embeddingsGenerated
+    embeddingsFailed
+  }
+}
+```
+
+**Returns**:
+| Field | Type | Description |
+| --------------------- | ---- | -------------------------------------------------------- |
+| `solutionsCreated` | Int | Number of new solutions created from resolved tickets |
+| `embeddingsGenerated` | Int | Number of embeddings successfully generated |
+| `embeddingsFailed` | Int | Number of embeddings that failed (API errors, etc.) |
+
+**Access**: ADMIN role only
+
+**Use Case**: Run after initial deployment or data migration to populate the Solutions Database and generate vector embeddings for semantic search.
+
+---
+
+### Solutions & Vector Search Architecture
+
+The system maintains a **Solutions Database** (`TroubleshootingSolution` table) that powers the AI Chat's knowledge retrieval.
+
+#### Auto-Save Flow
+
+1. Staff resolves a ticket (status → `RESOLVED` or `CLOSED`)
+2. System automatically creates a `TroubleshootingSolution` record with:
+   - **Problem**: Ticket title + description
+   - **Solution**: Resolution text + staff notes
+   - **Category**: Inferred from keywords (HARDWARE, SOFTWARE, NETWORK, ACCOUNT, PRINTING, OTHER)
+   - **Tags**: Auto-generated from ticket title
+3. A **768-dimensional vector embedding** is generated asynchronously via Google Gemini `text-embedding-004`
+4. The embedding is stored as a JSON array in the `embedding` column
+
+#### Hybrid Search (RAG)
+
+When a user asks the AI a question, the system runs two searches in parallel:
+
+1. **Vector Search**: Generates an embedding for the query, then computes cosine similarity against all stored solution embeddings. Returns results above a 0.45 similarity threshold, ranked by relevance.
+2. **Full-Text Search**: Uses MySQL `MATCH ... AGAINST` in boolean mode with keywords extracted from the query.
+
+Results are merged (vector first for higher quality), deduplicated, and limited to 5 solutions. This context is injected into the AI prompt for grounded, accurate answers.
 
 ---
 
@@ -703,12 +933,12 @@ type Ticket {
   description: String!
   status: TicketStatus!
   priority: Priority!
-  
+
   // SLA fields
   dueDate: String               // ISO datetime
   estimatedDuration: Int        // Hours
   actualDuration: Int           // Hours (calculated on resolution)
-  
+
   // Relations
   createdBy: User!
   createdById: Int!
@@ -718,7 +948,7 @@ type Ticket {
   notes: [TicketNote!]!
   attachments: [TicketAttachment!]!
   statusHistory: [TicketStatusHistory!]!
-  
+
   // Timestamps
   createdAt: String!
   updatedAt: String!
@@ -738,16 +968,16 @@ type MISTicket {
   id: Int!
   ticketId: Int!
   category: MISCategory!        // WEBSITE or SOFTWARE
-  
+
   // Website options
   websiteNewRequest: Boolean!
   websiteUpdate: Boolean!
-  
+
   // Software options
   softwareNewRequest: Boolean!
   softwareUpdate: Boolean!
   softwareInstall: Boolean!
-  
+
   createdAt: String!
   updatedAt: String!
 }
@@ -763,17 +993,17 @@ Extension for ITS-type tickets.
 type ITSTicket {
   id: Int!
   ticketId: Int!
-  
+
   // Borrow fields
   borrowRequest: Boolean!
   borrowDetails: String
-  
+
   // Maintenance fields
   maintenanceDesktopLaptop: Boolean!
   maintenanceInternetNetwork: Boolean!
   maintenancePrinter: Boolean!
   maintenanceDetails: String
-  
+
   createdAt: String!
   updatedAt: String!
 }
@@ -862,8 +1092,8 @@ type TicketAttachment {
 
 ```graphql
 enum TicketType {
-  MIS      # Management Information System
-  ITS      # ICT Support
+  MIS # Management Information System
+  ITS # ICT Support
 }
 ```
 
@@ -873,13 +1103,13 @@ enum TicketType {
 
 ```graphql
 enum TicketStatus {
-  PENDING       # Newly created, awaiting assignment
-  ASSIGNED      # Assigned to staff member(s)
-  IN_PROGRESS   # Work has started
-  ON_HOLD       # Temporarily paused
-  RESOLVED      # Work completed, awaiting closure
-  CLOSED        # Ticket completed and closed
-  CANCELLED     # Ticket cancelled/invalid
+  PENDING # Newly created, awaiting assignment
+  ASSIGNED # Assigned to staff member(s)
+  IN_PROGRESS # Work has started
+  ON_HOLD # Temporarily paused
+  RESOLVED # Work completed, awaiting closure
+  CLOSED # Ticket completed and closed
+  CANCELLED # Ticket cancelled/invalid
 }
 ```
 
@@ -889,10 +1119,10 @@ enum TicketStatus {
 
 ```graphql
 enum Priority {
-  LOW           # 7 days SLA
-  MEDIUM        # 3 days SLA (default)
-  HIGH          # 24 hours SLA
-  CRITICAL      # 4 hours SLA
+  LOW # 7 days SLA
+  MEDIUM # 3 days SLA (default)
+  HIGH # 24 hours SLA
+  CRITICAL # 4 hours SLA
 }
 ```
 
@@ -902,8 +1132,8 @@ enum Priority {
 
 ```graphql
 enum MISCategory {
-  WEBSITE       # Website development/updates
-  SOFTWARE      # Software development/updates
+  WEBSITE # Website development/updates
+  SOFTWARE # Software development/updates
 }
 ```
 
@@ -930,6 +1160,7 @@ enum MISCategory {
 ### Status Transition Rules
 
 Valid transitions:
+
 ```
 PENDING → ASSIGNED
 ASSIGNED → IN_PROGRESS
@@ -975,12 +1206,12 @@ RESOLVED → IN_PROGRESS (if reopened)
 
 Due dates are automatically calculated based on priority:
 
-| Priority | SLA Time | Example |
-|----------|----------|---------|
-| CRITICAL | 4 hours | Created 9:00 AM → Due 1:00 PM |
-| HIGH | 24 hours | Created Monday 9 AM → Due Tuesday 9 AM |
-| MEDIUM | 72 hours | Created Mon 9 AM → Due Thu 9 AM |
-| LOW | 168 hours | Created Mon 9 AM → Due next Mon 9 AM |
+| Priority | SLA Time  | Example                                |
+| -------- | --------- | -------------------------------------- |
+| CRITICAL | 4 hours   | Created 9:00 AM → Due 1:00 PM          |
+| HIGH     | 24 hours  | Created Monday 9 AM → Due Tuesday 9 AM |
+| MEDIUM   | 72 hours  | Created Mon 9 AM → Due Thu 9 AM        |
+| LOW      | 168 hours | Created Mon 9 AM → Due next Mon 9 AM   |
 
 ---
 
@@ -989,15 +1220,18 @@ Due dates are automatically calculated based on priority:
 Tickets are categorized into three SLA states:
 
 **On Track** ✅
+
 - More than 4 hours until due date
 - Normal priority handling
 
 **At Risk** ⚠️
+
 - Less than 4 hours until due date
 - Requires attention
 - Yellow badge in UI
 
 **Overdue** 🔴
+
 - Past due date
 - Critical attention needed
 - Red badge in UI
@@ -1010,12 +1244,14 @@ Tickets are categorized into three SLA states:
 If not provided manually, system calculates based on:
 
 **MIS Tickets**:
+
 - CRITICAL: 3 hours
 - HIGH: 8 hours
 - MEDIUM: 16 hours
 - LOW: 24 hours
 
 **ITS Tickets**:
+
 - CRITICAL: 2 hours
 - HIGH: 4 hours
 - MEDIUM: 8 hours
@@ -1028,6 +1264,7 @@ If not provided manually, system calculates based on:
 ### Common Error Responses
 
 #### Unauthorized
+
 ```json
 {
   "errors": [
@@ -1046,6 +1283,7 @@ If not provided manually, system calculates based on:
 ---
 
 #### Forbidden
+
 ```json
 {
   "errors": [
@@ -1064,6 +1302,7 @@ If not provided manually, system calculates based on:
 ---
 
 #### Not Found
+
 ```json
 {
   "errors": [
@@ -1082,6 +1321,7 @@ If not provided manually, system calculates based on:
 ---
 
 #### Validation Error
+
 ```json
 {
   "errors": [
@@ -1108,38 +1348,43 @@ If not provided manually, system calculates based on:
 ### Complete Ticket Lifecycle
 
 #### 1. User Creates Ticket
+
 ```graphql
 mutation {
-  createMISTicket(input: {
-    title: "Student Portal Login Issues"
-    description: "Students reporting unable to login to portal. Error: 'Invalid credentials' even with correct password."
-    category: SOFTWARE
-    softwareUpdate: true
-    priority: HIGH
-  }) {
+  createMISTicket(
+    input: {
+      title: "Student Portal Login Issues"
+      description: "Students reporting unable to login to portal. Error: 'Invalid credentials' even with correct password."
+      category: SOFTWARE
+      softwareUpdate: true
+      priority: HIGH
+    }
+  ) {
     ticketNumber
     dueDate
     assignments {
-      user { name }
+      user {
+        name
+      }
     }
   }
 }
 ```
 
 **Response**:
+
 ```json
 {
   "ticketNumber": "MIS-20251209-015",
   "dueDate": "2025-12-10T15:30:00Z",
-  "assignments": [
-    { "user": { "name": "Jane Developer" } }
-  ]
+  "assignments": [{ "user": { "name": "Jane Developer" } }]
 }
 ```
 
 ---
 
 #### 2. Developer Starts Work
+
 ```graphql
 mutation {
   updateTicketStatus(
@@ -1157,6 +1402,7 @@ mutation {
 ---
 
 #### 3. Developer Adds Progress Note
+
 ```graphql
 mutation {
   addTicketNote(
@@ -1174,6 +1420,7 @@ mutation {
 ---
 
 #### 4. Developer Resolves Ticket
+
 ```graphql
 mutation {
   updateTicketStatus(
@@ -1192,14 +1439,12 @@ mutation {
 ---
 
 #### 5. User Confirms & Closes
+
 ```graphql
 mutation {
   updateTicketStatus(
     ticketId: 42
-    input: {
-      status: CLOSED
-      comment: "Confirmed working. Thank you!"
-    }
+    input: { status: CLOSED, comment: "Confirmed working. Thank you!" }
   ) {
     status
     closedAt
@@ -1225,14 +1470,14 @@ query DashboardData {
       count
     }
   }
-  
+
   # Get SLA warnings
   sla: slaMetrics {
     overdue
     dueToday
     dueSoon
   }
-  
+
   # Get my assigned work
   myWork: myTickets {
     ticketNumber
@@ -1253,6 +1498,7 @@ query DashboardData {
 **Initial Release**
 
 ✅ **Features Added**:
+
 - Complete ticket creation system (MIS and ITS types)
 - Auto-assignment based on workload
 - SLA tracking with automatic deadline calculation
@@ -1264,21 +1510,25 @@ query DashboardData {
 - Role-based access control
 
 ✅ **API Endpoints**:
+
 - 6 Mutations: createMISTicket, createITSTicket, updateTicketStatus, assignTicket, unassignTicket, addTicketNote
 - 7 Queries: ticket, ticketByNumber, tickets, myTickets, myCreatedTickets, ticketAnalytics, slaMetrics
 
 ✅ **Database Schema**:
+
 - 7 tables: Ticket, MISTicket, ITSTicket, TicketAssignment, TicketNote, TicketAttachment, TicketStatusHistory
 - 4 enums: TicketType, TicketStatus, Priority, MISCategory
 - Complete relationships with cascade deletes
 
 ✅ **Business Logic**:
+
 - Intelligent routing algorithm
 - SLA compliance tracking
 - Ticket number generation (format: TYPE-YYYYMMDD-XXX)
 - Workload balancing
 
 ✅ **Security**:
+
 - JWT authentication
 - Role-based authorization
 - Input validation
@@ -1286,26 +1536,31 @@ query DashboardData {
 
 ---
 
-### Upcoming Features (Planned)
+### Version 2.0.0 (July 8, 2025)
 
-**Version 1.1.0** (Planned Q1 2026):
-- Email notifications on status changes
-- File upload/download for attachments
-- Ticket templates for common requests
-- Bulk operations (assign multiple, status change multiple)
-- Export tickets to PDF/Excel
-- Advanced search with full-text
-- Ticket priority escalation rules
-- Custom SLA per department
+**AI Chat Assistant & Vector Search**
 
-**Version 1.2.0** (Planned Q2 2026):
-- Mobile app support
-- Real-time notifications via WebSocket
-- Ticket dependencies (blocked by)
-- Recurring ticket scheduling
-- AI-powered ticket categorization
-- Sentiment analysis on user feedback
-- Integration with external systems (email, Slack)
+✅ **Features Added**:
+
+- AI Chat widget with conversational interface (Gemini 2.0 Flash)
+- Solutions Database: auto-saves resolutions from resolved tickets
+- Vector embeddings via Gemini `text-embedding-004` (768 dimensions)
+- Hybrid search: vector (cosine similarity) + MySQL full-text
+- Read-only analytics queries (tickets by status/type/priority, resolution time, overdue, recurring issues)
+- Admin backfill endpoint for existing solutions
+- Chat session management (create, list, delete)
+- Create ticket from chat conversation
+
+✅ **New API Endpoints**:
+
+- Queries: `chatSessions`, `chatSession`
+- Mutations: `createChatSession`, `sendChatMessage`, `deleteChatSession`, `createTicketFromChat`, `backfillSolutionEmbeddings`
+
+✅ **Architecture**:
+
+- `embedding.service.ts`: Vector generation, cosine similarity search, backfill
+- `solution.service.ts`: Auto-create from resolved tickets, category inference, tag generation
+- `chat.service.ts`: RAG pipeline with hybrid search, analytics detection, context injection
 
 ---
 
@@ -1316,6 +1571,7 @@ query DashboardData {
 **Feature Requests**: Submit via ticket system (dogfooding!)
 
 **Contact**:
+
 - Email: ict@chmsu.edu.ph
 - System Admin: [Admin Name]
 - Lead Developer: [Developer Name]

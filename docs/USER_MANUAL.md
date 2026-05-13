@@ -3,7 +3,7 @@
 **Intelligent Service Request Monitoring and Analysis Platform**
 **Carlos Hilado Memorial State University — ICT Department**
 
-> **Version**: 2.2.0 | **Last Updated**: March 13, 2026
+> **Version**: 2.3.0 | **Last Updated**: July 8, 2025
 
 ---
 
@@ -24,10 +24,11 @@
 13. [Knowledge Base](#13-knowledge-base)
 14. [Notifications](#14-notifications)
 15. [AI-Powered Smart Suggestions](#15-ai-powered-smart-suggestions)
-16. [Satisfaction Survey](#16-satisfaction-survey)
-17. [Role Reference Guide](#17-role-reference-guide)
-18. [Ticket Status Reference](#18-ticket-status-reference)
-19. [Frequently Asked Questions](#19-faq)
+16. [AI Chat Assistant & Analytics](#16-ai-chat-assistant--analytics)
+17. [Satisfaction Survey](#17-satisfaction-survey)
+18. [Role Reference Guide](#18-role-reference-guide)
+19. [Ticket Status Reference](#19-ticket-status-reference)
+20. [Frequently Asked Questions](#20-faq)
 
 ---
 
@@ -43,6 +44,7 @@ The ICT Support Ticketing System is a web-based service request platform designe
 | **Approval Workflow**   | Multi-level review: Secretary → Director → Department Head            |
 | **SLA Enforcement**     | 5-step, 25-minute processing time target with automated breach alerts |
 | **AI Analysis**         | Google Gemini-powered ticket analysis with smart suggestions          |
+| **AI Chat Assistant**   | Conversational AI with solutions lookup, analytics, and vector search |
 | **Knowledge Base**      | Self-service FAQ library to resolve common issues                     |
 | **Real-Time Updates**   | WebSocket-driven live dashboard and notifications                     |
 | **Analytics**           | Charts, trends, SLA compliance, staff performance, PDF/Excel export   |
@@ -640,7 +642,105 @@ After AI analysis, the system also shows:
 
 ---
 
-## 16. Satisfaction Survey
+## 16. AI Chat Assistant & Analytics
+
+The AI Chat Assistant is an intelligent widget available to all logged-in users. It provides instant help, looks up past solutions, answers questions about the ticketing system, and delivers analytics and statistics on demand.
+
+### 16.1 Opening the Chat Widget
+
+1. Click the **floating chat icon** (💬) in the bottom-right corner of any page
+2. The chat panel slides in from the right side of the screen
+3. Click **outside** the chat panel or press the close button to dismiss it
+
+### 16.2 Starting a Conversation
+
+- When the chat opens, a new session is created automatically
+- Type your question or request in the message input at the bottom and press **Enter** or click **Send**
+- The AI responds in real time with formatted, context-aware answers
+
+### 16.3 What You Can Ask
+
+#### Troubleshooting & Solutions
+
+Ask the AI about common IT problems. The AI searches the **Solutions Database** — a knowledge base built from previously resolved tickets — to provide proven answers.
+
+**Example questions:**
+
+- _"How do I reset an email password?"_
+- _"Printer not connecting to the network"_
+- _"Software installation failed with error code 1603"_
+- _"How to fix a projector that shows no signal?"_
+
+The AI combines:
+
+- **Vector search** (semantic similarity) to find solutions that match your meaning, even if you use different words
+- **Full-text search** to find solutions with matching keywords
+- **Knowledge Base articles** for FAQ-style answers
+- **Past resolved tickets** with similar descriptions
+
+#### Analytics & Statistics (Read-Only)
+
+Ask the AI for live data about ticket activity. It queries the database in real time but **never modifies data** — all analytics are read-only.
+
+**Example questions:**
+
+- _"How many tickets were submitted today?"_
+- _"Show me ticket statistics"_
+- _"Which tickets are the most common issues?"_
+- _"What is the average resolution time?"_
+- _"How many tickets are overdue?"_
+- _"Break down tickets by priority"_
+- _"How many tickets this week vs last month?"_
+
+The AI responds with formatted tables and summaries, including:
+
+- Ticket counts by status, type, and priority
+- Daily, weekly, and monthly submission trends
+- Most recurring issues
+- Average resolution time
+- Overdue ticket count and details
+
+#### General Help
+
+- _"What does the SLA tracker do?"_
+- _"How do I submit a ticket?"_
+- _"What are the different ticket statuses?"_
+
+### 16.4 How the Solutions Database Works
+
+Every time a staff member **resolves** a ticket (marks it as RESOLVED or CLOSED with a resolution), the system automatically:
+
+1. **Saves the resolution** to the Solutions Database (`TroubleshootingSolution` table)
+2. **Categorizes it** (HARDWARE, SOFTWARE, NETWORK, ACCOUNT, PRINTING, or OTHER)
+3. **Generates tags** from the ticket title for easier discovery
+4. **Creates a vector embedding** (a mathematical representation of the solution's meaning) for intelligent semantic search
+
+This means the AI gets smarter over time — every resolved ticket adds to the knowledge base that powers future answers.
+
+### 16.5 Creating a Ticket from Chat
+
+If the AI can't resolve your issue, you can convert the conversation into a ticket:
+
+1. The AI may suggest creating a ticket if it can't find a solution
+2. You'll be prompted to fill in ticket details (title, description, type, priority)
+3. The conversation context is preserved in the new ticket
+
+### 16.6 Chat History
+
+- Your chat sessions are saved and accessible when you reopen the chat
+- Click the **session list** icon to view past conversations
+- Delete sessions you no longer need
+
+### 16.7 Tips for Best Results
+
+- **Be specific**: "Email won't load in Chrome on Windows" gets better results than "email broken"
+- **Include error messages**: Copy-paste any error text for more accurate solutions
+- **Ask analytics questions naturally**: The AI understands phrases like "how many", "show me", "breakdown", "average", "most common"
+- **Solutions improve over time**: The more tickets that are resolved, the more solutions the AI has to reference
+
+---
+
+## 17. Satisfaction Survey
 
 ### 16.1 When It Appears
 
@@ -662,7 +762,7 @@ After your ticket is **RESOLVED** or **CLOSED**, you will see a survey prompt on
 
 ---
 
-## 17. Role Reference Guide
+## 18. Role Reference Guide
 
 ### USER (End-User / Requestor)
 
@@ -803,7 +903,7 @@ After your ticket is **RESOLVED** or **CLOSED**, you will see a survey prompt on
 
 ---
 
-## 18. Ticket Status Reference
+## 19. Ticket Status Reference
 
 ### Complete Lifecycle Flow
 
@@ -862,7 +962,7 @@ FOR_REVIEW ──[Secretary Reviews]──→ REVIEWED ──[Director Approves]
 
 ---
 
-## 19. FAQ
+## 20. FAQ
 
 **Q: How do I check the status of my ticket?**
 A: Go to **My Tickets** (`/tickets`). Your tickets are listed with current status. Click any ticket to see full details and the SLA tracker.
@@ -885,6 +985,12 @@ A: Yes. Open your ticket and use the **Notes** section to add comments. You can 
 **Q: What does "Analyze with AI" do?**
 A: It uses Google Gemini AI to analyze your ticket description and provide a professional rewrite, suggested priority, potential root cause, and solutions. It also finds similar past tickets and Knowledge Base articles that may help.
 
+**Q: What is the AI Chat Assistant?**
+A: The floating chat widget (💬) in the bottom-right corner lets you ask the AI questions at any time. It can look up solutions from past resolved tickets, provide live analytics and statistics, and help troubleshoot IT issues. See [Section 16](#16-ai-chat-assistant--analytics) for details.
+
+**Q: How does the AI learn from resolved tickets?**
+A: When staff resolve a ticket with a resolution, the system automatically saves it to the Solutions Database with category, tags, and a vector embedding. The AI uses this data to answer future questions with proven solutions. The more tickets resolved, the smarter the AI becomes.
+
 **Q: Who can see my ticket?**
 A: Your ticket is visible to you (the creator), the Secretary, Director, relevant Department Head, assigned staff, and Admin. Internal notes added by staff are hidden from you.
 
@@ -896,4 +1002,4 @@ A: The system automatically detects overdue tickets every 5 minutes and sends es
 
 ---
 
-_This manual covers system version 2.2.0. For technical documentation, see the `backend/README.md` and `frontend/README.md` files._
+_This manual covers system version 2.3.0. For technical documentation, see the `backend/README.md` and `frontend/README.md` files._

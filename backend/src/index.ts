@@ -23,6 +23,8 @@ import { notificationTypeDefs } from "./modules/notifications/notification.types
 import { notificationResolvers } from "./modules/notifications/notification.resolvers";
 import { kbTypeDefs, kbResolvers } from "./modules/knowledge-base";
 import { aiTypeDefs, aiResolvers } from "./modules/ai";
+import { solutionTypeDefs, solutionResolvers } from "./modules/solutions";
+import { chatTypeDefs, chatResolvers } from "./modules/chat";
 import {
   ticketAttachmentUpload,
   getAttachmentUrl,
@@ -42,6 +44,8 @@ async function start() {
     notificationTypeDefs,
     kbTypeDefs,
     aiTypeDefs,
+    solutionTypeDefs,
+    chatTypeDefs,
   ];
   const resolvers = [
     baseResolvers,
@@ -50,6 +54,8 @@ async function start() {
     notificationResolvers,
     kbResolvers,
     aiResolvers,
+    solutionResolvers,
+    chatResolvers,
   ];
 
   const schema = makeExecutableSchema({ typeDefs, resolvers });

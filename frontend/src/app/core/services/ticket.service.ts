@@ -69,8 +69,6 @@ const ASSIGN_TICKET = gql`
       status
       dateToVisit
       targetCompletionDate
-      headScheduledById
-      headScheduledAt
       assignments {
         user {
           id
@@ -145,11 +143,9 @@ const MY_ASSIGNED_TICKETS = gql`
         dueDate
         dateToVisit
         targetCompletionDate
-        headScheduledAt
-        adminAcknowledgedAt
-        monitorNotes
-        recommendations
-        monitoredAt
+        assignedDeveloperName
+        resolution
+        dateFinished
         createdAt
         updatedAt
         createdBy {
@@ -215,11 +211,9 @@ const ALL_TICKETS = gql`
         targetCompletionDate
         secretaryReviewedAt
         directorApprovedAt
-        headScheduledAt
-        adminAcknowledgedAt
-        monitorNotes
-        recommendations
-        monitoredAt
+        assignedDeveloperName
+        resolution
+        dateFinished
         createdAt
         updatedAt
         resolvedAt
@@ -288,11 +282,9 @@ const MY_CREATED_TICKETS = gql`
         targetCompletionDate
         secretaryReviewedAt
         directorApprovedAt
-        headScheduledAt
-        adminAcknowledgedAt
-        monitorNotes
-        recommendations
-        monitoredAt
+        assignedDeveloperName
+        resolution
+        dateFinished
         createdAt
         updatedAt
         resolvedAt
@@ -374,11 +366,9 @@ const ALL_SECRETARY_TICKETS = gql`
         secretaryReviewedById
         directorApprovedAt
         directorApprovedById
-        headScheduledAt
-        adminAcknowledgedAt
-        monitorNotes
-        recommendations
-        monitoredAt
+        assignedDeveloperName
+        resolution
+        dateFinished
         createdAt
         updatedAt
         createdBy {
@@ -508,15 +498,15 @@ const REOPEN_TICKET = gql`
 `;
 
 /**
- * Mutation for heads to schedule a visit
- * Sets dateToVisit and targetCompletionDate
+ * Mutation for head to acknowledge ticket and assign developer
  */
-const SCHEDULE_VISIT = gql`
-  mutation ScheduleVisit($ticketId: Int!, $input: ScheduleVisitInput!) {
-    scheduleVisit(ticketId: $ticketId, input: $input) {
+const ACKNOWLEDGE_AND_ASSIGN_DEVELOPER = gql`
+  mutation AcknowledgeAndAssignDeveloper($ticketId: Int!, $input: AcknowledgeAndAssignInput!) {
+    acknowledgeAndAssignDeveloper(ticketId: $ticketId, input: $input) {
       id
       ticketNumber
       status
+      assignedDeveloperName
       dateToVisit
       targetCompletionDate
     }
@@ -524,73 +514,58 @@ const SCHEDULE_VISIT = gql`
 `;
 
 /**
- * Mutation for admin to acknowledge a schedule
+ * Mutation for head to update resolution
  */
-const ACKNOWLEDGE_SCHEDULE = gql`
-  mutation AcknowledgeSchedule($ticketId: Int!, $comment: String) {
-    acknowledgeSchedule(ticketId: $ticketId, comment: $comment) {
+const UPDATE_RESOLUTION = gql`
+  mutation UpdateResolution($ticketId: Int!, $input: UpdateResolutionInput!) {
+    updateResolution(ticketId: $ticketId, input: $input) {
       id
       ticketNumber
       status
+      resolution
+      dateFinished
     }
   }
 `;
 
 /**
- * Mutation for admin to reject a schedule
+ * Query for office head tickets by type
  */
-const REJECT_SCHEDULE = gql`
-  mutation RejectSchedule($ticketId: Int!, $reason: String!) {
-    rejectSchedule(ticketId: $ticketId, reason: $reason) {
-      id
-      ticketNumber
-      status
-    }
-  }
-`;
-
-/**
- * Mutation for heads to add monitor notes and recommendations
- */
-const ADD_MONITOR_AND_RECOMMENDATIONS = gql`
-  mutation AddMonitorAndRecommendations($ticketId: Int!, $input: AddMonitorInput!) {
-    addMonitorAndRecommendations(ticketId: $ticketId, input: $input) {
-      id
-      ticketNumber
-      status
-      monitorNotes
-      recommendations
-    }
-  }
-`;
-
-/**
- * Query for admin to get tickets pending acknowledgment
- */
-const TICKETS_PENDING_ACKNOWLEDGMENT = gql`
-  query TicketsPendingAcknowledgment {
-    ticketsPendingAcknowledgment {
-      id
-      ticketNumber
-      type
-      title
-      status
-      priority
-      dateToVisit
-      targetCompletionDate
-      createdAt
-      createdBy {
+const OFFICE_HEAD_TICKETS = gql`
+  query OfficeHeadTickets($type: TicketType!) {
+    officeHeadTickets(type: $type) {
+      items {
         id
-        name
-        email
-      }
-      assignments {
-        user {
+        ticketNumber
+        type
+        title
+        status
+        priority
+        assignedDeveloperName
+        dateToVisit
+        targetCompletionDate
+        resolution
+        dateFinished
+        createdAt
+        createdBy {
           id
           name
-          role
+          email
+        }
+        assignments {
+          user {
+            id
+            name
+            role
+          }
         }
       }
+      totalCount
+      page
+      pageSize
+      totalPages
+      hasNextPage
+      hasPreviousPage
     }
   }
 `;
@@ -615,14 +590,9 @@ const TICKET_BY_NUMBER = gql`
       directorApprovedAt
       dateToVisit
       targetCompletionDate
-      headScheduledById
-      headScheduledAt
-      adminAcknowledgedById
-      adminAcknowledgedAt
-      monitorNotes
-      recommendations
-      monitoredById
-      monitoredAt
+      assignedDeveloperName
+      resolution
+      dateFinished
       escalatedAt
       escalationLevel
       satisfactionRating
@@ -840,15 +810,12 @@ export interface TicketListItem {
   dueDate?: string;
   secretaryReviewedAt?: string;
   directorApprovedAt?: string;
-  // Schedule workflow fields
+  // Simplified workflow fields
   dateToVisit?: string;
   targetCompletionDate?: string;
-  headScheduledAt?: string;
-  adminAcknowledgedAt?: string;
-  // Monitor fields
-  monitorNotes?: string;
-  recommendations?: string;
-  monitoredAt?: string;
+  assignedDeveloperName?: string;
+  resolution?: string;
+  dateFinished?: string;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
@@ -923,9 +890,6 @@ export interface TicketDetail extends TicketListItem {
   actualDuration?: number;
   secretaryReviewedById?: number;
   directorApprovedById?: number;
-  headScheduledById?: number;
-  adminAcknowledgedById?: number;
-  monitoredById?: number;
   escalatedAt?: string;
   escalationLevel?: number;
   satisfactionRating?: number;
@@ -1433,125 +1397,101 @@ export class TicketService {
   }
 
   // ========================================
-  // SCHEDULE WORKFLOW METHODS
+  // HEAD WORKFLOW METHODS (Simplified)
   // ========================================
 
   /**
-   * Get tickets pending acknowledgment (for Admin/Director)
+   * Head acknowledges ticket and assigns developer name
+   * Transitions: ASSIGNED → PENDING
    */
-  getTicketsPendingAcknowledgment(): Observable<TicketListItem[]> {
+  acknowledgeAndAssignDeveloper(
+    ticketId: number,
+    input: {
+      assignedDeveloperName: string;
+      assignToUserId?: number;
+      dateToVisit?: string;
+      targetCompletionDate?: string;
+      comment?: string;
+    },
+  ): Observable<{
+    id: number;
+    ticketNumber: string;
+    status: string;
+    assignedDeveloperName: string;
+  }> {
     return this.apollo
-      .query<{ ticketsPendingAcknowledgment: TicketListItem[] }>({
-        query: TICKETS_PENDING_ACKNOWLEDGMENT,
+      .mutate<{
+        acknowledgeAndAssignDeveloper: {
+          id: number;
+          ticketNumber: string;
+          status: string;
+          assignedDeveloperName: string;
+        };
+      }>({
+        mutation: ACKNOWLEDGE_AND_ASSIGN_DEVELOPER,
+        variables: {
+          ticketId,
+          input,
+        },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.acknowledgeAndAssignDeveloper) {
+            throw new Error('Failed to acknowledge and assign developer');
+          }
+          return result.data.acknowledgeAndAssignDeveloper;
+        }),
+      );
+  }
+
+  /**
+   * Head updates resolution after developer finishes work
+   */
+  updateResolution(
+    ticketId: number,
+    input: {
+      resolution: string;
+      dateFinished?: string;
+      status?: string;
+      comment?: string;
+    },
+  ): Observable<{ id: number; ticketNumber: string; status: string }> {
+    return this.apollo
+      .mutate<{
+        updateResolution: { id: number; ticketNumber: string; status: string };
+      }>({
+        mutation: UPDATE_RESOLUTION,
+        variables: {
+          ticketId,
+          input,
+        },
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data?.updateResolution) {
+            throw new Error('Failed to update resolution');
+          }
+          return result.data.updateResolution;
+        }),
+      );
+  }
+
+  /**
+   * Get office head tickets by type
+   */
+  getOfficeHeadTickets(type: 'MIS' | 'ITS'): Observable<any> {
+    return this.apollo
+      .query<{ officeHeadTickets: any }>({
+        query: OFFICE_HEAD_TICKETS,
+        variables: { type },
         fetchPolicy: 'network-only',
       })
       .pipe(
         map((result) => {
-          if (!result.data?.ticketsPendingAcknowledgment) {
-            throw new Error('Failed to fetch pending acknowledgment tickets');
+          if (!result.data?.officeHeadTickets) {
+            throw new Error('Failed to fetch office head tickets');
           }
-          return result.data.ticketsPendingAcknowledgment;
-        }),
-      );
-  }
-
-  /**
-   * Schedule a visit (for MIS_HEAD/ITS_HEAD)
-   * Sets dateToVisit and targetCompletionDate
-   */
-  scheduleVisit(
-    ticketId: number,
-    dateToVisit: string,
-    targetCompletionDate: string,
-    comment?: string,
-  ): Observable<{ id: number; ticketNumber: string; status: string }> {
-    return this.apollo
-      .mutate<{ scheduleVisit: { id: number; ticketNumber: string; status: string } }>({
-        mutation: SCHEDULE_VISIT,
-        variables: {
-          ticketId,
-          input: { dateToVisit, targetCompletionDate, comment },
-        },
-      })
-      .pipe(
-        map((result) => {
-          if (!result.data?.scheduleVisit) {
-            throw new Error('Failed to schedule visit');
-          }
-          return result.data.scheduleVisit;
-        }),
-      );
-  }
-
-  /**
-   * Acknowledge schedule (for Admin/Director)
-   */
-  acknowledgeSchedule(
-    ticketId: number,
-    comment?: string,
-  ): Observable<{ id: number; ticketNumber: string; status: string }> {
-    return this.apollo
-      .mutate<{ acknowledgeSchedule: { id: number; ticketNumber: string; status: string } }>({
-        mutation: ACKNOWLEDGE_SCHEDULE,
-        variables: { ticketId, comment },
-      })
-      .pipe(
-        map((result) => {
-          if (!result.data?.acknowledgeSchedule) {
-            throw new Error('Failed to acknowledge schedule');
-          }
-          return result.data.acknowledgeSchedule;
-        }),
-      );
-  }
-
-  /**
-   * Reject schedule (for Admin/Director)
-   */
-  rejectSchedule(
-    ticketId: number,
-    reason: string,
-  ): Observable<{ id: number; ticketNumber: string; status: string }> {
-    return this.apollo
-      .mutate<{ rejectSchedule: { id: number; ticketNumber: string; status: string } }>({
-        mutation: REJECT_SCHEDULE,
-        variables: { ticketId, reason },
-      })
-      .pipe(
-        map((result) => {
-          if (!result.data?.rejectSchedule) {
-            throw new Error('Failed to reject schedule');
-          }
-          return result.data.rejectSchedule;
-        }),
-      );
-  }
-
-  /**
-   * Add monitor notes and recommendations (for MIS_HEAD/ITS_HEAD after visit)
-   */
-  addMonitorAndRecommendations(
-    ticketId: number,
-    monitorNotes: string,
-    recommendations: string,
-    comment?: string,
-  ): Observable<{ id: number; ticketNumber: string; status: string }> {
-    return this.apollo
-      .mutate<{
-        addMonitorAndRecommendations: { id: number; ticketNumber: string; status: string };
-      }>({
-        mutation: ADD_MONITOR_AND_RECOMMENDATIONS,
-        variables: {
-          ticketId,
-          input: { monitorNotes, recommendations, comment },
-        },
-      })
-      .pipe(
-        map((result) => {
-          if (!result.data?.addMonitorAndRecommendations) {
-            throw new Error('Failed to add monitor notes');
-          }
-          return result.data.addMonitorAndRecommendations;
+          return result.data.officeHeadTickets;
         }),
       );
   }

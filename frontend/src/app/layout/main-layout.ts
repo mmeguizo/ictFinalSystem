@@ -30,6 +30,7 @@ import { UserApiService } from '../api/user-api.service';
 import { AuthService } from '../core/services/auth.service';
 import { RouterModule } from '@angular/router';
 import { NotificationBellComponent } from '../shared/components/notification-bell.component';
+import { ChatWidgetComponent } from '../shared/components/chat-widget.component';
 interface MenuItem {
   icon: string;
   label: string;
@@ -54,6 +55,7 @@ interface MenuItem {
     ReactiveFormsModule,
     RouterModule,
     NotificationBellComponent,
+    ChatWidgetComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './main-layout.html',
@@ -193,6 +195,13 @@ export class MainLayout {
           'SECRETARY',
           'DIRECTOR',
         ],
+      },
+      // Solutions — for staff to add troubleshooting data for AI
+      {
+        icon: 'bulb',
+        label: 'Solutions',
+        path: '/solutions',
+        roles: ['ADMIN', 'MIS_HEAD', 'ITS_HEAD', 'DEVELOPER', 'TECHNICAL'],
       },
       // Notifications - available to all authenticated users
       {
