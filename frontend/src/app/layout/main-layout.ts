@@ -29,6 +29,7 @@ import { firstValueFrom } from 'rxjs';
 import { UserApiService } from '../api/user-api.service';
 import { AuthService } from '../core/services/auth.service';
 import { RouterModule } from '@angular/router';
+import { getAvatarInitial, normalizeAvatar, resolveAvatarUrl } from '../shared/avatar.utils';
 import { NotificationBellComponent } from '../shared/components/notification-bell.component';
 import { ChatWidgetComponent } from '../shared/components/chat-widget.component';
 interface MenuItem {
@@ -70,25 +71,21 @@ export class MainLayout {
   isUploadingAvatar = signal(false);
   avatarPreview = signal<string | null>(null);
   userEmail = signal<string | null>(null);
+  failedAvatarSrc = signal<string | null>(null);
   private pendingAvatarDataUrl: string | null = null;
   readonly inspectMode = false;
-  private readonly defaultAvatar = 'assets/no-photo.png';
 
   readonly avatarSrc = computed(() => {
-    // Preview (just selected, not saved yet)
-    const preview = this.avatarPreview();
-    if (preview && preview.trim().length) return preview;
-
-    // Explicitly set avatar signal (from API or Auth0)
-    const current = this.avatarUrl();
-    if (current && current.trim().length) return current;
-
-    // Fallback from loaded user in AuthService
-    const userAvatar = normalizeAvatar(this.authService.currentUser()?.avatarUrl);
-    if (userAvatar) return userAvatar;
-
-    return this.defaultAvatar;
+    const preview = normalizeAvatar(this.avatarPreview());
+    const current = normalizeAvatar(this.avatarUrl());
+    const userAvatar = resolveAvatarUrl(this.authService.currentUser());
+    const candidate = preview ?? current ?? userAvatar;
+    return candidate && candidate !== this.failedAvatarSrc() ? candidate : null;
   });
+
+  readonly userInitial = computed(() =>
+    getAvatarInitial(this.authService.currentUser()?.name, this.userEmail()),
+  );
 
   readonly hasProfileChanges = computed(() => {
     if (this.passwordsValid()) return true;
@@ -250,9 +247,10 @@ export class MainLayout {
   // Add this effect after the other signal declarations (before constructor):
   private readonly syncUserAvatarEffect = effect(() => {
     const user = this.authService.currentUser();
+    const syncedAvatar = resolveAvatarUrl(user);
     // Only set if we don’t already have a local avatar and no preview
-    if (user && user.avatarUrl && !this.avatarUrl() && !this.avatarPreview()) {
-      this.avatarUrl.set(user.avatarUrl);
+    if (syncedAvatar && !this.avatarUrl() && !this.avatarPreview()) {
+      this.avatarUrl.set(syncedAvatar);
       this.cdr.markForCheck();
     }
   });
@@ -280,8 +278,9 @@ export class MainLayout {
         });
       }
       const storedUser = this.authService.currentUser();
-      if (storedUser?.avatarUrl && !this.avatarUrl()) {
-        this.avatarUrl.set(storedUser.avatarUrl);
+      const storedAvatar = resolveAvatarUrl(storedUser);
+      if (storedAvatar && !this.avatarUrl()) {
+        this.avatarUrl.set(storedAvatar);
         this.cdr.markForCheck();
       }
       this.loadCurrentUser().catch(() => {});
@@ -504,7 +503,7 @@ export class MainLayout {
 
         this.profileForm.patchValue({ displayName: me.name ?? '' });
         this.profileForm.markAsPristine();
-        const serverAvatar = normalizeAvatar(me.avatarUrl) ?? normalizeAvatar(me.picture);
+        const serverAvatar = resolveAvatarUrl(me);
         if (serverAvatar) {
           this.avatarUrl.set(serverAvatar);
           this.cdr.markForCheck();
@@ -516,9 +515,18 @@ export class MainLayout {
   }
 
   handleAvatarError(): boolean {
-    if (!this.avatarPreview()) {
+    const failedSrc = this.avatarSrc();
+    if (failedSrc) {
+      this.failedAvatarSrc.set(failedSrc);
+    }
+
+    if (this.avatarPreview()) {
+      this.avatarPreview.set(null);
+      this.pendingAvatarDataUrl = null;
+    } else {
       this.avatarUrl.set(null);
     }
+
     this.cdr.markForCheck();
     return false;
   }
@@ -565,12 +573,7 @@ export class MainLayout {
   }
 
   onAvatarLoad(): void {
+    this.failedAvatarSrc.set(null);
     this.cdr.markForCheck();
   }
-}
-
-function normalizeAvatar(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const trimmed = value.trim();
-  return trimmed.length ? trimmed : null;
 }

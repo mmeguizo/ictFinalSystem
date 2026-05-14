@@ -27,7 +27,57 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { ChatService, ChatSession, ChatMessage } from '../../core/services/chat.service';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../core/config/environment';
+import { getAvatarInitial, resolveAvatarUrl } from '../avatar.utils';
 import { marked } from 'marked';
+
+type QuickPrompt = {
+  prompt: string;
+  label: string;
+  emoji: string;
+};
+
+const TICKET_DATA_BLOCK_REGEX = /```ticket-data\s*[\s\S]*?```/g;
+const QUICK_OPTIONS_BLOCK_REGEX = /```show-quick-options\s*[\s\S]*?```/g;
+
+const COMMON_QUICK_PROMPTS: QuickPrompt[] = [
+  { prompt: 'My internet is not working', label: 'Internet / Network', emoji: '🌐' },
+  { prompt: 'My printer is not printing', label: 'Printer Issues', emoji: '🖨️' },
+  { prompt: 'I need software installed or updated', label: 'Software / Apps', emoji: '💻' },
+  {
+    prompt: 'I have a problem with my account or password',
+    label: 'Account / Password',
+    emoji: '🔐',
+  },
+  { prompt: 'What is the status of my tickets?', label: 'Check Ticket Status', emoji: '📋' },
+];
+
+const USER_QUICK_PROMPTS: QuickPrompt[] = [
+  { prompt: 'I want to create a support ticket', label: 'Create Ticket', emoji: '🎫' },
+];
+
+const STAFF_QUICK_PROMPTS: QuickPrompt[] = [
+  {
+    prompt: 'Show me the ICT statistics and analytics',
+    label: 'ICT Analytics',
+    emoji: '📊',
+  },
+  {
+    prompt: 'Generate a full Excel report of all tickets',
+    label: 'Download Report',
+    emoji: '📥',
+  },
+  {
+    prompt: 'Show me overdue tickets and SLA warnings',
+    label: 'SLA Warnings',
+    emoji: '⚠️',
+  },
+];
+
+const HELP_QUICK_PROMPT: QuickPrompt = {
+  prompt: '/help',
+  label: 'Help / Commands',
+  emoji: '❓',
+};
 
 // Configure marked once: GFM tables enabled by default, breaks converts \n to <br>, headings use compact divs
 marked.use({
@@ -74,9 +124,8 @@ marked.use({
       [nzWidth]="420"
       nzPlacement="right"
       [nzClosable]="false"
-      [nzMask]="true"
-      [nzMaskClosable]="true"
-      [nzMaskStyle]="{ background: 'transparent' }"
+      [nzMask]="false"
+      [nzMaskClosable]="false"
       (nzOnClose)="isOpen.set(false)"
       nzWrapClassName="chat-drawer-wrapper"
     >
@@ -197,64 +246,10 @@ marked.use({
                   <div class="quick-categories">
                     <p class="quick-label">Common issues I can help with:</p>
                     <div class="quick-prompts">
-                      <button class="quick-btn" (click)="sendQuick('My internet is not working')">
-                        <span class="quick-emoji">🌐</span>
-                        <span class="quick-text">Internet / Network</span>
-                      </button>
-                      <button class="quick-btn" (click)="sendQuick('My printer is not printing')">
-                        <span class="quick-emoji">🖨️</span>
-                        <span class="quick-text">Printer Issues</span>
-                      </button>
-                      <button
-                        class="quick-btn"
-                        (click)="sendQuick('I need software installed or updated')"
-                      >
-                        <span class="quick-emoji">💻</span>
-                        <span class="quick-text">Software / Apps</span>
-                      </button>
-                      <button
-                        class="quick-btn"
-                        (click)="sendQuick('I have a problem with my account or password')"
-                      >
-                        <span class="quick-emoji">🔐</span>
-                        <span class="quick-text">Account / Password</span>
-                      </button>
-                      <button
-                        class="quick-btn"
-                        (click)="sendQuick('What is the status of my tickets?')"
-                      >
-                        <span class="quick-emoji">📋</span>
-                        <span class="quick-text">Check Ticket Status</span>
-                      </button>
-                      @if (isStaffOrAdmin()) {
-                        <button
-                          class="quick-btn"
-                          (click)="sendQuick('Show me the ICT statistics and analytics')"
-                        >
-                          <span class="quick-emoji">📊</span>
-                          <span class="quick-text">ICT Analytics</span>
-                        </button>
-                        <button
-                          class="quick-btn"
-                          (click)="sendQuick('Generate a full Excel report of all tickets')"
-                        >
-                          <span class="quick-emoji">📥</span>
-                          <span class="quick-text">Download Report</span>
-                        </button>
-                        <button
-                          class="quick-btn"
-                          (click)="sendQuick('Show me overdue tickets and SLA warnings')"
-                        >
-                          <span class="quick-emoji">⚠️</span>
-                          <span class="quick-text">SLA Warnings</span>
-                        </button>
-                      } @else {
-                        <button
-                          class="quick-btn"
-                          (click)="sendQuick('I want to create a support ticket')"
-                        >
-                          <span class="quick-emoji">🎫</span>
-                          <span class="quick-text">Create Ticket</span>
+                      @for (prompt of quickPrompts(); track prompt.prompt) {
+                        <button class="quick-btn" (click)="sendQuick(prompt.prompt)">
+                          <span class="quick-emoji">{{ prompt.emoji }}</span>
+                          <span class="quick-text">{{ prompt.label }}</span>
                         </button>
                       }
                     </div>
@@ -276,7 +271,15 @@ marked.use({
                   ></div>
                   @if (msg.role === 'USER') {
                     <div class="message-avatar user">
-                      <span nz-icon nzType="user" nzTheme="outline"></span>
+                      @if (currentUserAvatarSrc(); as avatarSrc) {
+                        <img
+                          [src]="avatarSrc"
+                          [alt]="currentUserInitial() + ' avatar'"
+                          (error)="onCurrentUserAvatarError()"
+                        />
+                      } @else {
+                        <span class="message-avatar-initial">{{ currentUserInitial() }}</span>
+                      }
                     </div>
                   }
                 </div>
@@ -293,6 +296,20 @@ marked.use({
                     >
                       <span nz-icon nzType="plus-circle"></span> Create Support Ticket
                     </button>
+                  </div>
+                }
+
+                @if (msg.role === 'ASSISTANT' && hasQuickOptions(msg.content)) {
+                  <div class="message-quick-options">
+                    <p class="quick-inline-label">Try one of these:</p>
+                    <div class="quick-prompts quick-prompts-inline">
+                      @for (prompt of quickPrompts(); track prompt.prompt) {
+                        <button class="quick-btn" (click)="sendQuick(prompt.prompt)">
+                          <span class="quick-emoji">{{ prompt.emoji }}</span>
+                          <span class="quick-text">{{ prompt.label }}</span>
+                        </button>
+                      }
+                    </div>
                   </div>
                 }
               }
@@ -927,6 +944,23 @@ marked.use({
         margin: 4px 0;
       }
 
+      .message-quick-options {
+        margin: -4px 0 8px 40px;
+      }
+
+      .quick-inline-label {
+        margin: 0 0 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #8c8c8c;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+
+      .quick-prompts-inline .quick-btn {
+        padding: 10px 12px;
+      }
+
       /* ── Input area ───────────────────────────────── */
       .chat-input-area {
         display: flex;
@@ -958,6 +992,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   readonly loadingMessages = signal(false);
   readonly sending = signal(false);
   readonly creatingTicket = signal(false);
+  private readonly userAvatarErrorSrc = signal<string | null>(null);
 
   /** Whether current user is staff/admin (has access to analytics, reports) */
   readonly isStaffOrAdmin = computed(() => {
@@ -972,6 +1007,24 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
       'SECRETARY',
     ].includes(role || '');
   });
+
+  readonly quickPrompts = computed<QuickPrompt[]>(() => [
+    ...COMMON_QUICK_PROMPTS,
+    ...(this.isStaffOrAdmin() ? STAFF_QUICK_PROMPTS : USER_QUICK_PROMPTS),
+    HELP_QUICK_PROMPT,
+  ]);
+
+  readonly currentUserAvatarSrc = computed(() => {
+    const avatarSrc = resolveAvatarUrl(this.authService.currentUser());
+    return avatarSrc && avatarSrc !== this.userAvatarErrorSrc() ? avatarSrc : null;
+  });
+
+  readonly currentUserInitial = computed(() =>
+    getAvatarInitial(
+      this.authService.currentUser()?.name,
+      this.authService.currentUser()?.email,
+    ),
+  );
 
   inputMessage = '';
 
@@ -1117,6 +1170,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
     return content.includes('```ticket-data');
   }
 
+  hasQuickOptions(content: string): boolean {
+    return content.includes('```show-quick-options');
+  }
+
+  onCurrentUserAvatarError(): boolean {
+    const failedSrc = resolveAvatarUrl(this.authService.currentUser());
+    if (failedSrc) {
+      this.userAvatarErrorSrc.set(failedSrc);
+    }
+    return false;
+  }
+
   createTicketFromMessage(content: string) {
     const match = content.match(/```ticket-data\s*([\s\S]*?)```/);
     if (!match) return;
@@ -1190,7 +1255,6 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
         event.preventDefault();
         event.stopPropagation();
         const articleId = href.split('/knowledge-base/')[1];
-        this.isOpen.set(false);
         this.router.navigate(['/knowledge-base'], { queryParams: { article: articleId } });
         return;
       }
@@ -1250,8 +1314,11 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   }
 
   renderMarkdown(content: string): string {
-    // Strip ticket-data fenced blocks (not for display)
-    const src = content.replace(/```ticket-data[\s\S]*?```/g, '').trim();
+    // Strip assistant control blocks before rendering markdown.
+    const src = content
+      .replace(TICKET_DATA_BLOCK_REGEX, '')
+      .replace(QUICK_OPTIONS_BLOCK_REGEX, '')
+      .trim();
 
     // Full GFM parse: headings, tables, lists, code blocks, bold, italic, links
     let html = marked.parse(src) as string;

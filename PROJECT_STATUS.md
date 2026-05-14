@@ -1,7 +1,7 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** May 11, 2026
+> **Last Updated:** May 14, 2026
 
 ---
 
@@ -21,7 +21,7 @@
 - [x] Authentication — JWT + Auth0 SSO + local login
 - [x] Authorization — 8 roles (ADMIN, DIRECTOR, SECRETARY, MIS_HEAD, ITS_HEAD, DEVELOPER, TECHNICAL, USER)
 - [x] Role-based route guards (authGuard, adminGuard, guestGuard, approverGuard, secretaryGuard, userTicketGuard)
-- [x] User management (CRUD, profile, avatar upload)
+- [x] User management (CRUD, profile, avatar upload, avatar initial fallback)
 - [x] File storage (multer, avatar + ticket attachments)
 - [x] WebSocket infrastructure (graphql-ws, PubSub, 4 event types)
 - [x] Real-time service (Angular signals — lastNotification, lastStatusChange, lastTicketCreated, lastAssignment)
@@ -45,7 +45,7 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 - [x] Users can view their own tickets (myCreatedTickets query)
 - [x] Users can track ticket status in real-time
 - [x] Users can reopen cancelled tickets
-- [ ] **AI chatbot for guided ticket creation**
+- [x] **AI chatbot for guided ticket creation**
 - [ ] **Natural language ticket input (NLP parsing)**
 - [x] **Knowledge base / FAQ system** — full CRUD, search, categories, metrics, seeded with 6 ICT FAQs
 - [x] **Smart suggestions (similar past tickets, auto-fill)** — Gemini AI analysis + fulltext similar ticket search + related KB articles
@@ -55,8 +55,11 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 
 1. [x] AI chatbot widget (floating button, conversation history, role-aware)
 2. [x] RAG pipeline (KB + resolved tickets + solutions)
-3. [x] Intent detection (ticket creation, report generation)
+3. [x] Intent detection (ticket creation, report generation, role-based help, out-of-scope redirect)
 4. [x] Rich markdown rendering (tables, headers, Enter-to-send)
+5. [x] Role-based `/help` command with capability and restriction guidance
+6. [x] Out-of-scope guardrails with quick-option redirect inside chat
+7. [x] Chat scope hardening to keep answers inside supported ICT capabilities
 
 ---
 
@@ -284,6 +287,11 @@ Full end-to-end ticket management from creation through multi-stage approval, as
 - [x] **Ticket creation from chat** — AI can detect intent and guide user to create a ticket
 - [x] **Excel report download from chat** — AI detects report requests and renders clickable download buttons
 - [x] **Operational admin/staff chat queries** — Chat now answers approval queues, escalations, workload, department/category breakdowns, user summaries, and KB/solution coverage from selected Prisma tables
+- [x] **Role-based help and restrictions** — `/help` now shows allowed capabilities and limits per user role
+- [x] **Out-of-scope quick redirect** — Non-ICT prompts are redirected back to supported quick options instead of free-form answers
+- [x] **Hallucination reduction guardrails** — Backend pre-checks and prompt constraints now keep chat responses aligned with system-backed capabilities
+- [x] **Persistent non-modal chat drawer** — Users can keep the AI chat open while clicking other tabs and links unless they explicitly close it
+- [x] **Profile-aware user avatars** — Chat messages and the header now use the current user's avatar, with first-letter fallback when no valid image is available
 - [x] **Deletion safeguard policy in chat** — Chat explains deactivate-vs-delete rules and audited hard deletes, but stays read-only for destructive actions
 - [x] **Rich markdown in chat** — Tables, headers, blockquotes, code blocks, bold/italic rendered properly
 - [x] **Enter-to-send keyboard shortcut** — Enter sends message; Shift+Enter inserts newline
@@ -355,16 +363,16 @@ These are ordered by **research alignment** (most critical for the thesis) and *
 
 ## Summary Matrix
 
-| Feature                              | Status   | Completion                                                                                                                              |
-| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 1a. AI-Powered Self-Service Portal   | **Done** | ~93% (portal + KB + AI suggestions + chatbot + RAG pipeline + markdown rendering + operational chat answers + fixed quick-menu routing) |
-| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                                                                                      |
-| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)                                                                    |
-| 1d. Integrated Reporting & Analytics | **Done** | ~94% (analytics + charts + trends + PDF/Excel + Excel-from-chat + staff/admin chat queries)                                             |
-| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                                                                                  |
-| 1f. Ticket Lifecycle Management      | **Done** | ~98% (full workflow + satisfaction survey + note management)                                                                            |
-| AI Training Pipeline                 | **Done** | ~95% (auto-extract solutions + notes in RAG + visibility enforcement)                                                                   |
-| Infrastructure                       | **Done** | ~97%                                                                                                                                    |
+| Feature                              | Status   | Completion                                                                                                                                                      |
+| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1a. AI-Powered Self-Service Portal   | **Done** | ~95% (portal + KB + AI suggestions + chatbot + RAG pipeline + markdown rendering + operational chat answers + help/out-of-scope guardrails + persistent drawer) |
+| 1b. Automated Ticket Routing         | Partial  | ~85% (rule-based + escalation + AI categorization)                                                                                                              |
+| 1c. Real-Time Tracking               | **Done** | ~97% (WebSocket + signals + real-time dashboard + assignment events)                                                                                            |
+| 1d. Integrated Reporting & Analytics | **Done** | ~94% (analytics + charts + trends + PDF/Excel + Excel-from-chat + staff/admin chat queries)                                                                     |
+| 1e. SLA Enforcement & Performance    | Partial  | ~88% (cron + escalation + SLA dashboard + tracker fix)                                                                                                          |
+| 1f. Ticket Lifecycle Management      | **Done** | ~98% (full workflow + satisfaction survey + note management)                                                                                                    |
+| AI Training Pipeline                 | **Done** | ~95% (auto-extract solutions + notes in RAG + visibility enforcement)                                                                                           |
+| Infrastructure                       | **Done** | ~97%                                                                                                                                                            |
 
 ---
 

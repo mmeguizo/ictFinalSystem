@@ -52,15 +52,19 @@
               <div class="user-role-badge">
                 <span class="role-label">{{ getUserRoleLabel() }}</span>
               </div>
-              <img
-                [src]="avatarSrc()"
-                (load)="onAvatarLoad()"
-                (error)="handleAvatarError()"
-                alt="User avatar"
-                class="user-avatar"
-                width="32"
-                height="32"
-              />
+              @if (avatarSrc(); as avatar) {
+                <img
+                  [src]="avatar"
+                  (load)="onAvatarLoad()"
+                  (error)="handleAvatarError()"
+                  alt="User avatar"
+                  class="user-avatar"
+                  width="32"
+                  height="32"
+                />
+              } @else {
+                <div class="user-avatar user-avatar-fallback">{{ userInitial() }}</div>
+              }
             </a>
           </div>
 
@@ -125,15 +129,19 @@
         <nz-form-label>Profile Picture</nz-form-label>
         <nz-form-control>
           <div class="avatar-upload-container">
-            <img
-              [src]="avatarSrc()"
-              (load)="onAvatarLoad()"
-              (error)="handleAvatarError()"
-              alt="User avatar"
-              class="profile-avatar-preview"
-              width="80"
-              height="80"
-            />
+            @if (avatarSrc(); as avatar) {
+              <img
+                [src]="avatar"
+                (load)="onAvatarLoad()"
+                (error)="handleAvatarError()"
+                alt="User avatar"
+                class="profile-avatar-preview"
+                width="80"
+                height="80"
+              />
+            } @else {
+              <div class="profile-avatar-preview profile-avatar-fallback">{{ userInitial() }}</div>
+            }
             <input
               type="file"
               accept="image/*"

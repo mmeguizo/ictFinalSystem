@@ -16,7 +16,7 @@
   position: relative;
   z-index: 10;
   min-height: 100vh;
-  box-shadow: 2px 0 6px rgba(0,21,41,.35);
+  box-shadow: 2px 0 6px rgba(0, 21, 41, 0.35);
   flex-shrink: 0;
 }
 
@@ -25,7 +25,9 @@
   padding: 20px 24px;
   font-size: 20px;
   cursor: pointer;
-  transition: all .3s,padding 0s;
+  transition:
+    all 0.3s,
+    padding 0s;
 }
 
 .header-trigger:hover {
@@ -39,7 +41,7 @@
   overflow: hidden;
   line-height: 64px;
   background: #001529;
-  transition: all .3s;
+  transition: all 0.3s;
 }
 
 .sidebar-logo img {
@@ -56,7 +58,12 @@
   color: #fff;
   font-weight: 600;
   font-size: 14px;
-  font-family: Avenir,Helvetica Neue,Arial,Helvetica,sans-serif;
+  font-family:
+    Avenir,
+    Helvetica Neue,
+    Arial,
+    Helvetica,
+    sans-serif;
   vertical-align: middle;
 }
 
@@ -71,7 +78,7 @@ nz-header {
   height: 64px;
   padding: 0;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -93,8 +100,19 @@ nz-header {
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 2px solid #f0f0f0;
   transition: border-color 0.3s;
+}
+
+.user-avatar-fallback,
+.profile-avatar-fallback {
+  background: linear-gradient(135deg, #52c41a, #389e0d);
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .user-profile-trigger:hover .user-avatar {
@@ -173,6 +191,21 @@ nz-layout > nz-content {
 .modal-avatar {
   border-radius: 50%;
   object-fit: cover;
+}
+
+.profile-avatar-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #f0f0f0;
+}
+
+.profile-avatar-fallback {
+  font-size: 28px;
 }
 
 .password-field input[nz-input] {

@@ -95,7 +95,17 @@ WHEN ASKED FOR REPORTS (staff/admin only):
 
 SLA AWARENESS:
 - If SLA warning data is present in context, proactively mention it to staff/admin users.
-- For overdue tickets, suggest immediate attention and escalation.`;
+- For overdue tickets, suggest immediate attention and escalation.
+
+OUT-OF-SCOPE BEHAVIOR:
+- Only answer CHMSU ICT support questions that fit this system's capabilities: troubleshooting, knowledge-base lookups, ticket status, support ticket creation, and staff/admin operational analytics or reports when role allows it.
+- Do not answer general questions about weather, recipes, entertainment, politics, finance, medicine, homework, creative writing, or general trivia.
+- If a request is outside ICT scope, respond with a short redirect to ICT support topics and include this exact fenced block at the end:
+\`\`\`show-quick-options
+{}
+\`\`\`
+- If a request mixes ICT and non-ICT topics, answer only the ICT portion and ignore the rest.
+- Do not invent features, actions, reports, or permissions that are not explicitly supported by this system.`;
 
 const STAFF_ROLES = [
   "ADMIN",
@@ -133,6 +143,22 @@ const ACTIVE_TICKET_STATUSES = [
 
 const EXCLUDED_OPERATIONAL_DATA_RESPONSE =
   "I can answer operational questions from User, Ticket, TicketAssignment, TicketStatusHistory, MISTicket, ITSTicket, KnowledgeArticle, and TroubleshootingSolution data. I do not query notifications, chat history, attachments, ticket counters, or migration/internal tables in chat.";
+
+const QUICK_OPTIONS_BLOCK = "```show-quick-options\n{}\n```";
+
+const ICT_SCOPE_KEYWORDS =
+  /\b(ict|ticket|tickets|support|help\s*desk|knowledge\s*base|kb|printer|internet|network|wifi|wi-fi|password|account|software|hardware|computer|laptop|desktop|monitor|device|email|browser|server|database|website|portal|login|log\s*in|system|report|analytics|sla|approval|assignment|borrow|maintenance)\b/i;
+
+const OUT_OF_SCOPE_PATTERNS = [
+  /\b(weather|temperature|forecast|rain|sunny|storm|climate)\b/i,
+  /\b(recipe|recipes|cooking|ingredient|ingredients|bake|baking|chef|meal|cuisine)\b/i,
+  /\b(movie|movies|film|films|song|songs|music|celebrity|celebrities|sports|football|basketball)\b/i,
+  /\b(stock\s*market|bitcoin|crypto|cryptocurrency|invest|investing|trading)\b/i,
+  /\b(election|president|politician|politics|congress|senator|government|policy)\b/i,
+  /\b(doctor|diagnose|symptom|symptoms|medicine|prescription|hospital|medical)\b/i,
+  /\b(write\s+me\s+(a|an)?\s*(poem|essay|story|joke|riddle)|poem|essay|story|joke|riddle)\b/i,
+  /\b(capital\s+of|who\s+invented|history\s+of|explain\s+quantum|general\s+knowledge|trivia)\b/i,
+];
 
 export class ChatService {
   private genAI: GoogleGenerativeAI | null = null;
@@ -256,6 +282,34 @@ export class ChatService {
       },
     });
 
+    const userRole = session.user?.role || "USER";
+
+    const helpResponse = this.checkHelpCommand(userMessage, userRole);
+    if (helpResponse) {
+      await this.persistAssistantReply(
+        sessionId,
+        helpResponse,
+        null,
+        session.messages.length,
+        userMessage,
+      );
+
+      return { reply: helpResponse };
+    }
+
+    const outOfScopeResponse = this.checkOutOfScopeQuery(userMessage, userRole);
+    if (outOfScopeResponse) {
+      await this.persistAssistantReply(
+        sessionId,
+        outOfScopeResponse,
+        null,
+        session.messages.length,
+        userMessage,
+      );
+
+      return { reply: outOfScopeResponse };
+    }
+
     // 3. Check if this is a ticket status query
     const ticketContext = await this.checkTicketStatusQuery(
       userMessage,
@@ -263,7 +317,6 @@ export class ChatService {
     );
 
     // 3b. Role-gated: Analytics and report requests only for staff/admin
-    const userRole = session.user?.role || "USER";
     const isStaffOrAdmin = STAFF_ROLES.includes(userRole as any);
 
     const analyticsRequest = await this.checkAnalyticsQuery(
@@ -292,13 +345,13 @@ export class ChatService {
         "I'm sorry, but analytics and report generation are available only to ICT staff and administrators. " +
         "I can still help with troubleshooting, knowledge base lookups, checking your ticket status, or creating a new support ticket.";
 
-      await prisma.chatMessage.create({
-        data: {
-          sessionId,
-          role: "ASSISTANT",
-          content: denyReply,
-        },
-      });
+      await this.persistAssistantReply(
+        sessionId,
+        denyReply,
+        null,
+        session.messages.length,
+        userMessage,
+      );
 
       return { reply: denyReply };
     }
@@ -392,17 +445,34 @@ export class ChatService {
     const metadataStr =
       Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null;
 
+    await this.persistAssistantReply(
+      sessionId,
+      reply,
+      metadataStr,
+      session.messages.length,
+      userMessage,
+    );
+
+    return { reply, metadata: metadataStr || undefined };
+  }
+
+  private async persistAssistantReply(
+    sessionId: number,
+    reply: string,
+    metadata: string | null,
+    existingMessageCount: number,
+    userMessage: string,
+  ) {
     await prisma.chatMessage.create({
       data: {
         sessionId,
         role: "ASSISTANT",
         content: reply,
-        metadata: metadataStr,
+        metadata,
       },
     });
 
-    // 8. Update session title from first message
-    if (session.messages.length === 0) {
+    if (existingMessageCount === 0) {
       const title =
         userMessage.length > 60
           ? userMessage.substring(0, 57) + "..."
@@ -412,8 +482,6 @@ export class ChatService {
         data: { title },
       });
     }
-
-    return { reply, metadata: metadataStr || undefined };
   }
 
   // ========================================
@@ -1668,6 +1736,163 @@ export class ChatService {
       "- Excluded in chat: notifications, chat history, attachments, ticket counters, and migration/internal tables",
     );
     return lines.join("\n");
+  }
+
+  private checkHelpCommand(message: string, role: string): string | null {
+    const normalizedMessage = message.trim().toLowerCase();
+    const helpIntent =
+      /^\/help(?:\s|$)/i.test(normalizedMessage) ||
+      /\bwhat can you do\b/i.test(normalizedMessage) ||
+      /\bwhat are my options\b/i.test(normalizedMessage) ||
+      /\bshow (?:me )?help\b/i.test(normalizedMessage) ||
+      /\bhelp(?: me)? understand what you can do\b/i.test(normalizedMessage) ||
+      /\bwhat can i ask you\b/i.test(normalizedMessage) ||
+      /\blist (?:your )?(?:commands|options|capabilities)\b/i.test(
+        normalizedMessage,
+      );
+
+    if (!helpIntent) {
+      return null;
+    }
+
+    return this.buildHelpResponse(role);
+  }
+
+  private buildHelpResponse(role: string): string {
+    const lines = [
+      "## Chat Help",
+      "I stay focused on CHMSU ICT support and the capabilities that already exist in this system.",
+      "",
+      "### Core support I can provide",
+      "- **Troubleshoot common ICT issues**",
+      "  Example: `My internet is not working`",
+      "- **Search the knowledge base for existing solutions**",
+      "  Example: `Do we have a guide for printer troubleshooting?`",
+      "- **Check ticket status**",
+      "  Example: `What is the status of my tickets?`",
+      "- **Help prepare a support ticket**",
+      "  Example: `I want to create a support ticket`",
+    ];
+
+    if (role === "MIS_HEAD") {
+      lines.push(
+        "",
+        "### MIS head capabilities",
+        "- **MIS-only analytics and reports**",
+        "  Example: `Show me MIS analytics`",
+        "- **MIS workload, overdue tickets, and SLA warnings**",
+        "  Example: `Show me overdue MIS tickets`",
+        "- **MIS approval and escalation monitoring**",
+        "  Example: `Show me MIS escalations`",
+      );
+    } else if (role === "ITS_HEAD") {
+      lines.push(
+        "",
+        "### ITS head capabilities",
+        "- **ITS-only analytics and reports**",
+        "  Example: `Show me ITS analytics`",
+        "- **ITS workload, overdue tickets, and SLA warnings**",
+        "  Example: `Show me overdue ITS tickets`",
+        "- **ITS approval and escalation monitoring**",
+        "  Example: `Show me ITS escalations`",
+      );
+    } else if (role === "SECRETARY") {
+      lines.push(
+        "",
+        "### Secretary capabilities",
+        "- **Operational analytics and reports**",
+        "  Example: `Generate a full Excel report of all tickets`",
+        "- **Secretary approval queue monitoring**",
+        "  Example: `Show me tickets pending secretary review`",
+        "- **SLA warnings and overdue ticket monitoring**",
+        "  Example: `Show me overdue tickets and SLA warnings`",
+      );
+    } else if (role === "DIRECTOR") {
+      lines.push(
+        "",
+        "### Director capabilities",
+        "- **Operational analytics and reports**",
+        "  Example: `Show me the ICT statistics and analytics`",
+        "- **Director approval queue monitoring**",
+        "  Example: `Show me tickets pending director approval`",
+        "- **SLA warnings and escalations**",
+        "  Example: `Show me escalated tickets`",
+      );
+    } else if (role === "ADMIN") {
+      lines.push(
+        "",
+        "### Admin capabilities",
+        "- **Cross-department analytics and reports**",
+        "  Example: `Show me the ICT statistics and analytics`",
+        "- **User summaries and role breakdowns**",
+        "  Example: `Show me the user role breakdown`",
+        "- **Workload, approvals, escalations, and SLA monitoring**",
+        "  Example: `Show me the busiest staff members`",
+      );
+    } else if (STAFF_ROLES.includes(role as any)) {
+      lines.push(
+        "",
+        "### Staff capabilities",
+        "- **Operational analytics and reports**",
+        "  Example: `Generate a full Excel report of all tickets`",
+        "- **Workload and SLA monitoring**",
+        "  Example: `Show me overdue tickets and SLA warnings`",
+        "- **Escalation and ticket trend queries**",
+        "  Example: `Show me escalated tickets`",
+      );
+    }
+
+    if (role === "USER") {
+      lines.push(
+        "",
+        "### Limits for regular users",
+        "- I only cover ICT support topics inside this system.",
+        "- I do not provide analytics, statistics, or report downloads to regular users.",
+        "- I do not answer general questions like weather, recipes, entertainment, politics, or homework.",
+      );
+    } else {
+      lines.push(
+        "",
+        "### Staff limits",
+        "- Chat is read-only. It cannot approve, delete, deactivate, restore, or reassign records for you.",
+        "- ADMIN-only user directory lists stay restricted to ADMIN.",
+        "- I still stay inside ICT support topics and system-backed data.",
+      );
+    }
+
+    lines.push(
+      "",
+      "Type `/help` anytime to see this again.",
+      "You can also use one of the quick options below.",
+    );
+
+    return `${lines.join("\n")}\n\n${QUICK_OPTIONS_BLOCK}`;
+  }
+
+  private checkOutOfScopeQuery(message: string, role: string): string | null {
+    const normalizedMessage = message.trim().toLowerCase();
+    if (!normalizedMessage || ICT_SCOPE_KEYWORDS.test(normalizedMessage)) {
+      return null;
+    }
+
+    const outOfScope = OUT_OF_SCOPE_PATTERNS.some((pattern) =>
+      pattern.test(normalizedMessage),
+    );
+
+    if (!outOfScope) {
+      return null;
+    }
+
+    const roleSummary = STAFF_ROLES.includes(role as any)
+      ? "I can help with ICT troubleshooting, knowledge-base lookups, ticket status, and your allowed analytics or report questions."
+      : "I can help with ICT troubleshooting, knowledge-base lookups, ticket status, and support ticket creation.";
+
+    return [
+      "I'm focused on CHMSU ICT support topics only.",
+      roleSummary,
+      "Please choose one of the quick options below or describe your ICT issue in plain language.",
+      QUICK_OPTIONS_BLOCK,
+    ].join("\n\n");
   }
 
   private checkDeletionPolicyQuery(
