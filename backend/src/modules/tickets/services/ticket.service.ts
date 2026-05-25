@@ -18,6 +18,21 @@ import { NotificationService } from "../../notifications/notification.service";
 import { pubsub, EVENTS } from "../../../lib/pubsub";
 import { logger } from "../../../lib/logger";
 
+interface TicketAnalyticsFilters {
+  startDate?: Date;
+  endDate?: Date;
+  type?: TicketType;
+}
+
+interface TicketAccessSnapshot {
+  type: TicketType;
+  createdById: number;
+  assignments?: Array<{
+    userId: number;
+    user?: { id: number } | null;
+  }>;
+}
+
 export class TicketService {
   private readonly repository: TicketRepository;
   private readonly autoAssignment: AutoAssignmentService;
@@ -27,6 +42,56 @@ export class TicketService {
     this.repository = new TicketRepository(prisma);
     this.autoAssignment = new AutoAssignmentService(prisma);
     this.notificationService = new NotificationService(prisma);
+  }
+
+  private getHeadScopedType(userRole: string): TicketType | null {
+    if (userRole === "MIS_HEAD") {
+      return TicketType.MIS;
+    }
+    if (userRole === "ITS_HEAD") {
+      return TicketType.ITS;
+    }
+    return null;
+  }
+
+  private assertHeadScopedType(
+    type: TicketType | null | undefined,
+    userRole: string,
+    message = "Forbidden: Department heads can only access tickets in their own department",
+  ) {
+    const scopedType = this.getHeadScopedType(userRole);
+    if (scopedType && type !== scopedType) {
+      throw new Error(message);
+    }
+  }
+
+  private assertUserCanAccessTicket(
+    ticket: TicketAccessSnapshot,
+    userId: number,
+    userRole: string,
+  ) {
+    if (["ADMIN", "DIRECTOR", "SECRETARY"].includes(userRole)) {
+      return;
+    }
+
+    const scopedType = this.getHeadScopedType(userRole);
+    if (scopedType) {
+      this.assertHeadScopedType(ticket.type, userRole);
+      return;
+    }
+
+    const isAssigned = (ticket.assignments || []).some(
+      (assignment) =>
+        assignment.userId === userId || assignment.user?.id === userId,
+    );
+
+    if (ticket.createdById === userId || isAssigned) {
+      return;
+    }
+
+    throw new Error(
+      "Forbidden: You do not have permission to access this ticket",
+    );
   }
 
   /**
@@ -196,6 +261,12 @@ export class TicketService {
     return ticket;
   }
 
+  async getAccessibleTicket(id: number, userId: number, userRole: string) {
+    const ticket = await this.getTicket(id);
+    this.assertUserCanAccessTicket(ticket, userId, userRole);
+    return ticket;
+  }
+
   /**
    * Get ticket by ticket number
    */
@@ -204,6 +275,16 @@ export class TicketService {
     if (!ticket) {
       throw new Error("Ticket not found");
     }
+    return ticket;
+  }
+
+  async getAccessibleTicketByNumber(
+    ticketNumber: string,
+    userId: number,
+    userRole: string,
+  ) {
+    const ticket = await this.getTicketByNumber(ticketNumber);
+    this.assertUserCanAccessTicket(ticket, userId, userRole);
     return ticket;
   }
 
@@ -519,6 +600,8 @@ export class TicketService {
       throw new Error("Note not found");
     }
 
+    this.assertHeadScopedType(note.ticket?.type, userRole);
+
     logger.warn("Ticket note permanently deleted", {
       action: "HARD_DELETE_TICKET_NOTE",
       noteId,
@@ -549,41 +632,43 @@ export class TicketService {
       throw new Error("Note not found");
     }
 
+    this.assertHeadScopedType(note.ticket?.type, userRole);
+
     return this.repository.updateNote(noteId, dto);
   }
 
   /**
    * Get dashboard analytics
    */
-  async getAnalytics(filters?: { startDate?: Date; endDate?: Date }) {
+  async getAnalytics(filters?: TicketAnalyticsFilters) {
     return this.repository.getAnalytics(filters);
   }
 
   /**
    * Get SLA metrics
    */
-  async getSLAMetrics() {
-    return this.repository.getSLAMetrics();
+  async getSLAMetrics(filters?: { type?: TicketType }) {
+    return this.repository.getSLAMetrics(filters);
   }
 
   /**
    * Get enhanced SLA metrics with compliance and overdue details
    */
-  async getEnhancedSLAMetrics() {
-    return this.repository.getEnhancedSLAMetrics();
+  async getEnhancedSLAMetrics(filters?: { type?: TicketType }) {
+    return this.repository.getEnhancedSLAMetrics(filters);
   }
 
   /**
    * Get ticket creation/resolution trends
    */
-  async getTicketTrends(filters?: { startDate?: Date; endDate?: Date }) {
+  async getTicketTrends(filters?: TicketAnalyticsFilters) {
     return this.repository.getTicketTrends(filters);
   }
 
   /**
    * Get staff performance metrics
    */
-  async getStaffPerformance(filters?: { startDate?: Date; endDate?: Date }) {
+  async getStaffPerformance(filters?: TicketAnalyticsFilters) {
     return this.repository.getStaffPerformance(filters);
   }
 

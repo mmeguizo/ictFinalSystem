@@ -714,6 +714,14 @@ marked.use({
         justify-content: center;
         flex-shrink: 0;
 
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: inherit;
+          display: block;
+        }
+
         span[nz-icon] {
           font-size: 16px;
           color: #fff;
@@ -725,6 +733,14 @@ marked.use({
             color: #fff;
           }
         }
+      }
+
+      .message-avatar-initial {
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
       }
 
       .message-bubble {
@@ -1020,10 +1036,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   });
 
   readonly currentUserInitial = computed(() =>
-    getAvatarInitial(
-      this.authService.currentUser()?.name,
-      this.authService.currentUser()?.email,
-    ),
+    getAvatarInitial(this.authService.currentUser()?.name, this.authService.currentUser()?.email),
   );
 
   inputMessage = '';

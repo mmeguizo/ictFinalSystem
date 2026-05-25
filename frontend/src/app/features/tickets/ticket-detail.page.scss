@@ -43,6 +43,42 @@
   gap: 8px;
 }
 
+.its-details-card {
+  margin-bottom: 16px;
+  border-top: 3px solid #722ed1;
+}
+
+.its-section {
+  margin-bottom: 8px;
+}
+
+.its-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #262626;
+  margin-bottom: 12px;
+}
+
+.its-category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.its-details-text {
+  white-space: pre-wrap;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin: 0;
+  font-family: inherit;
+}
+
 .approval-card {
   nz-alert {
     margin-bottom: 16px;

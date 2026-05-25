@@ -3,6 +3,13 @@
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
 > **Last Updated:** May 14, 2026
 
+## Recent Update: May 14, 2026
+
+- Hardened ticket RBAC in the backend so `MIS_HEAD` and `ITS_HEAD` are now restricted to their own department tickets when reading ticket details, ticket-number lookups, ticket lists, analytics, SLA metrics, trends, staff performance, note management, and attachment management.
+- Restricted the generic `tickets` and analytics GraphQL queries to staff/privileged roles instead of any authenticated user.
+- Added department-scope checks before head-level ticket actions such as review, approval, assignment, acknowledgement, resolution updates, and note creation.
+- Validated the backend successfully with `npm run build`.
+
 ---
 
 ## Legend

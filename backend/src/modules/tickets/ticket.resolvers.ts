@@ -9,13 +9,54 @@ import { prisma } from "../../lib/prisma";
 
 const ticketService = new TicketService(prisma);
 
+const FULL_TICKET_LIST_ROLES = [
+  "ADMIN",
+  "DIRECTOR",
+  "SECRETARY",
+  "MIS_HEAD",
+  "ITS_HEAD",
+];
+
+const ANALYTICS_ACCESS_ROLES = [
+  "ADMIN",
+  "DIRECTOR",
+  "SECRETARY",
+  "MIS_HEAD",
+  "ITS_HEAD",
+  "DEVELOPER",
+  "TECHNICAL",
+];
+
+function getDepartmentScopedType(role: string): TicketType | undefined {
+  if (role === "MIS_HEAD") {
+    return TicketType.MIS;
+  }
+  if (role === "ITS_HEAD") {
+    return TicketType.ITS;
+  }
+  return undefined;
+}
+
+function buildAnalyticsFilters(filter: any, role: string) {
+  const scopedType = getDepartmentScopedType(role);
+  return {
+    startDate: filter?.startDate ? new Date(filter.startDate) : undefined,
+    endDate: filter?.endDate ? new Date(filter.endDate) : undefined,
+    ...(scopedType ? { type: scopedType } : {}),
+  };
+}
+
 export const ticketResolvers = {
   Query: {
     ticket: async (_: any, { id }: { id: number }, context: any) => {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      return ticketService.getTicket(id);
+      return ticketService.getAccessibleTicket(
+        id,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
     },
 
     ticketByNumber: async (
@@ -26,7 +67,11 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      return ticketService.getTicketByNumber(ticketNumber);
+      return ticketService.getAccessibleTicketByNumber(
+        ticketNumber,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
     },
 
     tickets: async (
@@ -37,7 +82,16 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      return ticketService.getTickets(filter, pagination);
+      if (!FULL_TICKET_LIST_ROLES.includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Insufficient permissions");
+      }
+
+      const scopedType = getDepartmentScopedType(context.currentUser.role);
+      const scopedFilter = scopedType
+        ? { ...(filter || {}), type: scopedType }
+        : filter;
+
+      return ticketService.getTickets(scopedFilter, pagination);
     },
 
     myTickets: async (
@@ -173,6 +227,12 @@ export const ticketResolvers = {
         throw new Error("Forbidden: Insufficient permissions");
       }
       const ticketType = type === "MIS" ? TicketType.MIS : TicketType.ITS;
+      const scopedType = getDepartmentScopedType(context.currentUser.role);
+      if (scopedType && scopedType !== ticketType) {
+        throw new Error(
+          "Forbidden: Department heads can only request tickets from their own department",
+        );
+      }
       return ticketService.getOfficeHeadTickets(ticketType);
     },
 
@@ -185,14 +245,11 @@ export const ticketResolvers = {
         throw new Error("Unauthorized");
       }
 
-      const filters = filter
-        ? {
-            startDate: filter.startDate
-              ? new Date(filter.startDate)
-              : undefined,
-            endDate: filter.endDate ? new Date(filter.endDate) : undefined,
-          }
-        : undefined;
+      if (!ANALYTICS_ACCESS_ROLES.includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Insufficient permissions");
+      }
+
+      const filters = buildAnalyticsFilters(filter, context.currentUser.role);
 
       const analytics = await ticketService.getAnalytics(filters);
 
@@ -217,7 +274,14 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      return ticketService.getEnhancedSLAMetrics();
+      if (!ANALYTICS_ACCESS_ROLES.includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Insufficient permissions");
+      }
+
+      const scopedType = getDepartmentScopedType(context.currentUser.role);
+      return ticketService.getEnhancedSLAMetrics(
+        scopedType ? { type: scopedType } : undefined,
+      );
     },
 
     ticketTrends: async (
@@ -228,14 +292,11 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      const filters = filter
-        ? {
-            startDate: filter.startDate
-              ? new Date(filter.startDate)
-              : undefined,
-            endDate: filter.endDate ? new Date(filter.endDate) : undefined,
-          }
-        : undefined;
+      if (!ANALYTICS_ACCESS_ROLES.includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Insufficient permissions");
+      }
+
+      const filters = buildAnalyticsFilters(filter, context.currentUser.role);
       return ticketService.getTicketTrends(filters);
     },
 
@@ -247,14 +308,11 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
-      const filters = filter
-        ? {
-            startDate: filter.startDate
-              ? new Date(filter.startDate)
-              : undefined,
-            endDate: filter.endDate ? new Date(filter.endDate) : undefined,
-          }
-        : undefined;
+      if (!ANALYTICS_ACCESS_ROLES.includes(context.currentUser.role)) {
+        throw new Error("Forbidden: Insufficient permissions");
+      }
+
+      const filters = buildAnalyticsFilters(filter, context.currentUser.role);
       return ticketService.getStaffPerformance(filters);
     },
   },
@@ -292,8 +350,17 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       await ticketService.updateStatus(ticketId, context.currentUser.id, input);
-      return ticketService.getTicket(ticketId);
+      return ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
     },
 
     reviewTicketAsSecretary: async (
@@ -312,6 +379,11 @@ export const ticketResolvers = {
       ) {
         throw new Error("Forbidden: Only secretaries can review tickets");
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       return ticketService.reviewAsSecretary(
         ticketId,
         context.currentUser.id,
@@ -360,6 +432,11 @@ export const ticketResolvers = {
       ) {
         throw new Error("Forbidden: Only authorized staff can endorse tickets");
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       return ticketService.approveAsDirector(
         ticketId,
         context.currentUser.id,
@@ -414,6 +491,11 @@ export const ticketResolvers = {
       if (!["MIS_HEAD", "ITS_HEAD"].includes(context.currentUser.role)) {
         throw new Error("Forbidden: Only department heads can assign tickets");
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       // Pass the current user's ID as the assigner for status history tracking
       // Also pass optional schedule dates (dateToVisit, targetCompletionDate) if provided
       await ticketService.assignUser(ticketId, userId, context.currentUser.id, {
@@ -425,7 +507,11 @@ export const ticketResolvers = {
           : undefined,
         comment: input?.comment,
       });
-      return ticketService.getTicket(ticketId);
+      return ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
     },
 
     unassignTicket: async (
@@ -442,8 +528,17 @@ export const ticketResolvers = {
           "Forbidden: Only department heads can unassign tickets",
         );
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       await ticketService.unassignUser(ticketId, userId);
-      return ticketService.getTicket(ticketId);
+      return ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
     },
 
     addTicketNote: async (
@@ -454,6 +549,11 @@ export const ticketResolvers = {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       return ticketService.addNote(ticketId, context.currentUser.id, input);
     },
 
@@ -578,6 +678,11 @@ export const ticketResolvers = {
           "Forbidden: Only department heads can acknowledge and assign developers",
         );
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       return ticketService.acknowledgeAndAssignDeveloper(
         ticketId,
         context.currentUser.id,
@@ -625,6 +730,11 @@ export const ticketResolvers = {
           "Forbidden: Only department heads can update resolutions",
         );
       }
+      await ticketService.getAccessibleTicket(
+        ticketId,
+        context.currentUser.id,
+        context.currentUser.role,
+      );
       return ticketService.updateResolution(
         ticketId,
         context.currentUser.id,
@@ -682,6 +792,13 @@ export const ticketResolvers = {
         (a: any) => a.userId === userId,
       );
       const isPrivileged = ["ADMIN", "MIS_HEAD", "ITS_HEAD"].includes(userRole);
+      const scopedType = getDepartmentScopedType(userRole);
+
+      if (scopedType && attachment.ticket.type !== scopedType) {
+        throw new Error(
+          "Forbidden: Department heads can only manage attachments for their own department tickets",
+        );
+      }
 
       if (!isCreator && !isAssigned && !isPrivileged) {
         throw new Error(

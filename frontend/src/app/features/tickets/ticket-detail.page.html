@@ -93,6 +93,70 @@
         }
       </nz-card>
 
+      <!-- ITS Ticket Details Card -->
+      @if (t.type === 'ITS' && t.itsTicket) {
+        <nz-card nzTitle="ICT Support Request Details" class="its-details-card">
+          @if (t.itsTicket.borrowRequest) {
+            <div class="its-section">
+              <div class="its-section-header">
+                <span nz-icon nzType="inbox" nzTheme="outline"></span>
+                <span>Borrow Request</span>
+              </div>
+              @if (t.itsTicket.borrowDetails) {
+                <pre class="its-details-text">{{ t.itsTicket.borrowDetails }}</pre>
+              }
+            </div>
+          }
+
+          @if (
+            t.itsTicket.maintenanceDesktopLaptop ||
+            t.itsTicket.maintenanceInternetNetwork ||
+            t.itsTicket.maintenancePrinter ||
+            t.itsTicket.maintenanceDetails
+          ) {
+            @if (t.itsTicket.borrowRequest) {
+              <nz-divider></nz-divider>
+            }
+            <div class="its-section">
+              <div class="its-section-header">
+                <span nz-icon nzType="tool" nzTheme="outline"></span>
+                <span>Maintenance &amp; Repair</span>
+              </div>
+              <div class="its-category-tags">
+                @if (t.itsTicket.maintenanceDesktopLaptop) {
+                  <nz-tag nzColor="blue"
+                    ><span nz-icon nzType="desktop"></span> Desktop / Laptop PC</nz-tag
+                  >
+                }
+                @if (t.itsTicket.maintenanceInternetNetwork) {
+                  <nz-tag nzColor="green"
+                    ><span nz-icon nzType="wifi"></span> Internet / Network</nz-tag
+                  >
+                }
+                @if (t.itsTicket.maintenancePrinter) {
+                  <nz-tag nzColor="orange"><span nz-icon nzType="printer"></span> Printer</nz-tag>
+                }
+              </div>
+              @if (t.itsTicket.maintenanceDetails) {
+                <pre class="its-details-text" style="margin-top: 12px">{{
+                  t.itsTicket.maintenanceDetails
+                }}</pre>
+              }
+            </div>
+          }
+
+          @if (
+            !t.itsTicket.borrowRequest &&
+            !t.itsTicket.maintenanceDesktopLaptop &&
+            !t.itsTicket.maintenanceInternetNetwork &&
+            !t.itsTicket.maintenancePrinter &&
+            !t.itsTicket.maintenanceDetails
+          ) {
+            <nz-empty nzNotFoundContent="No ITS-specific details available"></nz-empty>
+          }
+        </nz-card>
+      }
+
       <!-- Approval Status Card -->
       <nz-card nzTitle="Review & Approval Workflow" class="approval-card">
         @if (ticket()?.status === 'CANCELLED') {

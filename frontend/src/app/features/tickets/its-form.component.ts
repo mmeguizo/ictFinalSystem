@@ -5,50 +5,44 @@ import {
   computed,
   inject,
   output,
+  signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzGridModule } from 'ng-zorro-antd/grid';
+import { NzRadioModule } from 'ng-zorro-antd/radio';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzDividerModule } from 'ng-zorro-antd/divider';
+import { AuthService } from '../../core/services/auth.service';
+
+type RequestType = 'BORROW' | 'MAINTENANCE' | 'BOTH';
 
 @Component({
   selector: 'app-its-form',
   imports: [
     ReactiveFormsModule,
+    FormsModule,
     NzCardModule,
     NzFormModule,
     NzInputModule,
     NzCheckboxModule,
     NzGridModule,
+    NzRadioModule,
+    NzIconModule,
+    NzDividerModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './its-form.component.html',
-  styles: [
-    `
-      .section-card {
-        margin-bottom: 16px;
-
-        h4 {
-          font-weight: 600;
-          color: #1890ff;
-          margin-bottom: 12px;
-          font-size: 14px;
-        }
-      }
-
-      .checkbox-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-    `,
-  ],
+  styleUrl: './its-form.component.scss',
 })
 export class ITSFormComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
   readonly contentChanged = output<void>();
 
   private formatDateForInput(d: Date): string {
@@ -58,6 +52,36 @@ export class ITSFormComponent {
     return `${yyyy}-${mm}-${dd}`;
   }
 
+  // ─── Request Type ────────────────────────────────────────────────────────────
+  // Controls which section cards are shown: BORROW, MAINTENANCE, or BOTH
+  readonly requestType = signal<RequestType>('MAINTENANCE');
+  readonly showBorrow = computed(
+    () => this.requestType() === 'BORROW' || this.requestType() === 'BOTH',
+  );
+  readonly showMaintenance = computed(
+    () => this.requestType() === 'MAINTENANCE' || this.requestType() === 'BOTH',
+  );
+
+  // ─── Form Value Signal ───────────────────────────────────────────────────────
+  // Mirrors the reactive form value as a signal so computed properties
+  // stay reactive inside an OnPush component.
+  private readonly formValue = signal<any>({});
+
+  // Highlight a category group when any of its checkboxes is checked
+  readonly hasDesktopCheck = computed(() => {
+    const dl = this.formValue()?.itsMaintenance?.desktopLaptop;
+    return dl ? Object.values(dl).some((v) => v === true) : false;
+  });
+  readonly hasNetworkCheck = computed(() => {
+    const inet = this.formValue()?.itsMaintenance?.internetNetwork;
+    return inet ? Object.values(inet).some((v) => v === true) : false;
+  });
+  readonly hasPrinterCheck = computed(() => {
+    const p = this.formValue()?.itsMaintenance?.printer;
+    return p ? Object.values(p).some((v) => v === true) : false;
+  });
+
+  // ─── Form Group ──────────────────────────────────────────────────────────────
   readonly formGroup = this.fb.group({
     details: [''],
 
@@ -94,36 +118,33 @@ export class ITSFormComponent {
       departmentUnit: [''],
       mrn: [''],
     }),
-
-    itsJobAccomplishment: this.fb.group({
-      completedBy: [''],
-      dateCompleted: [''],
-      concernDiagnose: [''],
-      workPerformed: [''],
-      recommendation: [''],
-      status: [''],
-    }),
   });
 
-  private readonly destroyRef = inject(DestroyRef);
+  // Convenient group accessors for template bindings
+  readonly borrowGroup = this.formGroup.get('itsBorrow') as FormGroup;
+  readonly maintenanceGroup = this.formGroup.get('itsMaintenance') as FormGroup;
+  readonly endUserGroup = this.formGroup.get('itsEndUserInfo') as FormGroup;
+  readonly desktopLaptopGroup = this.maintenanceGroup.get('desktopLaptop') as FormGroup;
+  readonly internetNetworkGroup = this.maintenanceGroup.get('internetNetwork') as FormGroup;
+  readonly printerGroup = this.maintenanceGroup.get('printer') as FormGroup;
 
   constructor() {
-    this.formGroup.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.contentChanged.emit());
+    // Auto-fill name from the currently logged-in user
+    const user = this.authService.currentUser();
+    if (user?.name) {
+      this.formGroup.get('itsEndUserInfo.name')?.setValue(user.name, { emitEvent: false });
+    }
+
+    // Keep the formValue signal in sync so computed properties re-evaluate
+    this.formGroup.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((val) => {
+      this.formValue.set(val);
+      this.contentChanged.emit();
+    });
   }
 
-  borrowGroup = this.formGroup.get('itsBorrow') as FormGroup;
-  maintenanceGroup = this.formGroup.get('itsMaintenance') as FormGroup;
-  endUserGroup = this.formGroup.get('itsEndUserInfo') as FormGroup;
-  jobAccomplishmentGroup = this.formGroup.get('itsJobAccomplishment') as FormGroup;
-
-  // Nested maintenance groups
-  desktopLaptopGroup = this.maintenanceGroup.get('desktopLaptop') as FormGroup;
-  internetNetworkGroup = this.maintenanceGroup.get('internetNetwork') as FormGroup;
-  printerGroup = this.maintenanceGroup.get('printer') as FormGroup;
-
+  // ─── Validation ──────────────────────────────────────────────────────────────
   validate(): { valid: boolean; error?: string } {
+    const type = this.requestType();
     const maintenance = this.maintenanceGroup.value;
     const borrow = this.borrowGroup.value;
 
@@ -142,17 +163,17 @@ export class ITSFormComponent {
 
     const hasBorrow = !!borrow?.purpose?.trim();
 
-    if (!hasMaintenance && !hasBorrow) {
-      return {
-        valid: false,
-        error: 'Please select a maintenance option or fill in the borrow section.',
-      };
+    if ((type === 'BORROW' || type === 'BOTH') && !hasBorrow) {
+      return { valid: false, error: 'Please specify the purpose of borrowing.' };
+    }
+    if ((type === 'MAINTENANCE' || type === 'BOTH') && !hasMaintenance) {
+      return { valid: false, error: 'Please select at least one maintenance option.' };
     }
 
     return { valid: true };
   }
 
-  /** Set the details/description field value (e.g. from AI clean ticket) */
+  /** Apply AI-rewritten description to the details field */
   setDetails(text: string): void {
     this.formGroup.get('details')?.setValue(text);
   }
@@ -160,6 +181,7 @@ export class ITSFormComponent {
   getPayload() {
     return {
       ...this.formGroup.value,
+      requestType: this.requestType(),
       requestedAtISO: new Date().toISOString(),
     };
   }

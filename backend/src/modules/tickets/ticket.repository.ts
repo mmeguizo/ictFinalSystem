@@ -470,7 +470,14 @@ export class TicketRepository {
   async findNoteById(noteId: number) {
     return this.prisma.ticketNote.findUnique({
       where: { id: noteId },
-      include: { user: true },
+      include: {
+        user: true,
+        ticket: {
+          select: {
+            type: true,
+          },
+        },
+      },
     });
   }
 
@@ -513,8 +520,16 @@ export class TicketRepository {
   /**
    * Get analytics data for dashboard
    */
-  async getAnalytics(filters?: { startDate?: Date; endDate?: Date }) {
+  async getAnalytics(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    type?: TicketType;
+  }) {
     const where: Prisma.TicketWhereInput = {};
+
+    if (filters?.type) {
+      where.type = filters.type;
+    }
 
     if (filters?.startDate || filters?.endDate) {
       where.createdAt = {};
@@ -558,8 +573,9 @@ export class TicketRepository {
   /**
    * Get SLA compliance metrics
    */
-  async getSLAMetrics() {
+  async getSLAMetrics(filters?: { type?: TicketType }) {
     const now = new Date();
+    const typeWhere = filters?.type ? { type: filters.type } : {};
 
     // Create separate Date objects to avoid mutation
     const todayStart = new Date(now);
@@ -572,6 +588,7 @@ export class TicketRepository {
       // Overdue tickets
       this.prisma.ticket.count({
         where: {
+          ...typeWhere,
           dueDate: {
             lt: now,
           },
@@ -587,6 +604,7 @@ export class TicketRepository {
       // Due today
       this.prisma.ticket.count({
         where: {
+          ...typeWhere,
           dueDate: {
             gte: todayStart,
             lt: todayEnd,
@@ -603,6 +621,7 @@ export class TicketRepository {
       // Due within 3 days
       this.prisma.ticket.count({
         where: {
+          ...typeWhere,
           dueDate: {
             gte: now,
             lt: threeDaysLater,
@@ -628,15 +647,16 @@ export class TicketRepository {
   /**
    * Get enhanced SLA metrics including compliance and overdue ticket details
    */
-  async getEnhancedSLAMetrics() {
+  async getEnhancedSLAMetrics(filters?: { type?: TicketType }) {
     const now = new Date();
 
     // Get basic counts
-    const basicMetrics = await this.getSLAMetrics();
+    const basicMetrics = await this.getSLAMetrics(filters);
 
     // Get resolved tickets for compliance calculation
     const resolvedTickets = await this.prisma.ticket.findMany({
       where: {
+        ...(filters?.type ? { type: filters.type } : {}),
         status: { in: [TicketStatus.RESOLVED, TicketStatus.CLOSED] },
         resolvedAt: { not: null },
       },
@@ -675,6 +695,7 @@ export class TicketRepository {
     // Get overdue ticket details
     const overdueTickets = await this.prisma.ticket.findMany({
       where: {
+        ...(filters?.type ? { type: filters.type } : {}),
         dueDate: { lt: now },
         status: {
           notIn: [
@@ -712,7 +733,11 @@ export class TicketRepository {
   /**
    * Get ticket creation/resolution trends grouped by day
    */
-  async getTicketTrends(filters?: { startDate?: Date; endDate?: Date }) {
+  async getTicketTrends(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    type?: TicketType;
+  }) {
     // Default to last 30 days if no filter
     const endDate = filters?.endDate || new Date();
     const startDate =
@@ -722,6 +747,7 @@ export class TicketRepository {
     // Get all tickets in range
     const tickets = await this.prisma.ticket.findMany({
       where: {
+        ...(filters?.type ? { type: filters.type } : {}),
         createdAt: { gte: startDate, lte: endDate },
       },
       select: {
@@ -772,12 +798,19 @@ export class TicketRepository {
   /**
    * Get staff performance metrics
    */
-  async getStaffPerformance(filters?: { startDate?: Date; endDate?: Date }) {
+  async getStaffPerformance(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    type?: TicketType;
+  }) {
     const where: Prisma.TicketWhereInput = {};
     if (filters?.startDate || filters?.endDate) {
       where.createdAt = {};
       if (filters.startDate) where.createdAt.gte = filters.startDate;
       if (filters.endDate) where.createdAt.lte = filters.endDate;
+    }
+    if (filters?.type) {
+      where.type = filters.type;
     }
 
     // Get all assignments with ticket data
