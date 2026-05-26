@@ -5,6 +5,15 @@ All notable changes to the ICT Support Ticketing System will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.1] - 2026-05-26
+
+### Fixed — Ticket Reliability, Chat UX & Documentation Sync
+
+- **Manual ITS ticket detail access restored** — Fixed a GraphQL contract mismatch where `Ticket.controlNumber` was declared non-null even though existing ITS tickets could store `null` in the database. This caused list items and notifications to point to tickets that existed but failed to load in detail view.
+- **New ITS tickets now always get a control number** — `createITSTicket()` now generates and persists a control number so future manual ITS tickets remain compatible with detail views, notifications, and reporting.
+- **Floating AI chat window refined** — Chat now behaves like a proper floating compose window: draggable, minimizable, internally scrollable, and clamped to visible viewport bounds so it cannot be dragged off-screen.
+- **In-app documentation synchronized** — Updated the shared Documentation page so the latest version, changelog highlights, and user-manual notes are visible inside the application instead of remaining on older March 2026 content.
+
 ## [2.7.0] - 2026-05-26
 
 ### Added — Smart Routing by Expertise (Feature 1b)

@@ -131,6 +131,9 @@ export class AutoAssignmentService {
     // De-duplicate required skills
     const uniqueRequiredSkills = Array.from(new Set(requiredSkills));
 
+    let selectedUser: any = null;
+
+    /*
     // Determine target roles for direct assignment (DEVELOPER or TECHNICAL)
     const targetRole = ticket.type === "MIS" ? Role.DEVELOPER : Role.TECHNICAL;
 
@@ -153,8 +156,6 @@ export class AutoAssignmentService {
         },
       },
     });
-
-    let selectedUser: any = null;
 
     if (candidateStaff.length > 0) {
       // Score and rank staff based on skills match and active workload
@@ -185,8 +186,9 @@ export class AutoAssignmentService {
 
       selectedUser = scoredStaff[0].staff;
     }
+    */
 
-    // Fallback: If no staff of targetRole exists, route to the department head
+    // Route directly to the department head for simplification (MIS_HEAD or ITS_HEAD)
     if (!selectedUser) {
       const headRole = ticket.type === "MIS" ? Role.MIS_HEAD : Role.ITS_HEAD;
       const eligibleHeads = await this.prisma.user.findMany({

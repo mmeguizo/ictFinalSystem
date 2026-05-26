@@ -3,6 +3,19 @@
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
 > **Last Updated:** May 26, 2026
 
+## Recent Update: May 26, 2026 — Documentation & Version Sync
+
+- Updated the root `CHANGELOG.md` with a new `2.7.1` entry covering the manual ITS ticket detail fix, floating AI chat window UX improvements, and documentation synchronization work.
+- Updated `docs/USER_MANUAL.md` version metadata and refreshed key sections for AI Quick Draft, admin skills management, the documentation center route, and the floating AI chat window behavior.
+- Updated the shared in-app documentation page (`/docs`) so the latest changelog version and user-manual highlights now appear inside the frontend UI.
+
+## Recent Update: May 26, 2026 — Manual ITS Ticket Detail Fix
+
+- Fixed a ticket-detail loading bug where saved manual ITS tickets could appear in lists and notifications but fail to open with "Ticket not found".
+- Root cause: the GraphQL `Ticket.controlNumber` field was declared non-null while the database allows null and the ITS creation path did not populate it. GraphQL could therefore null the whole `ticketByNumber` response for existing ITS rows with no control number.
+- Updated the backend GraphQL schema so `controlNumber` matches the database as optional.
+- Updated `createITSTicket()` to generate and persist a control number for new ITS tickets so future manual ITS tickets open correctly from direct links and notifications.
+
 ## Recent Update: May 26, 2026 — Smart Routing by Expertise (Feature 1b)
 
 - Implemented **Smart Routing by Expertise** (Feature 1b): Tickets are now auto-assigned to the best-qualified, least-busy staff member instead of any available person.

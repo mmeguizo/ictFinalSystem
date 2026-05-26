@@ -4,6 +4,7 @@ import {
   ElementRef,
   ViewChild,
   AfterViewChecked,
+  HostListener,
   inject,
   signal,
   computed,
@@ -191,56 +192,85 @@ marked.use({
       <div class="fab-pulse" [class.hidden]="isOpen()"></div>
     </div>
 
-    <!-- Chat Drawer -->
-    <nz-drawer
-      [nzVisible]="isOpen()"
-      [nzWidth]="420"
-      nzPlacement="right"
-      [nzClosable]="false"
-      [nzMask]="false"
-      [nzMaskClosable]="false"
-      (nzOnClose)="isOpen.set(false)"
-      nzWrapClassName="chat-drawer-wrapper"
+    <!-- Floating Chat Window (Draggable, Minimizable, beautifully styled) -->
+    <div
+      *ngIf="isOpen()"
+      #chatWindow
+      class="chat-window"
+      [class.minimized]="isMinimized()"
+      [style.transform]="'translate(' + position().x + 'px, ' + position().y + 'px)'"
     >
-      <ng-container *nzDrawerContent>
-        <!-- Header — Gradient branded -->
-        <div class="chat-header">
-          <div class="chat-header-left">
-            @if (activeSession()) {
-              <button
-                nz-button
-                nzType="text"
-                nzSize="small"
-                class="back-btn"
-                (click)="backToSessions()"
-              >
-                <span nz-icon nzType="arrow-left"></span>
-              </button>
-              <span class="chat-header-title">{{ activeSession()!.title }}</span>
-            } @else {
-              <div class="header-brand">
-                <div class="brand-icon">
-                  <ng-container *ngTemplateOutlet="botSvg"></ng-container>
-                </div>
-                <div class="brand-text">
-                  <span class="chat-header-title">ICT AI Assistant</span>
-                  <span class="header-subtitle">Powered by Gemini</span>
-                </div>
-              </div>
-            }
-          </div>
-          <div class="chat-header-actions">
-            @if (!activeSession()) {
-              <button nz-button nzType="primary" nzSize="small" (click)="startNewChat()">
-                <span nz-icon nzType="plus"></span> New Chat
-              </button>
-            }
-            <button nz-button nzType="text" nzSize="small" (click)="isOpen.set(false)">
-              <span nz-icon nzType="close"></span>
+      <!-- Header — Gradient branded with pointer-drag handles -->
+      <div
+        class="chat-header"
+        (pointerdown)="onHeaderPointerDown($event)"
+        (pointermove)="onHeaderPointerMove($event)"
+        (pointerup)="onHeaderPointerUp($event)"
+        (pointercancel)="onHeaderPointerUp($event)"
+      >
+        <div class="chat-header-left">
+          @if (activeSession()) {
+            <button
+              nz-button
+              nzType="text"
+              nzSize="small"
+              class="back-btn"
+              (click)="backToSessions(); $event.stopPropagation()"
+            >
+              <span nz-icon nzType="arrow-left"></span>
             </button>
-          </div>
+            <span class="chat-header-title">{{ activeSession()!.title }}</span>
+          } @else {
+            <div class="header-brand">
+              <div class="brand-icon">
+                <ng-container *ngTemplateOutlet="botSvg"></ng-container>
+              </div>
+              <div class="brand-text">
+                <span class="chat-header-title">ICT AI Assistant</span>
+                <span class="header-subtitle">Powered by Gemini</span>
+              </div>
+            </div>
+          }
         </div>
+        <div class="chat-header-actions">
+          @if (!activeSession() && !isMinimized()) {
+            <button
+              nz-button
+              nzType="primary"
+              nzSize="small"
+              class="new-chat-btn"
+              (click)="startNewChat(); $event.stopPropagation()"
+            >
+              <span nz-icon nzType="plus"></span> New Chat
+            </button>
+          }
+          <!-- Minimize / Expand Toggle -->
+          <button
+            nz-button
+            nzType="text"
+            nzSize="small"
+            class="header-action-btn"
+            [nz-tooltip]="isMinimized() ? 'Expand Chat' : 'Minimize Chat'"
+            (click)="toggleMinimize(); $event.stopPropagation()"
+          >
+            <span nz-icon [nzType]="isMinimized() ? 'up' : 'minus'"></span>
+          </button>
+          <!-- Close Button -->
+          <button
+            nz-button
+            nzType="text"
+            nzSize="small"
+            class="header-action-btn"
+            nz-tooltip="Close"
+            (click)="closeDrawer(); $event.stopPropagation()"
+          >
+            <span nz-icon nzType="close"></span>
+          </button>
+        </div>
+      </div>
 
+      <!-- Main/Body Area (Hidden when minimized) -->
+      <ng-container *ngIf="!isMinimized()">
         <!-- Session List View -->
         @if (!activeSession()) {
           <div class="chat-session-list">
@@ -427,7 +457,7 @@ marked.use({
           </div>
         }
       </ng-container>
-    </nz-drawer>
+    </div>
   `,
   styles: [
     `
@@ -522,6 +552,36 @@ marked.use({
         }
       }
 
+      /* ── Chat Window Overlay ───────────────────────── */
+      .chat-window {
+        position: fixed;
+        bottom: 90px;
+        right: 25px;
+        width: min(420px, calc(100vw - 32px));
+        height: min(580px, calc(100vh - 112px));
+        max-width: calc(100vw - 32px);
+        max-height: calc(100vh - 112px);
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        z-index: 1000;
+        overflow: hidden;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        transition:
+          height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+          transform 0.1s ease;
+        touch-action: none; /* Prevents default panning behavior under touch dragging */
+
+        &.minimized {
+          height: 52px !important;
+          width: min(280px, calc(100vw - 32px));
+          border-radius: 12px 12px 0 0;
+          bottom: 16px !important;
+        }
+      }
+
       /* ── Header ─────────────────────────────────────── */
       .chat-header {
         display: flex;
@@ -531,6 +591,9 @@ marked.use({
         border-bottom: 1px solid #f0f0f0;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: #fff;
+        cursor: move;
+        user-select: none;
+        flex-shrink: 0;
       }
 
       .chat-header-left {
@@ -588,9 +651,10 @@ marked.use({
 
       /* ── Session list ─────────────────────────────── */
       .chat-session-list {
-        height: calc(100vh - 65px);
+        flex: 1;
         overflow-y: auto;
         padding: 8px;
+        min-height: 0;
       }
 
       .session-item {
@@ -636,13 +700,14 @@ marked.use({
 
       /* ── Chat messages ────────────────────────────── */
       .chat-messages {
-        height: calc(100vh - 65px - 97px);
+        flex: 1;
         overflow-y: auto;
         padding: 16px;
         display: flex;
         flex-direction: column;
         gap: 12px;
         background: #fafbfc;
+        min-height: 0;
       }
 
       .chat-loading,
@@ -1059,6 +1124,7 @@ marked.use({
   ],
 })
 export class ChatWidgetComponent implements AfterViewChecked, OnInit {
+  @ViewChild('chatWindow') chatWindow?: ElementRef<HTMLDivElement>;
   @ViewChild('messagesContainer') messagesContainer?: ElementRef<HTMLDivElement>;
 
   private readonly chatService = inject(ChatService);
@@ -1067,6 +1133,17 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private shouldScroll = false;
+  private readonly viewportPadding = {
+    top: 76,
+    right: 16,
+    bottom: 16,
+    left: 16,
+  };
+  private readonly anchorOffset = {
+    right: 25,
+    expandedBottom: 90,
+    minimizedBottom: 16,
+  };
 
   // State
   readonly isOpen = signal(false);
@@ -1074,6 +1151,133 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   readonly activeSession = signal<ChatSession | null>(null);
   readonly messages = signal<ChatMessage[]>([]);
   readonly loadingSessions = signal(false);
+
+  // Draggable & Minimizable State
+  readonly position = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  readonly isMinimized = signal<boolean>(false);
+  private isDragging = false;
+  private dragStart = { x: 0, y: 0 };
+  private positionStart = { x: 0, y: 0 };
+
+  toggleMinimize() {
+    const nextMinimized = !this.isMinimized();
+    this.isMinimized.set(nextMinimized);
+    this.position.set(this.clampPosition(this.position(), nextMinimized));
+  }
+
+  onHeaderPointerDown(event: PointerEvent) {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) {
+      return;
+    }
+    this.isDragging = true;
+    this.dragStart = { x: event.clientX, y: event.clientY };
+    this.positionStart = { ...this.position() };
+    const header = event.currentTarget as HTMLElement;
+    header.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  onHeaderPointerMove(event: PointerEvent) {
+    if (!this.isDragging) return;
+    const deltaX = event.clientX - this.dragStart.x;
+    const deltaY = event.clientY - this.dragStart.y;
+    this.position.set(
+      this.clampPosition({
+        x: this.positionStart.x + deltaX,
+        y: this.positionStart.y + deltaY,
+      }),
+    );
+  }
+
+  onHeaderPointerUp(event: PointerEvent) {
+    if (!this.isDragging) return;
+    this.isDragging = false;
+    const header = event.currentTarget as HTMLElement;
+    try {
+      if (header.hasPointerCapture(event.pointerId)) {
+        header.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Ignore release failures when the pointer was already released elsewhere.
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize() {
+    if (!this.isOpen()) {
+      return;
+    }
+    this.position.set(this.clampPosition(this.position()));
+  }
+
+  private openDrawer() {
+    this.isMinimized.set(false);
+    this.position.set({ x: 0, y: 0 });
+    this.isOpen.set(true);
+    if (this.sessions().length === 0) {
+      this.loadSessions();
+    }
+  }
+
+  closeDrawer() {
+    this.isDragging = false;
+    this.isMinimized.set(false);
+    this.position.set({ x: 0, y: 0 });
+    this.isOpen.set(false);
+  }
+
+  private clampPosition(position: { x: number; y: number }, minimized = this.isMinimized()) {
+    if (typeof window === 'undefined') {
+      return position;
+    }
+
+    const { width, height } = this.getChatWindowSize(minimized);
+    const baseBottom = minimized
+      ? this.anchorOffset.minimizedBottom
+      : this.anchorOffset.expandedBottom;
+    const maxX = this.anchorOffset.right - this.viewportPadding.right;
+    const maxY = baseBottom - this.viewportPadding.bottom;
+    const minX = Math.min(
+      this.viewportPadding.left + this.anchorOffset.right + width - window.innerWidth,
+      maxX,
+    );
+    const minY = Math.min(
+      this.viewportPadding.top + baseBottom + height - window.innerHeight,
+      maxY,
+    );
+
+    return {
+      x: Math.min(Math.max(position.x, minX), maxX),
+      y: Math.min(Math.max(position.y, minY), maxY),
+    };
+  }
+
+  private getChatWindowSize(minimized: boolean) {
+    const element = this.chatWindow?.nativeElement;
+    if (element && minimized === this.isMinimized()) {
+      return {
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+      };
+    }
+
+    if (typeof window === 'undefined') {
+      return minimized ? { width: 280, height: 52 } : { width: 420, height: 580 };
+    }
+
+    return minimized
+      ? {
+          width: Math.min(280, window.innerWidth - 32),
+          height: 52,
+        }
+      : {
+          width: Math.min(420, window.innerWidth - 32),
+          height: Math.min(580, window.innerHeight - 112),
+        };
+  }
+
   readonly loadingMessages = signal(false);
   readonly sending = signal(false);
   readonly creatingTicket = signal(false);
@@ -1113,21 +1317,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnInit {
   ngOnInit() {
     // Listen for external requests to open chat (e.g., from submit-ticket page)
     this.chatService.openChat$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-      this.isOpen.set(true);
-      if (this.sessions().length === 0) {
-        this.loadSessions();
-      }
+      this.openDrawer();
       // Start a new chat session automatically
       this.startNewChat();
     });
   }
 
   toggleDrawer() {
-    const open = !this.isOpen();
-    this.isOpen.set(open);
-    if (open && this.sessions().length === 0) {
-      this.loadSessions();
+    if (this.isOpen()) {
+      this.closeDrawer();
+      return;
     }
+
+    this.openDrawer();
   }
 
   loadSessions() {

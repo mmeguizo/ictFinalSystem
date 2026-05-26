@@ -180,6 +180,7 @@ export class TicketService {
     const ticketNumber = await this.repository.generateTicketNumber(
       TicketType.ITS,
     );
+    const controlNumber = await this.repository.generateControlNumber();
     const priority = dto.priority || Priority.MEDIUM;
     const dueDate = calculateDueDate(priority);
     const estimatedDuration =
@@ -196,6 +197,7 @@ export class TicketService {
     const ticket = await this.prisma.ticket.create({
       data: {
         ticketNumber,
+        controlNumber,
         type: TicketType.ITS,
         title: dto.title,
         description: dto.description,

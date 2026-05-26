@@ -34,7 +34,7 @@ export const ticketTypeDefs = gql`
   type Ticket {
     id: Int!
     ticketNumber: String!
-    controlNumber: String!
+    controlNumber: String
     type: TicketType!
     title: String!
     description: String!

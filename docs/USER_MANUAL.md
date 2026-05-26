@@ -3,7 +3,10 @@
 **Intelligent Service Request Monitoring and Analysis Platform**
 **Carlos Hilado Memorial State University — ICT Department**
 
-> **Version**: 2.4.0 | **Last Updated**: July 15, 2025
+> **Version**: 2.7.1 | **Last Updated**: May 26, 2026
+
+> **Current Release Highlights**: Smart routing by expertise, AI Quick Draft & Form Pre-fill,
+> floating draggable AI chat, admin skills management, and manual ITS ticket detail fixes.
 
 ---
 
@@ -96,6 +99,7 @@ After login, the sidebar and top navigation bar provide access to all pages:
 | **Analytics**         | `/analytics`         | ADMIN, DIRECTOR, MIS_HEAD, ITS_HEAD            |
 | **Knowledge Base**    | `/knowledge-base`    | All users                                      |
 | **Notifications**     | `/notifications`     | All users                                      |
+| **Documentation**     | `/docs`              | All authenticated users                        |
 | **Admin Panel**       | `/admin`             | ADMIN only                                     |
 
 ### 2.3 Logging Out
@@ -164,7 +168,16 @@ Toggle between two ticket types at the top of the form:
 | **MIS** (Management Information System) | Website and software development requests    | MIS_HEAD → DEVELOPER |
 | **ITS** (ICT Support)                   | Equipment borrowing and maintenance requests | ITS_HEAD → TECHNICAL |
 
-### 4.3 Fill Out the Form
+### 4.3 AI Quick Draft & Form Pre-fill
+
+At the top of the submit-ticket page, you can use **AI Quick Draft & Form Pre-fill**:
+
+1. Type your concern in plain English (example: _"I need to borrow a projector for tomorrow's demo"_)
+2. Click **"Parse & Draft Form"**
+3. The system uses AI to choose the correct department (MIS or ITS) and pre-fill relevant form fields
+4. Review the generated draft, adjust anything you want, then submit normally
+
+### 4.4 Fill Out the Form
 
 #### Common Fields (Both Types)
 
@@ -202,7 +215,7 @@ Toggle between two ticket types at the top of the form:
 | Maintenance Printer          | Checkbox — printer repair                |
 | Maintenance Details          | Description of maintenance needed        |
 
-### 4.4 AI Analysis (Optional)
+### 4.5 AI Analysis (Optional)
 
 Before submitting, you can click **"Analyze with AI"** to get intelligent suggestions:
 
@@ -216,7 +229,7 @@ Before submitting, you can click **"Analyze with AI"** to get intelligent sugges
 4. If AI suggests a priority, it auto-applies (you can override)
 5. Click **"Apply to Description"** to use the AI-rewritten version as your ticket description
 
-### 4.5 Submit
+### 4.6 Submit
 
 Click the **"Submit"** button. The ticket is created with status **FOR_REVIEW** and automatically assigned a:
 
@@ -444,8 +457,10 @@ When the work is complete:
 
 - **User Management**: View, create, edit, deactivate, and conditionally delete user accounts
 - **Role Assignment**: Change user roles (USER, SECRETARY, DIRECTOR, etc.)
+- **Skills / Expertise Management**: Assign staff skills so smart routing can match the right specialist
 - **System Overview**: See all tickets regardless of department
 - **Acknowledge Schedules**: Process PENDING_ACKNOWLEDGMENT tickets
+- **Documentation Center**: Review the in-app changelog and user manual at `/docs`
 
 **Important safeguard:** The admin UI now recommends **Deactivation** first. Permanent delete is only allowed when the user has no open created tickets and no active ticket assignments.
 
@@ -650,9 +665,9 @@ The AI Chat Assistant is an intelligent widget available to all logged-in users.
 
 ### 16.1 Opening the Chat Widget
 
-1. Click the **floating chat icon** (💬) in the bottom-right corner of any page
-2. The chat panel slides in from the right side of the screen
-3. Click **outside** the chat panel or press the close button to dismiss it
+1. Click the **floating AI Assistant button** in the bottom-right corner of any page
+2. The chat opens as a **floating window** above the page instead of a fixed side drawer
+3. Drag the header to move it, use the **minimize** button to collapse it, or click **close** to dismiss it
 
 ### 16.2 Starting a Conversation
 

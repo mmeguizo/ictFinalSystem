@@ -17,6 +17,76 @@
       <div class="doc-content">
         <div class="version-header">
           <nz-tag nzColor="green">Latest</nz-tag>
+          <h3>Version 2.7.1 <small>— May 26, 2026</small></h3>
+        </div>
+        <h4>Fixed — Ticket Reliability, Chat UX &amp; Documentation Sync</h4>
+        <ul>
+          <li>
+            <strong>Manual ITS ticket detail links fixed</strong> — Saved manual ITS tickets now
+            open correctly from ticket lists and notifications because the ticket detail contract
+            now matches the database for optional control numbers.
+          </li>
+          <li>
+            <strong>New ITS tickets always get a control number</strong> — Future manual ITS tickets
+            remain compatible with detail views, notifications, and exports.
+          </li>
+          <li>
+            <strong>Floating AI chat window improved</strong> — The assistant now behaves like a
+            draggable, minimizable compose window with safe drag bounds and stable reopen behavior.
+          </li>
+          <li>
+            <strong>In-app documentation synchronized</strong> — The shared Documentation page now
+            shows current release notes and updated manual highlights instead of older March 2026
+            content.
+          </li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 2.7.0 <small>— May 26, 2026</small></h3>
+        </div>
+        <h4>Added — Smart Routing by Expertise</h4>
+        <ul>
+          <li>
+            <strong>Skills-based auto-assignment</strong> — Director-approved tickets are matched to
+            the best-fit staff member using ticket checkbox fields, keyword hints, and current
+            workload.
+          </li>
+          <li>
+            <strong>Admin skills management</strong> — Admin can assign and update staff "Skills /
+            Expertise" directly from the user table.
+          </li>
+          <li>
+            <strong>Fallback assignment safety</strong> — If no specialist matches, routing still
+            falls back to MIS_HEAD or ITS_HEAD.
+          </li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
+          <h3>Version 2.6.0 <small>— May 26, 2026</small></h3>
+        </div>
+        <h4>Added — Natural Language Input &amp; Department Comparison Reports</h4>
+        <ul>
+          <li>
+            <strong>AI Quick Draft &amp; Form Pre-fill</strong> — Users can describe an issue in
+            plain English and let AI choose MIS/ITS while pre-filling the form.
+          </li>
+          <li>
+            <strong>Department comparison analytics</strong> — Analytics now includes MIS vs ITS
+            comparisons for status, priority, SLA compliance, and completion trends.
+          </li>
+          <li>
+            <strong>Gemini + fallback parsing</strong> — Natural-language parsing uses Gemini first
+            with local fallback logic for common request patterns.
+          </li>
+        </ul>
+
+        <nz-divider></nz-divider>
+
+        <div class="version-header">
           <h3>Version 2.2.0 <small>— March 13, 2026</small></h3>
         </div>
         <h4>Fixed — SLA Tracker &amp; Real-Time Updates</h4>
@@ -211,6 +281,23 @@
     <!-- ==================== USER MANUAL TAB ==================== -->
     <nz-tab nzTitle="User Manual">
       <div class="doc-content manual-content">
+        <nz-card nzSize="small" class="manual-release-card">
+          <div class="version-header">
+            <nz-tag nzColor="blue">Manual</nz-tag>
+            <h3>Version 2.7.1 <small>— Last updated May 26, 2026</small></h3>
+          </div>
+          <p>
+            This in-app guide is aligned with the current release and highlights the latest
+            workflow, AI, and admin updates.
+          </p>
+          <ul>
+            <li>Smart routing by expertise with admin-managed staff skills</li>
+            <li>AI Quick Draft &amp; Form Pre-fill for natural-language ticket submission</li>
+            <li>Floating, draggable, minimizable AI chat assistant</li>
+            <li>Manual ITS ticket links fixed for list view and notification navigation</li>
+          </ul>
+        </nz-card>
+
         <!-- Table of Contents -->
         <nz-card id="toc" nzSize="small" class="toc-card">
           <h4>Table of Contents</h4>
@@ -737,7 +824,12 @@
         <h3 id="section-11">11. Admin Functions</h3>
         <ul>
           <li>
-            <strong>User Management</strong> — Create, edit, delete user accounts and assign roles
+            <strong>User Management</strong> — Create, edit, deactivate, and conditionally delete
+            user accounts with role assignment controls
+          </li>
+          <li>
+            <strong>Skills / Expertise Management</strong> — Update staff skill tags from the admin
+            user table to improve smart routing decisions
           </li>
           <li><strong>Acknowledge Schedules</strong> — Process PENDING_ACKNOWLEDGMENT tickets</li>
           <li>
@@ -745,6 +837,10 @@
           </li>
           <li><strong>Ticket Oversight</strong> — View all tickets across all departments</li>
           <li><strong>Close Tickets</strong> — Finalize resolved tickets</li>
+          <li>
+            <strong>Documentation Center</strong> — Review the in-app changelog and user manual at
+            <code>/docs</code>
+          </li>
         </ul>
 
         <nz-divider></nz-divider>
@@ -954,6 +1050,25 @@
           Click <strong>"Apply to Description"</strong> to use the AI-rewritten description. The
           system also shows similar resolved tickets and related Knowledge Base articles.
         </p>
+
+        <h4>AI Chat Assistant</h4>
+        <ul>
+          <li>
+            Open the assistant from the floating AI button in the bottom-right corner of the page
+          </li>
+          <li>
+            The chat opens as a floating window that can be dragged, minimized, and reopened while
+            keeping the conversation history available
+          </li>
+          <li>
+            The assistant can search knowledge-base articles, summarize similar resolved tickets,
+            and help create support tickets
+          </li>
+          <li>
+            Staff and admin roles can also ask for read-only analytics summaries and Excel report
+            downloads directly from chat
+          </li>
+        </ul>
 
         <nz-divider></nz-divider>
         <div class="back-to-toc">
