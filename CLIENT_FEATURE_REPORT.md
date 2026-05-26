@@ -1,6 +1,6 @@
 # ICT Intelligent Service Request System — Feature Report
 
-**As of May 7, 2026**
+**As of May 26, 2026**
 **Prepared for: Client Review**
 
 ---
@@ -138,20 +138,39 @@ Available to: ADMIN, MIS_HEAD, ITS_HEAD, SECRETARY, DIRECTOR
 - Profile photos (avatar upload)
 - Role assignment
 - Login via local credentials or Auth0 SSO
+- **Skills / Expertise Management** — Admin can assign skill tags to each staff member (e.g. Printer Maintenance, Internet/Network, Website, Software). Tags appear as badges in the user table and are used by the smart routing engine.
+
+### 14. Natural Language Ticket Input
+
+- Users can describe their problem in a **single plain-English sentence** instead of filling in every field manually
+- Example: _"I want to borrow a projector and laptop under MRN-401 for room 103 tomorrow morning for 2 hours"_
+- The system automatically detects the correct form (MIS or ITS), ticks the right checklist items, fills the date/time, location, and description — all in real time
+- Powered by **Google Gemini AI** with a local regex fallback so it works even when offline
+- Users can still review and adjust any pre-filled field before submitting
+
+### 15. Smart Ticket Routing by Expertise
+
+- When the Director approves a ticket, it is automatically routed to the **most qualified available staff member** — not just any available person
+- The system maintains a **skills profile** for each staff member (e.g. a technician may be tagged with Printer Maintenance + Desktop/Laptop Maintenance)
+- Routing scores candidates by: (1) how many required skills they match, then (2) how light their current workload is
+- If no specialist is available, the ticket falls back to the department head automatically — no ticket is ever left unassigned
+- The routing decision is **recorded in the ticket history** so staff and managers can see exactly why each assignment was made
+- Admins can manage each staff member's skill tags through the **Admin Panel → Manage Skills** interface
 
 ---
 
 ## Recent Improvements (This Sprint — May 2026)
 
+- **Natural language ticket input** — Users can describe their request in plain English and the form auto-fills using Gemini AI
+- **Smart routing by expertise** — Tickets are now routed to the best-qualified, least-busy staff member based on skill profiles
+- **Admin Skills Management** — Admin panel gains a "Manage Skills" interface to assign expertise tags to each staff member
+- **Skills profiles visible in user table** — Admin panel user list now shows each person's skill tags at a glance
+- **Department comparison analytics** — Side-by-side MIS vs ITS performance charts and KPI cards now available on the Analytics page
 - Staff can now **delete and toggle visibility** of ticket notes
 - The AI now uses **staff diagnostic notes from past tickets** to answer questions more accurately
 - The AI can now answer **operational admin/staff questions** from live system data instead of only general ticket summaries
-- The AI now explains **admin deletion safeguards** directly in chat when asked
 - **Chat markdown rendering** fully fixed — tables and headings no longer show as raw symbols
-- Pressing **Enter sends** chat messages; Shift+Enter for line breaks
-- Regular users are **blocked from accessing internal-only solutions** via the API
 - Resolved tickets automatically contribute to the **troubleshooting solutions knowledge base**
-- Several security fixes: auth token handling, JWT secret guard, role name corrections
 
 ---
 
@@ -172,11 +191,10 @@ Available to: ADMIN, MIS_HEAD, ITS_HEAD, SECRETARY, DIRECTOR
 
 ## What's Coming Next
 
-- [ ] Activity feed (live "who's doing what" stream on dashboard)
+- [ ] Performance scorecards per individual staff member
 - [ ] Ticket templates (pre-filled forms for common request types)
-- [ ] Department comparison in analytics
-- [ ] Performance scorecards per staff member
 - [ ] Bulk ticket operations (close/assign multiple at once)
+- [ ] SLA compliance percentage charts per staff and department
 
 ---
 

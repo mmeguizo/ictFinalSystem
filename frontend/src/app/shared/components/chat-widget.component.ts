@@ -107,11 +107,84 @@ marked.use({
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Shared SVG gradient defs — referenced by all bot icons in this component -->
+    <svg width="0" height="0" style="position:absolute;overflow:hidden;pointer-events:none">
+      <defs>
+        <linearGradient id="cwHead" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#5567d5" />
+          <stop offset="100%" stop-color="#2c3a9e" />
+        </linearGradient>
+        <radialGradient id="cwEye" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#7ff0fd" />
+          <stop offset="50%" stop-color="#22d3ee" />
+          <stop offset="100%" stop-color="#0891b2" />
+        </radialGradient>
+      </defs>
+    </svg>
+
+    <!-- 3D Robot icon template — reused in FAB, header, chat message avatars -->
+    <ng-template #botSvg>
+      <svg
+        class="bot-svg"
+        viewBox="0 0 48 48"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <!-- Drop shadow -->
+        <ellipse cx="24" cy="45" rx="11" ry="2" fill="rgba(0,0,0,0.18)" />
+        <!-- Left ear -->
+        <rect x="3" y="17" width="6" height="10" rx="3" fill="#4e5fd4" />
+        <rect x="4.5" y="19" width="3" height="6" rx="1.5" fill="#1e2a8c" />
+        <!-- Right ear -->
+        <rect x="39" y="17" width="6" height="10" rx="3" fill="#4e5fd4" />
+        <rect x="39.5" y="19" width="3" height="6" rx="1.5" fill="#1e2a8c" />
+        <!-- Antenna stem -->
+        <rect x="22.5" y="4" width="3" height="7" rx="1.5" fill="#6b7ae8" />
+        <!-- Antenna ball -->
+        <circle cx="24" cy="3.5" r="3" fill="#f87171" />
+        <circle cx="22.8" cy="2.5" r="1.1" fill="rgba(255,255,255,0.65)" />
+        <!-- Head -->
+        <rect x="8" y="10" width="32" height="28" rx="8" fill="url(#cwHead)" />
+        <!-- Head highlight for 3D depth -->
+        <rect x="10" y="11" width="28" height="9" rx="7" fill="rgba(255,255,255,0.14)" />
+        <!-- Dark screen/face -->
+        <rect x="12" y="15" width="24" height="17" rx="5" fill="#0b1120" />
+        <!-- Screen glow border -->
+        <rect
+          x="12"
+          y="15"
+          width="24"
+          height="17"
+          rx="5"
+          fill="none"
+          stroke="rgba(34,211,238,0.25)"
+          stroke-width="1"
+        />
+        <!-- Eye ambient glow -->
+        <circle cx="18.5" cy="23" r="5" fill="rgba(34,211,238,0.12)" />
+        <circle cx="29.5" cy="23" r="5" fill="rgba(34,211,238,0.12)" />
+        <!-- Eyes -->
+        <circle cx="18.5" cy="23" r="3.8" fill="url(#cwEye)" />
+        <circle cx="29.5" cy="23" r="3.8" fill="url(#cwEye)" />
+        <!-- Eye specular highlights -->
+        <circle cx="17" cy="21.5" r="1.3" fill="rgba(255,255,255,0.82)" />
+        <circle cx="28" cy="21.5" r="1.3" fill="rgba(255,255,255,0.82)" />
+        <!-- Speaker dots -->
+        <circle cx="19.5" cy="29.5" r="1.1" fill="rgba(34,211,238,0.45)" />
+        <circle cx="24" cy="29.5" r="1.1" fill="rgba(34,211,238,0.45)" />
+        <circle cx="28.5" cy="29.5" r="1.1" fill="rgba(34,211,238,0.45)" />
+      </svg>
+    </ng-template>
+
     <!-- Floating AI Chat Button — Redesigned -->
     <div class="chat-fab-wrapper" (click)="toggleDrawer()">
       <div class="chat-fab" [class.active]="isOpen()">
         <div class="fab-icon">
-          <span nz-icon [nzType]="isOpen() ? 'close' : 'robot'" nzTheme="outline"></span>
+          @if (isOpen()) {
+            <span nz-icon nzType="close" nzTheme="outline"></span>
+          } @else {
+            <ng-container *ngTemplateOutlet="botSvg"></ng-container>
+          }
         </div>
         <span class="fab-label" [class.hidden]="isOpen()">AI Assistant</span>
       </div>
@@ -147,7 +220,7 @@ marked.use({
             } @else {
               <div class="header-brand">
                 <div class="brand-icon">
-                  <span nz-icon nzType="robot" nzTheme="outline"></span>
+                  <ng-container *ngTemplateOutlet="botSvg"></ng-container>
                 </div>
                 <div class="brand-text">
                   <span class="chat-header-title">ICT AI Assistant</span>
@@ -230,7 +303,7 @@ marked.use({
                 <div class="chat-welcome">
                   <div class="welcome-hero">
                     <div class="welcome-icon-wrapper">
-                      <span nz-icon nzType="robot" nzTheme="outline" class="welcome-icon"></span>
+                      <ng-container *ngTemplateOutlet="botSvg"></ng-container>
                     </div>
                     <h3>Hi! I'm your ICT AI Assistant</h3>
                     <p>
@@ -261,7 +334,7 @@ marked.use({
                 <div class="message" [class]="'message-' + msg.role.toLowerCase()">
                   @if (msg.role === 'ASSISTANT') {
                     <div class="message-avatar">
-                      <span nz-icon nzType="robot" nzTheme="outline"></span>
+                      <ng-container *ngTemplateOutlet="botSvg"></ng-container>
                     </div>
                   }
                   <div
@@ -317,7 +390,7 @@ marked.use({
               @if (sending()) {
                 <div class="message message-assistant">
                   <div class="message-avatar">
-                    <span nz-icon nzType="robot" nzTheme="outline"></span>
+                    <ng-container *ngTemplateOutlet="botSvg"></ng-container>
                   </div>
                   <div class="message-bubble typing">
                     <span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -333,7 +406,7 @@ marked.use({
               nz-input
               [(ngModel)]="inputMessage"
               placeholder="Type your message… (Enter to send)"
-              [nzAutosize]="{ minRows: 2, maxRows: 6 }"
+              [nzAutosize]="{ minRows: 2, maxRows: 4 }"
               [disabled]="sending()"
               (keydown)="onKeydown($event)"
             ></textarea>
@@ -402,6 +475,13 @@ marked.use({
         align-items: center;
         justify-content: center;
         font-size: 20px;
+      }
+
+      /* 3D bot SVG — fills its parent container at any size */
+      .bot-svg {
+        display: block;
+        width: 100%;
+        height: 100%;
       }
 
       .fab-label {
@@ -474,12 +554,9 @@ marked.use({
       .brand-icon {
         width: 36px;
         height: 36px;
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.2);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 20px;
       }
 
       .brand-text {
@@ -595,18 +672,11 @@ marked.use({
       .welcome-icon-wrapper {
         width: 64px;
         height: 64px;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto 16px;
         animation: float 3s ease-in-out infinite;
-      }
-
-      .welcome-icon {
-        font-size: 32px;
-        color: #fff;
       }
 
       @keyframes float {
@@ -708,7 +778,7 @@ marked.use({
         width: 32px;
         height: 32px;
         border-radius: 10px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -722,16 +792,8 @@ marked.use({
           display: block;
         }
 
-        span[nz-icon] {
-          font-size: 16px;
-          color: #fff;
-        }
-
         &.user {
           background: linear-gradient(135deg, #52c41a, #389e0d);
-          span[nz-icon] {
-            color: #fff;
-          }
         }
       }
 
@@ -985,6 +1047,13 @@ marked.use({
         padding: 12px 16px;
         border-top: 1px solid #f0f0f0;
         background: #fff;
+        flex-shrink: 0;
+      }
+
+      .chat-input-area textarea {
+        overflow-y: auto !important;
+        resize: none;
+        max-height: 120px;
       }
     `,
   ],

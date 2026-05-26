@@ -5,6 +5,85 @@ All notable changes to the ICT Support Ticketing System will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-05-26
+
+### Added — Smart Routing by Expertise (Feature 1b)
+
+#### Skills Database for Staff
+
+- **New `UserSkill` database model** — Dedicated Prisma model stores skill tags per staff member with a composite unique constraint so no staff member can have duplicate skills. Indexed by both `userId` and `skill` for fast lookups during routing.
+- **6 predefined skill tags** — `WEBSITE`, `SOFTWARE`, `BORROW_REQUEST`, `MAINTENANCE_DESKTOP_LAPTOP`, `MAINTENANCE_INTERNET_NETWORK`, `MAINTENANCE_PRINTER`. Tags align directly with ticket checkbox options in MIS and ITS forms.
+- **Database migration applied** — Migration `20260526013917_add_user_skills` adds the `user_skills` table to MySQL.
+- **Seed data updated** — 11 seeded staff users now each carry relevant skill profiles: e.g. `tech1` has `MAINTENANCE_DESKTOP_LAPTOP` + `MAINTENANCE_PRINTER`; `tech2` has `MAINTENANCE_INTERNET_NETWORK` + `BORROW_REQUEST`; `dev1` has `WEBSITE` + `SOFTWARE`.
+
+#### Intelligent Auto-Assignment Engine
+
+- **Skills-scoring algorithm** — When a ticket is director-approved and enters auto-assignment, the engine now builds a required-skills list from: (1) the ticket's checklist fields (e.g. `maintenancePrinter → MAINTENANCE_PRINTER`), and (2) keyword hints scanned from the title and description.
+- **Weighted candidate scoring** — All eligible DEVELOPER (MIS) or TECHNICAL (ITS) staff are ranked: first by number of matching skills descending, then by current open-ticket workload ascending. The best-fit person with the lightest workload wins.
+- **Graceful fallback** — If no technical staff have matching skills at all, the ticket falls back to the MIS_HEAD or ITS_HEAD as before. No ticket can be left unassigned.
+- **Routing reason logged** — The `TicketStatusHistory` entry written at assignment time includes a text note of which staff member was selected and why (e.g. "Auto-assigned to tech1 based on skills: MAINTENANCE_PRINTER, MAINTENANCE_DESKTOP_LAPTOP").
+
+#### GraphQL API for Skills Management
+
+- **`skills` field on `User` type** — Every user query that returns a `User` object now also returns the user's skill tag list.
+- **`updateUserSkills(userId, skills)` mutation** — Admin-only mutation that atomically replaces a staff member's full skill set using a database transaction (delete-all, then bulk insert). Duplicate tags are silently ignored.
+- **`getUserSkills(userId)` service method** — Internal service method used by the skills field resolver to fetch skill strings for a user.
+
+#### Admin Panel — Skills Management UI
+
+- **"Skills / Expertise" column** — User management table in the Admin panel now shows each staff member's skill tags as coloured `nz-tag` badges. Empty skill sets show italic "(no skills set)" as a reminder.
+- **"Manage Skills" button** — Each user row has a new action button (tags icon) that opens a skills assignment modal.
+- **Skills assignment modal** — Multi-select with 6 predefined skill options (plus support for custom freeform input). Pre-fills with the user's current skills. Saves via `updateUserSkills` mutation and reflects changes immediately in the table.
+
+#### Files Modified
+
+- `backend/prisma/schema.prisma` — Added `UserSkill` model and `skills UserSkill[]` relation on `User`
+- `backend/prisma/seed.ts` — Replaced seed user list with 11 staff users with realistic skill profiles
+- `backend/prisma/migrations/20260526013917_add_user_skills/` — New migration adding `user_skills` table
+- `backend/src/modules/users/user.types.ts` — Added `skills: [String!]!` on `User` type; added `updateUserSkills` mutation
+- `backend/src/modules/users/user.service.ts` — Added `getUserSkills()` and `updateUserSkills()` service methods
+- `backend/src/modules/users/user.resolvers.ts` — Added `User.skills` field resolver and `updateUserSkills` mutation resolver (ADMIN only)
+- `backend/src/modules/tickets/services/auto-assignment.service.ts` — Completely rewritten with skills-scoring algorithm, keyword heuristics, and fallback logic
+- `backend/src/modules/tickets/services/ticket.service.ts` — Removed duplicate `prisma.$transaction` block in `directorApprove` flow (auto-assignment now writes its own history)
+- `frontend/src/app/graphql/operations/user.operations.graphql` — Added `skills` to `UserFields` fragment; added `UpdateUserSkills` mutation
+- `frontend/src/app/api/admin-api.service.ts` — Added `skills` to `UserData` interface; added `updateUserSkills()` method
+- `frontend/src/app/features/admin/admin.page.ts` — Added skills modal signals, `openSkillsModal()`, `closeSkillsModal()`, `submitSkills()` methods
+- `frontend/src/app/features/admin/admin.page.html` — Added "Skills / Expertise" column, "Manage Skills" button, and skills assignment modal
+- `frontend/src/app/graphql/generated/graphql.ts` — Regenerated via `npm run codegen` with all new operations
+
+---
+
+## [2.6.0] - 2026-05-26
+
+### Added — Natural Language Ticket Input (Feature 1a) & Department Comparison Reports (Feature 1d)
+
+#### Natural Language Ticket Input
+
+- **One-line ticket submission** — Users can type a single unstructured sentence into a new "Natural Language Input" field on both the MIS and ITS ticket creation forms. Example: _"I want to borrow a projector and laptop under MRN-401 for room 103 tomorrow morning for 2 hours"_.
+- **Gemini AI NLP parsing** — The system sends the sentence to Google Gemini 2.0 Flash with a structured prompt that instructs it to extract: ticket type (MIS/ITS), checklist items, department/room/location, date/time, duration, subject name, and description. The AI returns a structured JSON object.
+- **Regex-based fallback parser** — If the Gemini API is unavailable or returns unparseable output, a local regex/keyword engine handles common patterns: borrow requests, printer issues, software problems, maintenance keywords, time expressions, and room/unit references.
+- **Real-time form pre-fill** — The extracted fields are patched directly into the reactive Angular form. Checklist switches are toggled on, date pickers are populated, subject/description fields are filled — all in real time as parsing completes.
+- **Auto-department detection** — The parser chooses the correct form type (MIS vs ITS) based on detected intent, and the frontend switches to the matching form automatically.
+
+#### Department Comparison Reports (Feature 1d)
+
+- **New "Comparison" analytics tab** — A dedicated tab on the Analytics page shows MIS vs ITS side-by-side performance data.
+- **Comparative bar charts** — Grouped bar charts for ticket Status breakdown and Priority breakdown, one group per department.
+- **Head-to-Head KPI panel** — Cards showing SLA Compliance %, Average Resolution Hours, SLA Breaches, and Completed Volume for MIS vs ITS simultaneously.
+- **Backend schema extension** — `AnalyticsFilterInput` and `slaMetrics` extended with an optional `type` field so either department can be queried in isolation or together.
+
+#### Files Modified
+
+- `backend/src/modules/ai/gemini.service.ts` — Added `parseNLPInput(sentence)` method with structured Gemini prompt and regex fallback
+- `backend/src/modules/analytics/analytics.service.ts` — Extended `slaMetrics` to accept optional `type` filter for department-scoped queries
+- `backend/src/modules/analytics/analytics.types.ts` — Added `type` field to `AnalyticsFilterInput`
+- `frontend/src/app/features/tickets/mis-ticket-form/` — NLP input field, Gemini call on input, form pre-fill patch logic
+- `frontend/src/app/features/tickets/its-ticket-form/` — Same NLP integration for ITS form
+- `frontend/src/app/features/analytics/analytics.page.ts` — Added comparison tab with department-scoped queries
+- `frontend/src/app/features/analytics/analytics.page.html` — Comparison tab with grouped bar charts and KPI cards
+
+---
+
 ## [2.5.0] - 2026-05-07
 
 ### Added — Note Management, AI Training Pipeline, Operational Chat Coverage & Admin Safeguards

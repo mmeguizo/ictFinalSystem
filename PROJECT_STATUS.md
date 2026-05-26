@@ -3,13 +3,23 @@
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
 > **Last Updated:** May 26, 2026
 
-## Recent Update: May 26, 2026
+## Recent Update: May 26, 2026 — Smart Routing by Expertise (Feature 1b)
 
+- Implemented **Smart Routing by Expertise** (Feature 1b): Tickets are now auto-assigned to the best-qualified, least-busy staff member instead of any available person.
+- Added new **`UserSkill` Prisma model** with a dedicated `user_skills` database table (migration `20260526013917_add_user_skills`). Skill tags: `WEBSITE`, `SOFTWARE`, `BORROW_REQUEST`, `MAINTENANCE_DESKTOP_LAPTOP`, `MAINTENANCE_INTERNET_NETWORK`, `MAINTENANCE_PRINTER`.
+- **Completely rewrote `AutoAssignmentService.assignTicket()`**: builds a required-skills list from ticket checkbox fields and keyword hints, scores DEVELOPER/TECHNICAL candidates by matching-skill count descending then workload ascending, falls back to MIS_HEAD/ITS_HEAD if no specialist found. Routing reason is written to `TicketStatusHistory`.
+- Added **`updateUserSkills` GraphQL mutation** (ADMIN only) using an atomic `$transaction` delete + bulk insert. Added `skills: [String!]!` field on the `User` GraphQL type.
+- Added **Admin Panel Skills Management UI**: "Skills / Expertise" column in the user table showing skill `nz-tag` badges; "Manage Skills" button per row opening a multi-select modal.
+- Re-seeded the database with 11 staff users each carrying realistic skill profiles.
+- Regenerated `graphql.ts` via `npm run codegen` — clean pass with all new types and operations.
+
+## Previous Update: May 26, 2026 — Natural Language Ticket Input (Feature 1a) & Department Comparison (Feature 1d)
+
+- Implemented **Natural Language Ticket Input** (Feature 1a) with real-time NLP parsing and form pre-fill! Users can now submit a single unstructured sentence (e.g. _"I want to borrow a projector and laptop under MRN-401 for room 103 tomorrow morning for 2 hours"_) and have the form automatically choose between MIS or ITS departments, patch checklist choices, and fill out details in real-time using Gemini AI or raw fallback parsing.
 - Implemented **Department Comparison Reports** (Feature 1d) as a dedicated comparative analytics tab on the Analytics page.
 - Enabled multi-department (MIS vs ITS) analytics in the backend GraphQL schema by extending `AnalyticsFilterInput` and `slaMetrics` to support an optional `type` filter.
 - Developed side-by-side grouped comparative bar charts for Status and Priority breakdown across MIS and ITS departments.
 - Constructed a Head-to-Head Key Performance Indicators (KPIs) comparison dashboard showcasing SLA Compliance, Average Resolution hours, SLA breaches, and completed volume.
-- Implemented **Natural Language Ticket Input** (Feature 1a) with real-time NLP parsing and form pre-fill! Users can now submit a single unstructured sentence (e.g. _"I want to borrow a projector and laptop under MRN-401 for room 103 tomorrow morning for 2 hours"_) and have the form automatically choose between MIS or ITS departments, patch checklist choices, and fill out details in real-time using Gemini AI or raw fallback parsing.
 - Fully validated the build (both backend code and final frontend package) with zero errors.
 
 ## Previous Update: May 25, 2026
@@ -101,7 +111,7 @@ Tickets are automatically routed to the right department/person and categorized 
 - [x] Manual unassign capability
 - [x] **AI-based ticket categorization** — Gemini AI classifies into Network/Hardware/Software/Account Access/Printer/Security/Other
 - [x] **Priority auto-suggestion based on content** — keyword NLP engine with confidence scoring + Gemini AI priority analysis
-- [ ] **Smart routing based on staff expertise/availability**
+- [x] **Smart routing based on staff expertise/availability** — UserSkill model, skills-scoring algorithm, keyword heuristics, workload tiebreaker, graceful fallback to head
 - [x] **Escalation rules (auto-escalate if SLA breach — 2-level cron job)**
 
 ### Next Steps (Chunked)
