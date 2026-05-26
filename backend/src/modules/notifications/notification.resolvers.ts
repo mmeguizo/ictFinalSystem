@@ -97,6 +97,14 @@ export const notificationResolvers = {
     },
 
     /**
+     * ticketAssignmentActivity — fires for every assignment event.
+     * Used by staff dashboards to show a shared live activity stream.
+     */
+    ticketAssignmentActivity: {
+      subscribe: () => pubsub.asyncIterableIterator([EVENTS.TICKET_ASSIGNED]),
+    },
+
+    /**
      * notificationCreated — fires when a new notification is created for a user.
      * Filtered by userId so each user only gets their own notifications.
      * This replaces the 30-second polling in the notification bell.

@@ -148,3 +148,21 @@
     border-radius: 8px 8px 0 0;
   }
 }
+
+.comparison-card {
+  border-radius: 8px;
+  margin-bottom: 16px;
+  transition: all 0.3s;
+
+  &.mis-card {
+    border-top: 4px solid #1890ff;
+  }
+
+  &.its-card {
+    border-top: 4px solid #52c41a;
+  }
+}
+
+.comp-stat-grid {
+  padding: 8px 0;
+}

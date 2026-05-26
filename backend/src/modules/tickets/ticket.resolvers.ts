@@ -42,7 +42,11 @@ function buildAnalyticsFilters(filter: any, role: string) {
   return {
     startDate: filter?.startDate ? new Date(filter.startDate) : undefined,
     endDate: filter?.endDate ? new Date(filter.endDate) : undefined,
-    ...(scopedType ? { type: scopedType } : {}),
+    ...(scopedType
+      ? { type: scopedType }
+      : filter?.type
+        ? { type: filter.type }
+        : {}),
   };
 }
 
@@ -270,7 +274,11 @@ export const ticketResolvers = {
       };
     },
 
-    slaMetrics: async (_: any, __: any, context: any) => {
+    slaMetrics: async (
+      _: any,
+      { type }: { type?: TicketType },
+      context: any,
+    ) => {
       if (!context.currentUser) {
         throw new Error("Unauthorized");
       }
@@ -279,8 +287,13 @@ export const ticketResolvers = {
       }
 
       const scopedType = getDepartmentScopedType(context.currentUser.role);
+      if (scopedType && type && scopedType !== type) {
+        throw new Error(
+          "Forbidden: Department heads can only request SLA metrics of their own department",
+        );
+      }
       return ticketService.getEnhancedSLAMetrics(
-        scopedType ? { type: scopedType } : undefined,
+        scopedType ? { type: scopedType } : type ? { type } : undefined,
       );
     },
 

@@ -13,6 +13,7 @@ export interface UserData {
   createdAt: string;
   lastLoginAt: string | null;
   externalId: string | null;
+  skills: string[];
 }
 
 interface GetAllUsersResponse {
@@ -51,6 +52,7 @@ const USER_FIELDS = gql`
     createdAt
     lastLoginAt
     externalId
+    skills
   }
 `;
 
@@ -148,6 +150,20 @@ export class AdminApiService {
     return this.apollo.mutate<DeleteUserResponse>({
       mutation: DELETE_USER_MUTATION,
       variables: { id },
+    });
+  }
+
+  updateUserSkills(userId: number, skills: string[]) {
+    return this.apollo.mutate<{ updateUserSkills: UserData }>({
+      mutation: gql`
+        mutation UpdateUserSkills($userId: Int!, $skills: [String!]!) {
+          updateUserSkills(userId: $userId, skills: $skills) {
+            ...UserFields
+          }
+        }
+        ${USER_FIELDS}
+      `,
+      variables: { userId, skills },
     });
   }
 }

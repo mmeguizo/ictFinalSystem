@@ -306,6 +306,56 @@ export class AdminPage implements OnInit {
     });
   }
 
+  // --- Skills Modal ---
+  isSkillsModalVisible = signal(false);
+  skillsForm = signal({ userId: 0, userName: '', skills: [] as string[] });
+  skillsLoading = signal(false);
+
+  readonly availableSkills = [
+    'WEBSITE',
+    'SOFTWARE',
+    'BORROW_REQUEST',
+    'MAINTENANCE_DESKTOP_LAPTOP',
+    'MAINTENANCE_INTERNET_NETWORK',
+    'MAINTENANCE_PRINTER',
+  ];
+
+  openSkillsModal(user: UserData): void {
+    this.skillsForm.set({
+      userId: user.id,
+      userName: user.name || user.email,
+      skills: [...(user.skills || [])],
+    });
+    this.isSkillsModalVisible.set(true);
+  }
+
+  closeSkillsModal(): void {
+    this.isSkillsModalVisible.set(false);
+  }
+
+  submitSkills(): void {
+    const form = this.skillsForm();
+    this.skillsLoading.set(true);
+
+    this.adminApiService.updateUserSkills(form.userId, form.skills).subscribe({
+      next: () => {
+        this.message.success('User skills updated successfully');
+        this.isSkillsModalVisible.set(false);
+        this.skillsLoading.set(false);
+        this.loadUsers();
+      },
+      error: (error) => {
+        console.error('Failed to update skills:', error);
+        this.message.error(error?.message || 'Failed to update skills');
+        this.skillsLoading.set(false);
+      },
+    });
+  }
+
+  updateSkillsField(skills: string[]): void {
+    this.skillsForm.update((f) => ({ ...f, skills }));
+  }
+
   // --- Helpers ---
   getAuthMethod(user: UserData): string {
     if (user.externalId && (user as any).password) return 'SSO + Local';

@@ -90,6 +90,12 @@ export class SubmitTicketPage {
   /** Controls the initial chooser: null = show chooser, 'form' = manual form, 'ai' = open AI chat */
   readonly submitMode = signal<'chooser' | 'form' | 'ai'>('chooser');
 
+  // ========================================
+  // NLP TICKET FORM PRE-FILL (FEATURE 1A)
+  // ========================================
+  readonly nlpRawInput = signal('');
+  readonly parsingNLP = signal(false);
+
   readonly userName = computed(() => this.authService.currentUser()?.name ?? '');
   readonly userDept = signal('');
 
@@ -326,6 +332,47 @@ export class SubmitTicketPage {
     // Auto-apply suggestion only if user hasn't manually overridden
     if (!this.priorityOverridden()) {
       this.selectedPriority.set(suggestion.priority);
+    }
+  }
+
+  async parseAndFill(): Promise<void> {
+    const text = this.nlpRawInput().trim();
+    if (!text) return;
+
+    try {
+      this.parsingNLP.set(true);
+      const parsed = await firstValueFrom(this.aiService.parseNaturalLanguageTicket(text));
+
+      // Update formType based on department
+      this.formTypeControl.setValue(parsed.department);
+      this.formType.set(parsed.department);
+
+      // Force change detection and yield to let child form render before patching
+      setTimeout(() => {
+        if (parsed.department === 'MIS') {
+          const misForm = this.misFormRef();
+          if (misForm) {
+            misForm.patchParsedValues(parsed);
+          }
+        } else {
+          const itsForm = this.itsFormRef();
+          if (itsForm) {
+            itsForm.patchParsedValues(parsed);
+          }
+        }
+
+        // Apply Priority directly!
+        this.selectedPriority.set(parsed.priority as Priority);
+        this.priorityOverridden.set(true); // User triggered NLP override
+
+        this.message.success(
+          `Successfully parsed request! Switched to ${parsed.department} form and drafted fields.`,
+        );
+        this.parsingNLP.set(false);
+      }, 50);
+    } catch (err: any) {
+      this.message.error(err?.message || 'Error occurred while analyzing text.');
+      this.parsingNLP.set(false);
     }
   }
 

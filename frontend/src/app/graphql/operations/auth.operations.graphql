@@ -14,8 +14,8 @@ mutation Login($email: String!, $password: String!) {
 }
 
 # Create user mutation (for local accounts)
-mutation CreateUser($email: String!, $password: String!, $name: String) {
-  createUser(email: $email, password: $password, name: $name) {
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
     id
     email
     name

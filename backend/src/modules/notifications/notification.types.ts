@@ -111,6 +111,11 @@ export const notificationTypeDefs = gql`
     ticketAssigned(userId: Int!): TicketAssignedPayload!
 
     """
+    Listen for all ticket assignment events for dashboard activity feeds
+    """
+    ticketAssignmentActivity: TicketAssignedPayload!
+
+    """
     Listen for new notifications for the current user
     """
     notificationCreated(userId: Int!): Notification!

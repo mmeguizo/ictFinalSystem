@@ -44,6 +44,7 @@
           <th>User</th>
           <th>Email</th>
           <th nzWidth="160px">Role</th>
+          <th>Skills / Expertise</th>
           <th nzWidth="90px">Status</th>
           <th nzWidth="90px">Auth</th>
           <th nzWidth="220px">Actions</th>
@@ -77,6 +78,22 @@
               </nz-select>
             </td>
             <td>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 250px">
+                @for (skill of user.skills; track skill) {
+                  <nz-tag
+                    nzColor="geekblue"
+                    style="font-size: 10px; margin: 0; text-transform: uppercase"
+                  >
+                    {{ skill.replace('_', ' ') }}
+                  </nz-tag>
+                } @empty {
+                  <span style="font-style: italic; color: #aaa; font-size: 11px"
+                    >No specific skills</span
+                  >
+                }
+              </div>
+            </td>
+            <td>
               <nz-badge
                 [nzStatus]="user.isActive ? 'success' : 'error'"
                 [nzText]="user.isActive ? 'Active' : 'Inactive'"
@@ -87,6 +104,16 @@
             </td>
             <td>
               <div class="action-buttons">
+                <button
+                  nz-button
+                  nzType="default"
+                  nzSize="small"
+                  nz-tooltip
+                  nzTooltipTitle="Manage Skills"
+                  (click)="openSkillsModal(user)"
+                >
+                  <nz-icon nzType="tags" nzTheme="outline"></nz-icon>
+                </button>
                 <button
                   nz-button
                   nzType="default"
@@ -289,6 +316,43 @@
             (click)="showSetPassword.set(!showSetPassword())"
           ></nz-icon>
         </ng-template>
+      </nz-form-control>
+    </nz-form-item>
+  </ng-container>
+</nz-modal>
+
+<!-- Manage Skills / Expertise Modal -->
+<nz-modal
+  [nzVisible]="isSkillsModalVisible()"
+  (nzVisibleChange)="isSkillsModalVisible.set($event)"
+  [nzTitle]="'Manage Skills / Expertise for ' + skillsForm().userName"
+  [nzOkLoading]="skillsLoading()"
+  nzOkText="Save Skills"
+  (nzOnOk)="submitSkills()"
+  (nzOnCancel)="closeSkillsModal()"
+  nzWidth="480px"
+>
+  <ng-container *nzModalContent>
+    <div style="margin-bottom: 16px">
+      <p style="color: #666; font-size: 13px; line-height: 1.5; margin: 0">
+        Assign specific skills to this staff member. These skills match service sub-types of tickets
+        and will be used by the smart routing engine to direct tickets directly to this assignee.
+      </p>
+    </div>
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Expertise</nz-form-label>
+      <nz-form-control [nzSpan]="18">
+        <nz-select
+          nzMode="tags"
+          [ngModel]="skillsForm().skills"
+          (ngModelChange)="updateSkillsField($event)"
+          nzPlaceHolder="Select or type technical expertise tags"
+          style="width: 100%"
+        >
+          @for (skill of availableSkills; track skill) {
+            <nz-option [nzValue]="skill" [nzLabel]="skill.replace('_', ' ')"></nz-option>
+          }
+        </nz-select>
       </nz-form-control>
     </nz-form-item>
   </ng-container>

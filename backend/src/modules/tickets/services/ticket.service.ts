@@ -1057,25 +1057,7 @@ export class TicketService {
         ticket.type,
       );
 
-      // Atomic: assignment status history + ticket status update
-      await this.prisma.$transaction(async (tx) => {
-        await tx.ticketStatusHistory.create({
-          data: {
-            ticketId,
-            userId: directorId, // System action triggered by director
-            fromStatus: TicketStatus.DIRECTOR_APPROVED,
-            toStatus: TicketStatus.ASSIGNED,
-            comment: `Auto-assigned to ${ticket.type === "MIS" ? "MIS" : "ITS"} department head`,
-          },
-        });
-
-        await tx.ticket.update({
-          where: { id: ticketId },
-          data: { status: TicketStatus.ASSIGNED },
-        });
-      });
-
-      // Notify the assigned office head
+      // Notify the assigned staff or head
       if (assignment?.userId) {
         await this.notificationService.notifyTicketAssigned(
           ticketId,

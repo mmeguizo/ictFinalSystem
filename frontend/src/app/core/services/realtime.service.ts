@@ -68,6 +68,20 @@ const TICKET_ASSIGNED_SUBSCRIPTION = gql`
   }
 `;
 
+const TICKET_ASSIGNMENT_ACTIVITY_SUBSCRIPTION = gql`
+  subscription TicketAssignmentActivity {
+    ticketAssignmentActivity {
+      ticketId
+      ticketNumber
+      title
+      assignedToUserId
+      assignedToName
+      assignedBy
+      timestamp
+    }
+  }
+`;
+
 // ─── Types ─────────────────────────────────────────────────
 
 export interface TicketStatusChangedEvent {
@@ -113,6 +127,18 @@ export interface NotificationEvent {
   createdAt: string;
 }
 
+export interface ActivityFeedItem {
+  id: string;
+  kind: 'created' | 'assigned' | 'status';
+  tagLabel: string;
+  tagColor: string;
+  headline: string;
+  details: string;
+  ticketId: number;
+  ticketNumber: string;
+  timestamp: string;
+}
+
 // ─── Service ───────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
@@ -129,6 +155,8 @@ export class RealtimeService {
   readonly lastStatusChange = signal<TicketStatusChangedEvent | null>(null);
   readonly lastTicketCreated = signal<TicketCreatedEvent | null>(null);
   readonly lastAssignment = signal<TicketAssignedEvent | null>(null);
+  readonly lastAssignmentActivity = signal<TicketAssignedEvent | null>(null);
+  readonly activityFeed = signal<ActivityFeedItem[]>([]);
 
   // Signal to force-refresh a specific ticket (triggered by notification click)
   readonly forceTicketRefresh = signal<string | null>(null);
@@ -178,7 +206,7 @@ export class RealtimeService {
             }
           },
           error: (err) => console.error('[Realtime] notificationCreated error:', err),
-        })
+        }),
     );
 
     // 2. Ticket status changes (all tickets)
@@ -192,11 +220,12 @@ export class RealtimeService {
             if (data?.ticketStatusChanged) {
               this.ngZone.run(() => {
                 this.lastStatusChange.set(data!.ticketStatusChanged);
+                this.pushActivity(this.buildStatusActivity(data!.ticketStatusChanged));
               });
             }
           },
           error: (err) => console.error('[Realtime] ticketStatusChanged error:', err),
-        })
+        }),
     );
 
     // 3. New ticket created (useful for secretary/admin dashboards)
@@ -210,14 +239,34 @@ export class RealtimeService {
             if (data?.ticketCreated) {
               this.ngZone.run(() => {
                 this.lastTicketCreated.set(data!.ticketCreated);
+                this.pushActivity(this.buildCreatedActivity(data!.ticketCreated));
               });
             }
           },
           error: (err) => console.error('[Realtime] ticketCreated error:', err),
-        })
+        }),
     );
 
-    // 4. Ticket assigned to this user
+    // 4. Global assignment activity for shared dashboards
+    this.subscriptions.push(
+      this.apollo
+        .subscribe<{ ticketAssignmentActivity: TicketAssignedEvent }>({
+          query: TICKET_ASSIGNMENT_ACTIVITY_SUBSCRIPTION,
+        })
+        .subscribe({
+          next: ({ data }) => {
+            if (data?.ticketAssignmentActivity) {
+              this.ngZone.run(() => {
+                this.lastAssignmentActivity.set(data.ticketAssignmentActivity);
+                this.pushActivity(this.buildAssignmentActivity(data.ticketAssignmentActivity));
+              });
+            }
+          },
+          error: (err) => console.error('[Realtime] ticketAssignmentActivity error:', err),
+        }),
+    );
+
+    // 5. Ticket assigned to this user
     this.subscriptions.push(
       this.apollo
         .subscribe<{ ticketAssigned: TicketAssignedEvent }>({
@@ -233,7 +282,7 @@ export class RealtimeService {
             }
           },
           error: (err) => console.error('[Realtime] ticketAssigned error:', err),
-        })
+        }),
     );
   }
 
@@ -246,5 +295,82 @@ export class RealtimeService {
     this.subscriptions = [];
     this.connected.set(false);
     console.log('[Realtime] WebSocket subscriptions stopped');
+  }
+
+  private pushActivity(item: ActivityFeedItem | null): void {
+    if (!item) return;
+
+    this.activityFeed.update((entries) => {
+      const nextEntries = [item, ...entries.filter((entry) => entry.id !== item.id)];
+      nextEntries.sort(
+        (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime(),
+      );
+      return nextEntries.slice(0, 20);
+    });
+  }
+
+  private buildCreatedActivity(event: TicketCreatedEvent): ActivityFeedItem {
+    return {
+      id: `created:${event.ticketId}:${event.timestamp}`,
+      kind: 'created',
+      tagLabel: 'Created',
+      tagColor: 'blue',
+      headline: `${event.createdBy} created a new ticket`,
+      details: `${event.title} - ${event.type} - ${event.priority} priority`,
+      ticketId: event.ticketId,
+      ticketNumber: event.ticketNumber,
+      timestamp: event.timestamp,
+    };
+  }
+
+  private buildAssignmentActivity(event: TicketAssignedEvent): ActivityFeedItem {
+    return {
+      id: `assigned:${event.ticketId}:${event.timestamp}`,
+      kind: 'assigned',
+      tagLabel: 'Assigned',
+      tagColor: 'purple',
+      headline: `${event.assignedBy} assigned the ticket to ${event.assignedToName}`,
+      details: event.title,
+      ticketId: event.ticketId,
+      ticketNumber: event.ticketNumber,
+      timestamp: event.timestamp,
+    };
+  }
+
+  private buildStatusActivity(event: TicketStatusChangedEvent): ActivityFeedItem | null {
+    if (event.newStatus === 'ASSIGNED') {
+      return null;
+    }
+
+    return {
+      id: `status:${event.ticketId}:${event.timestamp}:${event.newStatus}`,
+      kind: 'status',
+      tagLabel: 'Status',
+      tagColor: this.getStatusActivityColor(event.newStatus),
+      headline: `${event.changedBy} moved the ticket to ${this.formatStatus(event.newStatus)}`,
+      details: `${event.title} - was ${this.formatStatus(event.oldStatus)}`,
+      ticketId: event.ticketId,
+      ticketNumber: event.ticketNumber,
+      timestamp: event.timestamp,
+    };
+  }
+
+  private getStatusActivityColor(status: string): string {
+    const colorMap: Record<string, string> = {
+      FOR_REVIEW: 'gold',
+      REVIEWED: 'blue',
+      DIRECTOR_APPROVED: 'cyan',
+      IN_PROGRESS: 'processing',
+      ON_HOLD: 'warning',
+      RESOLVED: 'success',
+      CLOSED: 'default',
+      CANCELLED: 'error',
+    };
+
+    return colorMap[status] ?? 'default';
+  }
+
+  private formatStatus(status: string): string {
+    return status.replace(/_/g, ' ');
   }
 }

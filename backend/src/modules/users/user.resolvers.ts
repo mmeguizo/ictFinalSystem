@@ -12,6 +12,8 @@ interface Context {
 export const userResolvers = {
   User: {
     avatarUrl: (user: User) => user.avatarUrl ?? user.picture ?? null,
+    skills: (user: User, _: any, ctx: Context) =>
+      ctx.userService.getUserSkills(user.id),
   },
   Query: {
     me: async (_: any, __: any, ctx: Context): Promise<User | null> => {
@@ -131,6 +133,14 @@ export const userResolvers = {
       ctx.jwtService.requireRole(ctx.currentUser, ["ADMIN"]);
       await ctx.userService.deleteUser(args.id, ctx.currentUser!.id);
       return true;
+    },
+    updateUserSkills: async (
+      _: any,
+      args: { userId: number; skills: string[] },
+      ctx: Context,
+    ): Promise<User> => {
+      ctx.jwtService.requireRole(ctx.currentUser, ["ADMIN"]);
+      return ctx.userService.updateUserSkills(args.userId, args.skills);
     },
   },
 };

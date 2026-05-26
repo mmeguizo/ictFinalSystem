@@ -83,12 +83,25 @@ model User {
   chatSessions             ChatSession[]
   troubleshootingSolutions TroubleshootingSolution[] @relation("SolutionAuthor")
 
+  skills UserSkill[]
+
   isActive        Boolean   @default(true)
   deactivatedAt   DateTime?
   deactivatedById Int?
 
   @@index([role])
   @@index([isActive])
+}
+
+model UserSkill {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill  String
+
+  @@unique([userId, skill])
+  @@index([userId])
+  @@index([skill])
 }
 
 model Ticket {

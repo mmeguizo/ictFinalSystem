@@ -38,6 +38,29 @@ export const aiTypeDefs = gql`
     aiAvailable: Boolean!
   }
 
+  """
+  Structured data parsed from a natural language ticket description
+  """
+  type ParsedTicketResult {
+    department: TicketType!
+    title: String!
+    category: String
+    priority: Priority!
+    details: String!
+    mrn: String
+    maintenanceDesktopLaptop: Boolean
+    maintenanceInternetNetwork: Boolean
+    maintenancePrinter: Boolean
+    maintenanceDetails: String
+    borrowRequest: Boolean
+    borrowDetails: String
+    websiteNewRequest: Boolean
+    websiteUpdate: Boolean
+    softwareNewRequest: Boolean
+    softwareUpdate: Boolean
+    softwareInstall: Boolean
+  }
+
   extend type Query {
     """
     Analyze a ticket description using AI and find similar tickets/articles.
@@ -50,5 +73,10 @@ export const aiTypeDefs = gql`
     Returns structured analysis with category, priority, solutions, etc.
     """
     analyzeTicket(title: String!, description: String!): TicketAIAnalysis
+
+    """
+    Parse a casual natural language input into structured drafting fields for form pre-population.
+    """
+    parseNaturalLanguageTicket(input: String!): ParsedTicketResult!
   }
 `;

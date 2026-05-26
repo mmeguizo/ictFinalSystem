@@ -73,6 +73,68 @@
   .recent-tickets-card {
     margin-top: 24px;
   }
+
+  .dashboard-content-row {
+    margin-top: 24px;
+  }
+
+  .activity-feed-card {
+    height: 100%;
+  }
+
+  .activity-feed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .activity-feed-item {
+    padding: 12px;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    background: #fafafa;
+  }
+
+  .activity-feed-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .activity-feed-time {
+    font-size: 12px;
+    color: #8c8c8c;
+  }
+
+  .activity-feed-headline {
+    font-size: 14px;
+    font-weight: 600;
+    color: #262626;
+    margin-bottom: 6px;
+  }
+
+  .activity-feed-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+    color: #595959;
+
+    a {
+      font-weight: 600;
+    }
+  }
+
+  .activity-feed-empty {
+    margin: 0;
+    color: #8c8c8c;
+  }
 }
 
 // ========================================
@@ -104,6 +166,19 @@
   }
   50% {
     box-shadow: 0 0 0 6px rgba(82, 196, 26, 0.05);
+  }
+}
+
+@media (max-width: 1199px) {
+  .dashboard-container {
+    .recent-tickets-card,
+    .activity-feed-card {
+      margin-top: 0;
+    }
+
+    .activity-feed-card {
+      margin-top: 16px;
+    }
   }
 }
 

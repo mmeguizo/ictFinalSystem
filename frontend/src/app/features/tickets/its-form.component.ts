@@ -178,6 +178,69 @@ export class ITSFormComponent {
     this.formGroup.get('details')?.setValue(text);
   }
 
+  /** Patch NLP-parsed structured values into the reactive form groups */
+  patchParsedValues(data: any): void {
+    if (data.details) {
+      this.formGroup.get('details')?.setValue(data.details);
+    }
+
+    // Set request type: BORROW, MAINTENANCE, or BOTH
+    if (
+      data.borrowRequest &&
+      (data.maintenanceDesktopLaptop || data.maintenanceInternetNetwork || data.maintenancePrinter)
+    ) {
+      this.requestType.set('BOTH');
+    } else if (data.borrowRequest) {
+      this.requestType.set('BORROW');
+    } else {
+      this.requestType.set('MAINTENANCE');
+    }
+
+    // Assign Borrow fields if applicable
+    if (data.borrowRequest && data.borrowDetails) {
+      this.borrowGroup.patchValue({
+        purpose: data.borrowDetails,
+        duration: 'As requested',
+        venueRoom: 'See description',
+        borrowedItems: 'Equipment',
+      });
+    }
+
+    // Assign Maintenance check boxes
+    this.desktopLaptopGroup.patchValue({
+      reformatBackup: false,
+      virusRemoval: false,
+      cleaning: false,
+      noPower: data.maintenanceDesktopLaptop || false,
+      checkup: data.maintenanceDesktopLaptop || false,
+    });
+
+    this.internetNetworkGroup.patchValue({
+      newConnection: false,
+      noInternetConnection: data.maintenanceInternetNetwork || false,
+      wifiRouterProblem: data.maintenanceInternetNetwork || false,
+    });
+
+    this.printerGroup.patchValue({
+      noPowerDeadset: data.maintenancePrinter || false,
+      paperJam: data.maintenancePrinter || false,
+    });
+
+    if (data.mrn) {
+      this.endUserGroup.patchValue({
+        mrn: data.mrn,
+      });
+    }
+
+    if (data.maintenanceDetails) {
+      this.maintenanceGroup.patchValue({
+        othersConcerns: data.maintenanceDetails,
+      });
+    }
+
+    this.contentChanged.emit();
+  }
+
   getPayload() {
     return {
       ...this.formGroup.value,

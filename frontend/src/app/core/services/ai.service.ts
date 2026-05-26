@@ -43,7 +43,51 @@ export interface SmartSuggestions {
   aiAvailable: boolean;
 }
 
+export interface ParsedTicketResult {
+  department: 'MIS' | 'ITS';
+  title: string;
+  category?: string | null;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  details: string;
+  mrn?: string | null;
+  maintenanceDesktopLaptop?: boolean | null;
+  maintenanceInternetNetwork?: boolean | null;
+  maintenancePrinter?: boolean | null;
+  maintenanceDetails?: string | null;
+  borrowRequest?: boolean | null;
+  borrowDetails?: string | null;
+  websiteNewRequest?: boolean | null;
+  websiteUpdate?: boolean | null;
+  softwareNewRequest?: boolean | null;
+  softwareUpdate?: boolean | null;
+  softwareInstall?: boolean | null;
+}
+
 // ─── Queries ─────────────────────────────────────────────
+
+const PARSE_NATURAL_LANGUAGE_TICKET = gql`
+  query ParseNaturalLanguageTicket($input: String!) {
+    parseNaturalLanguageTicket(input: $input) {
+      department
+      title
+      category
+      priority
+      details
+      mrn
+      maintenanceDesktopLaptop
+      maintenanceInternetNetwork
+      maintenancePrinter
+      maintenanceDetails
+      borrowRequest
+      borrowDetails
+      websiteNewRequest
+      websiteUpdate
+      softwareNewRequest
+      softwareUpdate
+      softwareInstall
+    }
+  }
+`;
 
 const SMART_SUGGESTIONS_QUERY = gql`
   query SmartSuggestions($title: String!, $description: String!) {
@@ -125,5 +169,18 @@ export class AIService {
         fetchPolicy: 'network-only',
       })
       .pipe(map((result) => result.data!.analyzeTicket));
+  }
+
+  /**
+   * Parse a raw natural language request into structured form values for ticket drafting.
+   */
+  parseNaturalLanguageTicket(input: string): Observable<ParsedTicketResult> {
+    return this.apollo
+      .query<{ parseNaturalLanguageTicket: ParsedTicketResult }>({
+        query: PARSE_NATURAL_LANGUAGE_TICKET,
+        variables: { input },
+        fetchPolicy: 'network-only',
+      })
+      .pipe(map((result) => result.data!.parseNaturalLanguageTicket));
   }
 }

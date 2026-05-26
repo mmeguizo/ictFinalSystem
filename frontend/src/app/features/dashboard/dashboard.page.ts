@@ -76,6 +76,9 @@ export class DashboardPage implements OnInit {
   /** CSS class trigger — toggles to pulse stat cards on update */
   readonly refreshPulse = signal(false);
 
+  /** Shared live activity stream built from WebSocket ticket events */
+  readonly activityFeed = computed(() => this.realtimeService.activityFeed());
+
   // SLA Reminder Modal
   readonly showSlaModal = signal(false);
   readonly showSlaBanner = signal(true);
@@ -187,9 +190,10 @@ export class DashboardPage implements OnInit {
     const created = this.realtimeService.lastTicketCreated();
     const statusChange = this.realtimeService.lastStatusChange();
     const assignment = this.realtimeService.lastAssignment();
+    const assignmentActivity = this.realtimeService.lastAssignmentActivity();
 
     // Skip the initial null values (no event yet)
-    if (!created && !statusChange && !assignment) return;
+    if (!created && !statusChange && !assignment && !assignmentActivity) return;
 
     // Debounce: avoid hammering the API if multiple events fire at once
     this.silentRefresh();

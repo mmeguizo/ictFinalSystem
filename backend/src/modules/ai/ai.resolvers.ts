@@ -60,6 +60,15 @@ export const aiResolvers = {
 
       return geminiService.analyzeTicket(title, description);
     },
+
+    parseNaturalLanguageTicket: async (
+      _: unknown,
+      { input }: { input: string },
+      context: any,
+    ) => {
+      if (!context.currentUser) throw new Error("Unauthorized");
+      return geminiService.parseNLPInput(input);
+    },
   },
 };
 

@@ -25,6 +25,7 @@ export const userTypeDefs = gql`
     isActive: Boolean!
     deactivatedAt: String
     externalId: String
+    skills: [String!]!
   }
 
   input CreateUserInput {
@@ -67,5 +68,6 @@ export const userTypeDefs = gql`
     login(email: String!, password: String!): LoginPayload!
     toggleUserActive(id: Int!): User!
     deleteUser(id: Int!): Boolean!
+    updateUserSkills(userId: Int!, skills: [String!]!): User!
   }
 `;

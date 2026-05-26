@@ -6,6 +6,7 @@ fragment UserFields on User {
   role
   avatarUrl
   picture
+  skills
 }
 
 # Query to get current user
@@ -44,15 +45,25 @@ mutation SetMyPassword($password: String!) {
 }
 
 # Mutation to upsert user from Auth0
-mutation UpsertMe($externalId: String!, $email: String!, $name: String, $picture: String) {
-  upsertMe(externalId: $externalId, email: $email, name: $name, picture: $picture) {
-    ...UserFields
+mutation UpsertMe {
+  upsertMe {
+    user {
+      ...UserFields
+    }
+    created
   }
 }
 
 # Mutation to set user role (admin only)
-mutation SetUserRole($userId: Int!, $role: Role!) {
-  setUserRole(userId: $userId, role: $role) {
+mutation SetUserRole($id: Int!, $role: Role!) {
+  setUserRole(id: $id, role: $role) {
+    ...UserFields
+  }
+}
+
+# Mutation to update user skills (admin only)
+mutation UpdateUserSkills($userId: Int!, $skills: [String!]!) {
+  updateUserSkills(userId: $userId, skills: $skills) {
     ...UserFields
   }
 }

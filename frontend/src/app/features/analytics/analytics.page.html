@@ -399,6 +399,255 @@
           </nz-card>
         }
       </nz-tab>
+
+      <!-- ========================================
+           TAB 4: DEPARTMENT COMPARISON
+           ======================================== -->
+      <nz-tab nzTitle="Department Comparison">
+        @if (canCompare()) {
+          <!-- Comparative Overview Grid -->
+          <div nz-row [nzGutter]="[16, 16]">
+            <!-- MIS Department Summary -->
+            <div nz-col [nzXs]="24" [nzMd]="12">
+              <nz-card
+                nzTitle="MIS (Website & Software Dept)"
+                class="comparison-card mis-card"
+                [nzBordered]="true"
+              >
+                <div nz-row [nzGutter]="[16, 16]" class="comp-stat-grid">
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="misAnalytics()?.total ?? 0"
+                      nzTitle="Total Tickets Initiated"
+                    ></nz-statistic>
+                  </div>
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="misSla()?.complianceRate ?? 0"
+                      nzSuffix="%"
+                      nzTitle="SLA Compliance"
+                    ></nz-statistic>
+                  </div>
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="misSla()?.averageResolutionHours ?? 'N/A'"
+                      nzSuffix=" hrs"
+                      nzTitle="Avg Resolution Time"
+                    ></nz-statistic>
+                  </div>
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="misSla()?.overdue ?? 0"
+                      nzTitle="SLA Breach / Overdue"
+                      [nzValueStyle]="{
+                        color: (misSla()?.overdue ?? 0) > 0 ? '#ff4d4f' : '#52c41a',
+                      }"
+                    ></nz-statistic>
+                  </div>
+                </div>
+              </nz-card>
+            </div>
+
+            <!-- ITS Department Summary -->
+            <div nz-col [nzXs]="24" [nzMd]="12">
+              <nz-card
+                nzTitle="ITS (Network & Hardware Dept)"
+                class="comparison-card its-card"
+                [nzBordered]="true"
+              >
+                <div nz-row [nzGutter]="[16, 16]" class="comp-stat-grid">
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="itsAnalytics()?.total ?? 0"
+                      nzTitle="Total Tickets Initiated"
+                    ></nz-statistic>
+                  </div>
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="itsSla()?.complianceRate ?? 0"
+                      nzSuffix="%"
+                      nzTitle="SLA Compliance"
+                    ></nz-statistic>
+                  </div>
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="itsSla()?.averageResolutionHours ?? 'N/A'"
+                      nzSuffix=" hrs"
+                      nzTitle="Avg Resolution Time"
+                    ></nz-statistic>
+                  </div>
+                  <div nz-col [nzXs]="12">
+                    <nz-statistic
+                      [nzValue]="itsSla()?.overdue ?? 0"
+                      nzTitle="SLA Breach / Overdue"
+                      [nzValueStyle]="{
+                        color: (itsSla()?.overdue ?? 0) > 0 ? '#ff4d4f' : '#52c41a',
+                      }"
+                    ></nz-statistic>
+                  </div>
+                </div>
+              </nz-card>
+            </div>
+          </div>
+
+          <!-- Charts Comparison Row -->
+          @if (isBrowser) {
+            <div nz-row [nzGutter]="[16, 16]" style="margin-top: 20px">
+              <!-- Left Column: Status Comparison -->
+              <div nz-col [nzXs]="24" [nzLg]="12">
+                <nz-card nzTitle="Volume by Status Comparison">
+                  <div class="chart-wrapper">
+                    <canvas
+                      baseChart
+                      [type]="'bar'"
+                      [data]="comparisonStatusChartData()"
+                      [options]="comparisonStatusChartOptions"
+                    >
+                    </canvas>
+                  </div>
+                </nz-card>
+              </div>
+
+              <!-- Right Column: Priority Comparison -->
+              <div nz-col [nzXs]="24" [nzLg]="12">
+                <nz-card nzTitle="Volume by Priority Comparison">
+                  <div class="chart-wrapper">
+                    <canvas
+                      baseChart
+                      [type]="'bar'"
+                      [data]="comparisonPriorityChartData()"
+                      [options]="comparisonPriorityChartOptions"
+                    >
+                    </canvas>
+                  </div>
+                </nz-card>
+              </div>
+            </div>
+          }
+
+          <!-- SLA Comparative Dashboard -->
+          <div nz-row [nzGutter]="[16, 16]" style="margin-top: 20px">
+            <div nz-col [nzXs]="24">
+              <nz-card nzTitle="Head-to-Head Key Performance Indicators (KPIs)">
+                <nz-table
+                  #comparisonTable
+                  [nzData]="['compliance', 'resolution', 'overdue', 'resolved']"
+                  nzSize="middle"
+                  [nzFrontPagination]="false"
+                  [nzShowPagination]="false"
+                >
+                  <thead>
+                    <tr>
+                      <th>Key Performance Indicator</th>
+                      <th style="width: 35%">MIS (Website & Software Dept)</th>
+                      <th style="width: 35%">ITS (Network & Hardware Dept)</th>
+                      <th style="width: 15%; text-align: center">Leader</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>SLA Compliance Rate (%)</strong></td>
+                      <td>
+                        <nz-progress
+                          [nzPercent]="misSla()?.complianceRate ?? 0"
+                          [nzStrokeColor]="misSla()?.complianceRate! >= 90 ? '#52c41a' : '#faad14'"
+                        ></nz-progress>
+                      </td>
+                      <td>
+                        <nz-progress
+                          [nzPercent]="itsSla()?.complianceRate ?? 0"
+                          [nzStrokeColor]="itsSla()?.complianceRate! >= 90 ? '#52c41a' : '#faad14'"
+                        ></nz-progress>
+                      </td>
+                      <td style="text-align: center">
+                        @if ((misSla()?.complianceRate ?? 0) > (itsSla()?.complianceRate ?? 0)) {
+                          <nz-tag nzColor="processing">MIS</nz-tag>
+                        } @else if (
+                          (itsSla()?.complianceRate ?? 0) > (misSla()?.complianceRate ?? 0)
+                        ) {
+                          <nz-tag nzColor="success">ITS</nz-tag>
+                        } @else {
+                          <nz-tag>Tie</nz-tag>
+                        }
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><strong>Average Resolution Time</strong></td>
+                      <td>
+                        <strong>{{ misSla()?.averageResolutionHours ?? 'N/A' }}</strong> hrs
+                      </td>
+                      <td>
+                        <strong>{{ itsSla()?.averageResolutionHours ?? 'N/A' }}</strong> hrs
+                      </td>
+                      <td style="text-align: center">
+                        @if (
+                          misSla()?.averageResolutionHours !== null &&
+                          itsSla()?.averageResolutionHours !== null
+                        ) {
+                          @if (
+                            misSla()?.averageResolutionHours! < itsSla()?.averageResolutionHours!
+                          ) {
+                            <nz-tag nzColor="processing">MIS (Faster)</nz-tag>
+                          } @else if (
+                            itsSla()?.averageResolutionHours! < misSla()?.averageResolutionHours!
+                          ) {
+                            <nz-tag nzColor="success">ITS (Faster)</nz-tag>
+                          } @else {
+                            <nz-tag>Tie</nz-tag>
+                          }
+                        } @else {
+                          <nz-tag>-</nz-tag>
+                        }
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><strong>SLA Breaches / Overdue Tickets</strong></td>
+                      <td>
+                        <span [style.color]="(misSla()?.overdue ?? 0) > 0 ? '#ff4d4f' : 'inherit'">
+                          <strong>{{ misSla()?.overdue ?? 0 }}</strong> Overdue
+                        </span>
+                      </td>
+                      <td>
+                        <span [style.color]="(itsSla()?.overdue ?? 0) > 0 ? '#ff4d4f' : 'inherit'">
+                          <strong>{{ itsSla()?.overdue ?? 0 }}</strong> Overdue
+                        </span>
+                      </td>
+                      <td style="text-align: center">
+                        @if ((misSla()?.overdue ?? 0) < (itsSla()?.overdue ?? 0)) {
+                          <nz-tag nzColor="processing">MIS</nz-tag>
+                        } @else if ((itsSla()?.overdue ?? 0) < (misSla()?.overdue ?? 0)) {
+                          <nz-tag nzColor="success">ITS</nz-tag>
+                        } @else {
+                          <nz-tag>Tie</nz-tag>
+                        }
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><strong>Total Resolved Tickets</strong></td>
+                      <td>
+                        Completed: <strong>{{ misSla()?.totalResolved ?? 0 }}</strong>
+                      </td>
+                      <td>
+                        Completed: <strong>{{ itsSla()?.totalResolved ?? 0 }}</strong>
+                      </td>
+                      <td style="text-align: center">-</td>
+                    </tr>
+                  </tbody>
+                </nz-table>
+              </nz-card>
+            </div>
+          </div>
+        } @else {
+          <nz-card>
+            <nz-alert
+              nzType="warning"
+              nzMessage="Department Access Restricted"
+              nzDescription="Department heads are restricted to viewing analytics specific to their own department (MIS or ITS) for localized workload management."
+              nzShowIcon
+            ></nz-alert>
+          </nz-card>
+        }
+      </nz-tab>
     </nz-tabset>
   </div>
 </nz-spin>

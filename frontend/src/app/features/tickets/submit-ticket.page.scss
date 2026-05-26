@@ -394,3 +394,97 @@
     }
   }
 }
+
+/* ── NLP Quick Parse Container (Feature 1a) ───────────────── */
+.nlp-quick-parse-container {
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #f9f0ff 0%, #ffffff 100%);
+  border: 1px solid #d3adf7;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(114, 46, 209, 0.05);
+  overflow: hidden;
+
+  nz-collapse {
+    background: transparent !important;
+  }
+
+  ::ng-deep .ant-collapse-header {
+    background: transparent !important;
+    padding: 12px 16px !important;
+    border-bottom: none !important;
+  }
+
+  .nlp-header-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #531dab;
+  }
+
+  .nlp-content {
+    padding: 0 16px 16px;
+  }
+
+  .nlp-subtitle {
+    font-size: 13px;
+    color: #595959;
+    margin-bottom: 12px;
+    line-height: 1.5;
+
+    em {
+      color: #722ed1;
+      font-style: italic;
+    }
+  }
+
+  .nlp-input-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  .nlp-textarea {
+    flex: 1;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    transition: all 0.3s;
+
+    &:focus,
+    &:hover {
+      border-color: #722ed1;
+      box-shadow: 0 0 0 2px rgba(114, 46, 209, 0.1);
+    }
+  }
+
+  .nlp-btn {
+    border-radius: 6px;
+    background: #722ed1;
+    border-color: #722ed1;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: auto;
+    padding: 10px 16px;
+    align-self: normal;
+
+    &:hover,
+    &:focus {
+      background: #8540de;
+      border-color: #8540de;
+      color: #fff;
+    }
+
+    &[disabled] {
+      background: #f5f5f5;
+      border-color: #d9d9d9;
+      color: rgba(0, 0, 0, 0.25);
+    }
+  }
+}

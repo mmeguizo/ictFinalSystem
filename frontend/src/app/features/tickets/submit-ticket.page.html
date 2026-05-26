@@ -93,6 +93,52 @@
   <nz-spin [nzSpinning]="busy()" nzTip="Submitting ticket...">
     <nz-card [nzTitle]="isMIS() ? 'ICT-MIS Support Ticket' : 'Request for ICT Support Services'">
       <div class="ticket-form">
+        <!-- NLP Quick Describe Section (Feature 1a) -->
+        <div class="nlp-quick-parse-container">
+          <nz-collapse [nzBordered]="false">
+            <nz-collapse-panel [nzHeader]="nlpHeaderTpl" [nzActive]="true">
+              <div class="nlp-content">
+                <p class="nlp-subtitle">
+                  State your support request in plain English (e.g.,
+                  <em
+                    >"I need computer repair, my printer toner ran out, or I want to borrow a
+                    projector in room 301 tomorrow"</em
+                  >). AI will automatically choose between MIS/ITS and fill out the fields.
+                </p>
+                <div class="nlp-input-row">
+                  <textarea
+                    nz-input
+                    [nzAutosize]="{ minRows: 2, maxRows: 4 }"
+                    [ngModel]="nlpRawInput()"
+                    (ngModelChange)="nlpRawInput.set($event)"
+                    placeholder="Describe your issue here..."
+                    class="nlp-textarea"
+                  ></textarea>
+                  <button
+                    nz-button
+                    nzType="primary"
+                    [nzLoading]="parsingNLP()"
+                    [disabled]="!nlpRawInput().trim()"
+                    (click)="parseAndFill()"
+                    class="nlp-btn"
+                  >
+                    <i nz-icon nzType="thunderbolt" nzTheme="outline"></i>
+                    Parse & Draft Form
+                  </button>
+                </div>
+              </div>
+            </nz-collapse-panel>
+          </nz-collapse>
+          <ng-template #nlpHeaderTpl>
+            <span class="nlp-header-text">
+              <i nz-icon nzType="thunderbolt" nzTheme="twotone" [nzTwotoneColor]="'#722ed1'"></i>
+              <strong>⚡ AI Quick Draft & Form Pre-fill (New)</strong>
+            </span>
+          </ng-template>
+        </div>
+
+        <nz-divider></nz-divider>
+
         <!-- Form Type Selector -->
         <nz-form-item>
           <nz-form-label>Form Type</nz-form-label>

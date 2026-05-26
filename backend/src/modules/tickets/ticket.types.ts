@@ -306,6 +306,7 @@ export const ticketTypeDefs = gql`
   input AnalyticsFilterInput {
     startDate: String
     endDate: String
+    type: TicketType
   }
 
   extend type Query {
@@ -322,7 +323,7 @@ export const ticketTypeDefs = gql`
     officeHeadTickets(type: TicketType!): PaginatedTickets!
     allSecretaryTickets(pagination: PaginationInput): PaginatedTickets!
     ticketAnalytics(filter: AnalyticsFilterInput): TicketAnalytics!
-    slaMetrics: SLAMetrics!
+    slaMetrics(type: TicketType): SLAMetrics!
     ticketTrends(filter: AnalyticsFilterInput): TicketTrends!
     staffPerformance(filter: AnalyticsFilterInput): [StaffPerformance!]!
   }

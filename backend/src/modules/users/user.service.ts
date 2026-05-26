@@ -307,6 +307,37 @@ export class UserService {
     });
     await this.userRepo.delete(userId);
   }
+
+  async getUserSkills(userId: number): Promise<string[]> {
+    const userSkills = await prisma.userSkill.findMany({
+      where: { userId },
+      orderBy: { skill: "asc" },
+    });
+    return userSkills.map((us) => us.skill);
+  }
+
+  async updateUserSkills(userId: number, skills: string[]): Promise<User> {
+    logger.info(`Updating skills for user ${userId}: ${skills.join(", ")}`);
+
+    // Check if user exists
+    const user = await this.userRepo.findByIdOrThrow(userId);
+
+    // Run in transaction to delete old and insert new
+    await prisma.$transaction([
+      prisma.userSkill.deleteMany({
+        where: { userId },
+      }),
+      prisma.userSkill.createMany({
+        data: skills.map((skill) => ({
+          userId,
+          skill: skill.trim().toUpperCase(),
+        })),
+        skipDuplicates: true,
+      }),
+    ]);
+
+    return user;
+  }
 }
 
 export const userService = new UserService(

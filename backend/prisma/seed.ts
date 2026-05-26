@@ -1,44 +1,142 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
+import argon2 from "argon2";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  const hashedPassword = await argon2.hash("Password123");
+
   const seedUsers = [
     {
       email: "alice@chmsu.edu.ph",
       name: "Alice",
+      role: Role.USER,
       picture: "https://picsum.photos/seed/alice/200",
+      skills: [] as string[],
     },
     {
       email: "bob@chmsu.edu.ph",
       name: "Bob",
+      role: Role.USER,
       picture: "https://picsum.photos/seed/bob/200",
+      skills: [] as string[],
+    },
+    {
+      email: "admin@chmsu.edu.ph",
+      name: "Admin Person",
+      role: Role.ADMIN,
+      picture: "https://picsum.photos/seed/admin/200",
+      skills: [] as string[],
+    },
+    {
+      email: "secretary@chmsu.edu.ph",
+      name: "Secretary Person",
+      role: Role.SECRETARY,
+      picture: "https://picsum.photos/seed/secretary/200",
+      skills: [] as string[],
+    },
+    {
+      email: "director@chmsu.edu.ph",
+      name: "Director Person",
+      role: Role.DIRECTOR,
+      picture: "https://picsum.photos/seed/director/200",
+      skills: [] as string[],
+    },
+    {
+      email: "mishead@chmsu.edu.ph",
+      name: "MIS Department Head",
+      role: Role.MIS_HEAD,
+      picture: "https://picsum.photos/seed/mishead/200",
+      skills: [] as string[],
+    },
+    {
+      email: "itshead@chmsu.edu.ph",
+      name: "ITS Department Head",
+      role: Role.ITS_HEAD,
+      picture: "https://picsum.photos/seed/itshead/200",
+      skills: [] as string[],
+    },
+    {
+      email: "dev1@chmsu.edu.ph",
+      name: "Dev Website Expert",
+      role: Role.DEVELOPER,
+      picture: "https://picsum.photos/seed/dev1/200",
+      skills: ["WEBSITE", "SOFTWARE"],
+    },
+    {
+      email: "dev2@chmsu.edu.ph",
+      name: "Dev Systems Builder",
+      role: Role.DEVELOPER,
+      picture: "https://picsum.photos/seed/dev2/200",
+      skills: ["SOFTWARE"],
+    },
+    {
+      email: "tech1@chmsu.edu.ph",
+      name: "Technician Laptop Printer Desk",
+      role: Role.TECHNICAL,
+      picture: "https://picsum.photos/seed/tech1/200",
+      skills: ["MAINTENANCE_DESKTOP_LAPTOP", "MAINTENANCE_PRINTER"],
+    },
+    {
+      email: "tech2@chmsu.edu.ph",
+      name: "Technician Net Borrow Specialist",
+      role: Role.TECHNICAL,
+      picture: "https://picsum.photos/seed/tech2/200",
+      skills: ["MAINTENANCE_INTERNET_NETWORK", "BORROW_REQUEST"],
     },
   ];
 
   for (const user of seedUsers) {
     try {
-      await prisma.user.upsert({
+      const createdUser = await prisma.user.upsert({
         where: { email: user.email },
         update: {
           name: user.name,
+          role: user.role,
+          password: hashedPassword,
           picture: user.picture,
           avatarUrl: user.picture,
         },
         create: {
           email: user.email,
           name: user.name,
+          role: user.role,
+          password: hashedPassword,
           picture: user.picture,
           avatarUrl: user.picture,
         },
       });
+
+      // Clear skills and write new ones
+      await prisma.userSkill.deleteMany({
+        where: { userId: createdUser.id },
+      });
+
+      if (user.skills.length > 0) {
+        await prisma.userSkill.createMany({
+          data: user.skills.map((s) => ({
+            userId: createdUser.id,
+            skill: s,
+          })),
+        });
+      }
     } catch (err: any) {
-      // If the avatarUrl column doesn't exist (Prisma P2022), retry without avatarUrl
       if (err?.code === "P2022" && err?.meta?.column === "avatarUrl") {
         await prisma.user.upsert({
           where: { email: user.email },
-          update: { name: user.name, picture: user.picture },
-          create: { email: user.email, name: user.name, picture: user.picture },
+          update: {
+            name: user.name,
+            picture: user.picture,
+            role: user.role,
+            password: hashedPassword,
+          },
+          create: {
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+            role: user.role,
+            password: hashedPassword,
+          },
         });
       } else {
         throw err;

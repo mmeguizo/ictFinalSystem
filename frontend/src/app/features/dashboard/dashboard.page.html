@@ -148,47 +148,74 @@
       </div>
     </div>
 
-    <!-- Recent Tickets Card -->
-    <nz-card nzTitle="Recent Tickets" class="recent-tickets-card">
-      @if (recentTickets().length > 0) {
-        <nz-table [nzData]="recentTickets()" [nzShowPagination]="false" [nzSize]="'small'">
-          <thead>
-            <tr>
-              <th>Ticket #</th>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Priority</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (ticket of recentTickets(); track ticket.id) {
-              <tr>
-                <td>
-                  <a [routerLink]="['/tickets', ticket.ticketNumber]">
-                    {{ ticket.ticketNumber }}
-                  </a>
-                </td>
-                <td>{{ ticket.title }}</td>
-                <td>
-                  <nz-tag [nzColor]="getStatusColor(ticket.status)">
-                    {{ ticket.status.replace('_', ' ') }}
-                  </nz-tag>
-                </td>
-                <td>
-                  <nz-tag [nzColor]="getPriorityColor(ticket.priority)">
-                    {{ ticket.priority }}
-                  </nz-tag>
-                </td>
-                <td>{{ ticket.createdAt | date: 'short' }}</td>
-              </tr>
-            }
-          </tbody>
-        </nz-table>
-      } @else {
-        <p>No tickets yet. Create your first ticket to get started.</p>
-      }
-    </nz-card>
+    <div nz-row [nzGutter]="16" class="dashboard-content-row">
+      <div nz-col [nzXs]="24" [nzXl]="16">
+        <nz-card nzTitle="Recent Tickets" class="recent-tickets-card">
+          @if (recentTickets().length > 0) {
+            <nz-table [nzData]="recentTickets()" [nzShowPagination]="false" [nzSize]="'small'">
+              <thead>
+                <tr>
+                  <th>Ticket #</th>
+                  <th>Title</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (ticket of recentTickets(); track ticket.id) {
+                  <tr>
+                    <td>
+                      <a [routerLink]="['/tickets', ticket.ticketNumber]">
+                        {{ ticket.ticketNumber }}
+                      </a>
+                    </td>
+                    <td>{{ ticket.title }}</td>
+                    <td>
+                      <nz-tag [nzColor]="getStatusColor(ticket.status)">
+                        {{ ticket.status.replace('_', ' ') }}
+                      </nz-tag>
+                    </td>
+                    <td>
+                      <nz-tag [nzColor]="getPriorityColor(ticket.priority)">
+                        {{ ticket.priority }}
+                      </nz-tag>
+                    </td>
+                    <td>{{ ticket.createdAt | date: 'short' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </nz-table>
+          } @else {
+            <p>No tickets yet. Create your first ticket to get started.</p>
+          }
+        </nz-card>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzXl]="8">
+        <nz-card nzTitle="Live Activity" class="activity-feed-card">
+          @if (activityFeed().length > 0) {
+            <div class="activity-feed-list">
+              @for (item of activityFeed(); track item.id) {
+                <div class="activity-feed-item">
+                  <div class="activity-feed-top">
+                    <nz-tag [nzColor]="item.tagColor">{{ item.tagLabel }}</nz-tag>
+                    <span class="activity-feed-time">{{ item.timestamp | date: 'short' }}</span>
+                  </div>
+                  <div class="activity-feed-headline">{{ item.headline }}</div>
+                  <div class="activity-feed-details">
+                    <a [routerLink]="['/tickets', item.ticketNumber]">{{ item.ticketNumber }}</a>
+                    <span>{{ item.details }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="activity-feed-empty">Waiting for live ticket activity.</p>
+          }
+        </nz-card>
+      </div>
+    </div>
   </nz-spin>
 </div>
 

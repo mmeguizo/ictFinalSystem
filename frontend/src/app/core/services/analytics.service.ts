@@ -27,8 +27,8 @@ const TICKET_ANALYTICS = gql`
 `;
 
 const SLA_METRICS = gql`
-  query SLAMetrics {
-    slaMetrics {
+  query SLAMetrics($type: TicketType) {
+    slaMetrics(type: $type) {
       overdue
       dueToday
       dueSoon
@@ -160,6 +160,7 @@ export interface StaffPerformance {
 export interface AnalyticsFilter {
   startDate?: string;
   endDate?: string;
+  type?: string;
 }
 
 // ========================================
@@ -180,10 +181,11 @@ export class AnalyticsService {
       .pipe(map((result) => result.data!.ticketAnalytics));
   }
 
-  getSLAMetrics(): Observable<SLAMetrics> {
+  getSLAMetrics(type?: string): Observable<SLAMetrics> {
     return this.apollo
       .query<{ slaMetrics: SLAMetrics }>({
         query: SLA_METRICS,
+        variables: { type: type || null },
         fetchPolicy: 'network-only',
       })
       .pipe(map((result) => result.data!.slaMetrics));

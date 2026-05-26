@@ -38,6 +38,7 @@ import {
   AnalyticsFilter,
   OverdueTicket,
 } from '../../core/services/analytics.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ExportService } from '../../core/services/export.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { forkJoin } from 'rxjs';
@@ -75,6 +76,7 @@ Chart.register(...registerables);
 })
 export class AnalyticsPage implements OnInit {
   private readonly analyticsService = inject(AnalyticsService);
+  private readonly authService = inject(AuthService);
   private readonly exportService = inject(ExportService);
   private readonly message = inject(NzMessageService);
   private readonly platformId = inject(PLATFORM_ID);
@@ -94,9 +96,112 @@ export class AnalyticsPage implements OnInit {
   readonly trends = signal<TicketTrends | null>(null);
   readonly staffPerformance = signal<StaffPerformance[]>([]);
 
+  // Comparison Signals
+  readonly misAnalytics = signal<TicketAnalytics | null>(null);
+  readonly itsAnalytics = signal<TicketAnalytics | null>(null);
+  readonly misSla = signal<SLAMetrics | null>(null);
+  readonly itsSla = signal<SLAMetrics | null>(null);
+
+  readonly canCompare = computed(() => {
+    const role = this.authService.currentUser()?.role;
+    return role && role !== 'MIS_HEAD' && role !== 'ITS_HEAD';
+  });
+
   // ========================================
   // COMPUTED CHART DATA
   // ========================================
+
+  /** Status comparison grouped bar chart */
+  readonly comparisonStatusChartData = computed<ChartData<'bar'>>(() => {
+    const mis = this.misAnalytics();
+    const its = this.itsAnalytics();
+    if (!mis || !its) return { labels: [], datasets: [] };
+
+    const allStatuses = Array.from(
+      new Set([...mis.byStatus.map((s) => s.status), ...its.byStatus.map((s) => s.status)]),
+    );
+
+    return {
+      labels: allStatuses.map((s) => this.formatStatus(s)),
+      datasets: [
+        {
+          label: 'MIS Department',
+          data: allStatuses.map((status) => {
+            const found = mis.byStatus.find((s) => s.status === status);
+            return found ? found.count : 0;
+          }),
+          backgroundColor: '#1890ff',
+          borderRadius: 4,
+        },
+        {
+          label: 'ITS Department',
+          data: allStatuses.map((status) => {
+            const found = its.byStatus.find((s) => s.status === status);
+            return found ? found.count : 0;
+          }),
+          backgroundColor: '#52c41a',
+          borderRadius: 4,
+        },
+      ],
+    };
+  });
+
+  readonly comparisonStatusChartOptions: ChartConfiguration<'bar'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { usePointStyle: true } },
+      title: { display: true, text: 'Ticket Volume by Status (MIS vs ITS)', font: { size: 14 } },
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1 } },
+    },
+  };
+
+  /** Priority comparison grouped bar chart */
+  readonly comparisonPriorityChartData = computed<ChartData<'bar'>>(() => {
+    const mis = this.misAnalytics();
+    const its = this.itsAnalytics();
+    if (!mis || !its) return { labels: [], datasets: [] };
+
+    const priorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+    return {
+      labels: priorities,
+      datasets: [
+        {
+          label: 'MIS Department',
+          data: priorities.map((p) => {
+            const found = mis.byPriority.find((x) => x.priority === p);
+            return found ? found.count : 0;
+          }),
+          backgroundColor: '#40a9ff',
+          borderRadius: 4,
+        },
+        {
+          label: 'ITS Department',
+          data: priorities.map((p) => {
+            const found = its.byPriority.find((x) => x.priority === p);
+            return found ? found.count : 0;
+          }),
+          backgroundColor: '#73d13d',
+          borderRadius: 4,
+        },
+      ],
+    };
+  });
+
+  readonly comparisonPriorityChartOptions: ChartConfiguration<'bar'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { usePointStyle: true } },
+      title: { display: true, text: 'Ticket Volume by Priority (MIS vs ITS)', font: { size: 14 } },
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1 } },
+    },
+  };
 
   /** Status pie chart */
   readonly statusChartData = computed<ChartData<'doughnut'>>(() => {
@@ -294,17 +399,35 @@ export class AnalyticsPage implements OnInit {
     this.loading.set(true);
     const filter = this.getFilter();
 
-    forkJoin({
+    const requests: any = {
       analytics: this.analyticsService.getTicketAnalytics(filter),
       sla: this.analyticsService.getSLAMetrics(),
       trends: this.analyticsService.getTicketTrends(filter),
       staff: this.analyticsService.getStaffPerformance(filter),
-    }).subscribe({
-      next: ({ analytics, sla, trends, staff }) => {
-        this.analytics.set(analytics);
-        this.slaMetrics.set(sla);
-        this.trends.set(trends);
-        this.staffPerformance.set(staff);
+    };
+
+    if (this.canCompare()) {
+      const misFilter = { ...filter, type: 'MIS' };
+      const itsFilter = { ...filter, type: 'ITS' };
+      requests.misAnalytics = this.analyticsService.getTicketAnalytics(misFilter);
+      requests.itsAnalytics = this.analyticsService.getTicketAnalytics(itsFilter);
+      requests.misSla = this.analyticsService.getSLAMetrics('MIS');
+      requests.itsSla = this.analyticsService.getSLAMetrics('ITS');
+    }
+
+    forkJoin(requests).subscribe({
+      next: (results: any) => {
+        this.analytics.set(results.analytics);
+        this.slaMetrics.set(results.sla);
+        this.trends.set(results.trends);
+        this.staffPerformance.set(results.staff);
+
+        if (this.canCompare()) {
+          this.misAnalytics.set(results.misAnalytics ?? null);
+          this.itsAnalytics.set(results.itsAnalytics ?? null);
+          this.misSla.set(results.misSla ?? null);
+          this.itsSla.set(results.itsSla ?? null);
+        }
         this.loading.set(false);
       },
       error: (err) => {

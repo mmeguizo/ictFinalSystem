@@ -1,9 +1,25 @@
 # Project Status & Implementation Tracker
 
 > **Title:** Design and Development of an Intelligent Service Request Monitoring and Analysis Platform for ICT Department
-> **Last Updated:** May 14, 2026
+> **Last Updated:** May 26, 2026
 
-## Recent Update: May 14, 2026
+## Recent Update: May 26, 2026
+
+- Implemented **Department Comparison Reports** (Feature 1d) as a dedicated comparative analytics tab on the Analytics page.
+- Enabled multi-department (MIS vs ITS) analytics in the backend GraphQL schema by extending `AnalyticsFilterInput` and `slaMetrics` to support an optional `type` filter.
+- Developed side-by-side grouped comparative bar charts for Status and Priority breakdown across MIS and ITS departments.
+- Constructed a Head-to-Head Key Performance Indicators (KPIs) comparison dashboard showcasing SLA Compliance, Average Resolution hours, SLA breaches, and completed volume.
+- Implemented **Natural Language Ticket Input** (Feature 1a) with real-time NLP parsing and form pre-fill! Users can now submit a single unstructured sentence (e.g. _"I want to borrow a projector and laptop under MRN-401 for room 103 tomorrow morning for 2 hours"_) and have the form automatically choose between MIS or ITS departments, patch checklist choices, and fill out details in real-time using Gemini AI or raw fallback parsing.
+- Fully validated the build (both backend code and final frontend package) with zero errors.
+
+## Previous Update: May 25, 2026
+
+- Added a global `ticketAssignmentActivity` GraphQL subscription so dashboards can observe all ticket assignment events without breaking the existing per-user assignment subscription.
+- Extended the Angular `RealtimeService` to maintain a capped 20-item live activity stream from ticket-created, assignment, and status-change events.
+- Added a Live Activity panel to the dashboard and wired assignment activity into the dashboard's WebSocket refresh trigger so counters stay current after assignments made to other users.
+- Validated both frontend and backend successfully with `npm run build`.
+
+## Previous Update: May 14, 2026
 
 - Hardened ticket RBAC in the backend so `MIS_HEAD` and `ITS_HEAD` are now restricted to their own department tickets when reading ticket details, ticket-number lookups, ticket lists, analytics, SLA metrics, trends, staff performance, note management, and attachment management.
 - Restricted the generic `tickets` and analytics GraphQL queries to staff/privileged roles instead of any authenticated user.
@@ -53,7 +69,7 @@ An intelligent portal where users can submit tickets, get AI-assisted suggestion
 - [x] Users can track ticket status in real-time
 - [x] Users can reopen cancelled tickets
 - [x] **AI chatbot for guided ticket creation**
-- [ ] **Natural language ticket input (NLP parsing)**
+- [x] **Natural language ticket input (NLP parsing)**
 - [x] **Knowledge base / FAQ system** — full CRUD, search, categories, metrics, seeded with 6 ICT FAQs
 - [x] **Smart suggestions (similar past tickets, auto-fill)** — Gemini AI analysis + fulltext similar ticket search + related KB articles
 - [ ] **AI-powered search across tickets**
@@ -134,7 +150,7 @@ Users and staff can see ticket progress in real-time without refreshing the page
 - [x] Dashboard with WebSocket-driven real-time refresh (upgraded from 60s polling)
 - [x] SLA reminder banner on login (Processing Time awareness)
 - [x] **Real-time dashboard counters (WebSocket-driven, not polling)** — live indicator, pulse animations, 5-min fallback
-- [ ] **Live activity feed (who's doing what right now)**
+- [x] **Live activity feed (who's doing what right now)**
 
 ### Next Steps (Chunked)
 
@@ -144,10 +160,10 @@ Users and staff can see ticket progress in real-time without refreshing the page
 2. [x] Add live counter animations when values change (pulse animation + live dot indicator)
 3. [ ] Test: Create ticket in one tab, dashboard updates instantly in another
 
-#### Chunk C2: Activity Feed
+#### Chunk C2: Activity Feed ✅
 
-1. [ ] Create activity feed subscription (combines all events into chronological stream)
-2. [ ] Add activity feed panel to dashboard (shows last 20 events: "User X created ticket", "Secretary reviewed ticket Y")
+1. [x] Create activity feed subscription (combines all events into chronological stream)
+2. [x] Add activity feed panel to dashboard (shows last 20 events: "User X created ticket", "Secretary reviewed ticket Y")
 3. [ ] Test: Multiple users perform actions, all appear in feed
 
 ---
@@ -171,7 +187,7 @@ Dashboards and reports with charts, graphs, trends, and exportable data for ICT 
 - [x] **Staff performance metrics (avg resolution time per staff)**
 - [x] **Date range picker for reports**
 - [x] **Export to PDF/Excel (jsPDF + xlsx libraries)**
-- [ ] **Department comparison reports**
+- [x] **Department comparison reports**
 
 ### Next Steps (Chunked)
 

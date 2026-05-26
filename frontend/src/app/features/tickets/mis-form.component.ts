@@ -319,6 +319,35 @@ export class MISFormComponent {
     this.formGroup.get('details')?.setValue(text);
   }
 
+  /** Patch NLP-parsed structured values into the reactive form groups */
+  patchParsedValues(data: any): void {
+    if (data.details) {
+      this.formGroup.get('details')?.setValue(data.details);
+    }
+
+    // Set category
+    if (data.category === 'WEBSITE' || data.category === 'SOFTWARE') {
+      this.categoryControl.setValue(data.category);
+    }
+
+    // Set Web / Software selections
+    if (this.isWebsite()) {
+      this.websiteGroup.patchValue({
+        addRemoveContent: data.websiteUpdate || false,
+        addRemoveFeatures: data.websiteUpdate || false,
+        addRemovePage: data.websiteNewRequest || false,
+      });
+    } else {
+      this.softwareGroup.patchValue({
+        fixError: data.softwareUpdate || false,
+        enhancement: data.softwareUpdate || false,
+        newIS: data.softwareNewRequest || false,
+        installExisting: data.softwareInstall || false,
+      });
+    }
+    this.contentChanged.emit();
+  }
+
   getPayload() {
     const values = this.formGroup.value;
     const category = values.category;
