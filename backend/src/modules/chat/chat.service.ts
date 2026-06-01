@@ -17,8 +17,15 @@ import { embeddingService } from "./embedding.service";
  * 5. If no answer found, AI can guide ticket creation
  */
 
-const CHAT_SYSTEM_PROMPT = `You are an expert AI support assistant for the CHMSU ICT Department help desk (Carlos Hilado Memorial State University).
-Your role is to help users resolve ICT issues with accurate, detailed, step-by-step troubleshooting guidance.
+const CHAT_SYSTEM_PROMPT = `You are a friendly, expert AI support assistant for the CHMSU ICT Department help desk (Carlos Hilado Memorial State University).
+Your goal is to help users resolve ICT issues with accurate, personalized, and conversational troubleshooting guidance.
+
+TONE & STYLE (HUMAN-LIKE ALIGNMENT):
+- Speak like a helpful, experienced human support technician—be warm, empathetic, and professional.
+- Address the user by name naturally (e.g., "Hello Alice," or "No problem, Alice, let's look into that.") if their name is available in context.
+- AVOID robotic, rigid greeting formulas (like "Based on our official guidelines, here are...") or generic corporate platitudes (like "I would be happy to help you with that today!"). Talk naturally.
+- AVOID robotic headers such as "Proactive Tip:" or analytical labels like "Solution 1:". Weave these tips and alternative options smoothly into natural paragraphs or light, warm transitions (e.g., "A quick tip: you might also want to...").
+- Keep formatting clean and airy but fundamentally conversational. Do NOT use numbered lists or bullet points unless describing 4 or more sequential steps. For shorter processes, use simple, friendly paragraphs.
 
 CORE BEHAVIOR:
 - You are knowledgeable, proactive, and thorough. Give complete answers — never say "I don't know" if relevant context is provided.
@@ -37,7 +44,7 @@ CONTEXT DATA RULES:
 1. ALWAYS check the provided CONTEXT DATA first (knowledge base articles, resolved tickets, troubleshooting solutions). This is your PRIMARY source of truth.
 2. When context data is provided, you MUST use it. Synthesize and present the information clearly — do not ignore it.
 3. Operational/admin context may include analytics, approval queues, workload, user summaries, knowledge coverage, or safety policy notes. Use that data directly and do not claim the system lacks context when those sections are present.
-4. When referencing a Knowledge Base article, include a clickable link: [KB: Article Title](kb:ARTICLE_ID) — replace ARTICLE_ID with the actual numeric ID.
+4. When referencing a Knowledge Base article, include a clickable link: [KB: Article Title](kb:ARTICLE_ID) — replace ARTICLE_ID with the actual numeric ID (e.g., [KB: Reset Password](kb:12)). Do NOT add or prepend any 📖 emoji before the markdown link, as the system interface adds it automatically.
 5. When multiple context sources are relevant, combine them into a comprehensive answer.
 6. If NO relevant context is provided, use your general ICT knowledge confidently. Note: "Based on general ICT best practices:" before the answer.
 7. For issues requiring physical intervention (hardware failure, cable issues), suggest creating a support ticket.
@@ -49,11 +56,10 @@ KNOWLEDGE PRIORITY:
 4. General ICT knowledge (last resort, but still provide a useful answer)
 
 RESPONSE FORMAT:
-- Use markdown: bullet points, numbered steps, bold for emphasis, code blocks for commands.
-- Keep responses focused but thorough. Aim for complete solutions.
-- For multi-step fixes, number each step clearly.
-- If you provide multiple possible solutions, label them (Solution 1, Solution 2, etc.)
-- Always end troubleshooting responses with a proactive suggestion: "If this doesn't work, would you like me to create a support ticket?"
+- Use markdown naturally: simple paragraphs, bold only for emphasis on key words, and code blocks for commands. Keep it simple and fluid.
+- Keep responses focused but comprehensive.
+- Only use numbered or bulleted lists for sequential step-by-step procedures when there are 4 or more steps. For shorter ones, use friendly conversational instruction.
+- End your troubleshooting suggestions with a natural, conversational offer to create a ticket (e.g., "If those steps don't resolve the issue, would you like me to open a support ticket for our team to take a hands-on look?").
 
 WHEN ASKED ABOUT TICKET STATUS:
 - Report status accurately from context: ticket number, status, assigned staff, recent updates.
@@ -73,8 +79,9 @@ WHEN SAFETY POLICY DATA IS PROVIDED:
 - If deletion is blocked, recommend the safer alternative (usually deactivation or reassignment).
 
 WHEN GUIDING TICKET CREATION:
-- Ask for: What is the problem? What device/system is affected? When did it start? Is it affecting others?
-- Once you have enough info, respond with a JSON block wrapped in \`\`\`ticket-data tags:
+- Guide ticket creation conversationally! Ask for required details in a friendly, conversational manner rather than a numbered list of form questions.
+- Ask for: What is the problem? What device/system is affected? When did it start? Is it affecting others? Do they have alternative contact details?
+- Once you have gathered enough details, summarize what information you are submitting back to the user warmly, and respond with the JSON block wrapped in \`\`\`ticket-data tags:
 \`\`\`ticket-data
 {"title": "...", "description": "...", "type": "MIS or ITS", "priority": "LOW/MEDIUM/HIGH/CRITICAL"}
 \`\`\`
@@ -2143,7 +2150,7 @@ Tell the user which report type you detected based on their request, and offer t
   }
 
   // ========================================
-  // GEMINI CALL
+  // GEMINI CALL WITH HUGGING FACE DUAL FALLBACK
   // ========================================
 
   private async callGemini(
@@ -2152,7 +2159,17 @@ Tell the user which report type you detected based on their request, and offer t
     contextData: string,
   ): Promise<string> {
     if (!this.isAvailable()) {
-      return this.fallbackResponse(currentMessage, contextData);
+      logger.info(
+        "[ChatService] Gemini is not available. Trying Hugging Face fallback...",
+      );
+      try {
+        return await this.callHuggingFace(history, currentMessage, contextData);
+      } catch (hfErr: any) {
+        logger.error(
+          `[ChatService] Hugging Face fallback failed (${hfErr.message}). Using local curated fallback.`,
+        );
+        return this.fallbackResponse(currentMessage, contextData);
+      }
     }
 
     try {
@@ -2200,19 +2217,199 @@ Tell the user which report type you detected based on their request, and offer t
 
       return result.response.text();
     } catch (err: any) {
-      logger.error("[ChatService] Gemini call failed:", err.message);
-      return this.fallbackResponse(currentMessage, contextData);
+      logger.error(
+        `[ChatService] Gemini call failed (${err.message}). Trying Hugging Face fallback...`,
+      );
+      try {
+        return await this.callHuggingFace(history, currentMessage, contextData);
+      } catch (hfErr: any) {
+        logger.error(
+          `[ChatService] Hugging Face fallback failed (${hfErr.message}). Using local curated fallback.`,
+        );
+        return this.fallbackResponse(currentMessage, contextData);
+      }
     }
   }
 
   /**
-   * Fallback when Gemini is unavailable — return context data directly
+   * Safe and free Hugging Face Serverless fallback execution utilizing the provided token
+   */
+  private async callHuggingFace(
+    history: Array<{ role: string; content: string }>,
+    currentMessage: string,
+    contextData: string,
+  ): Promise<string> {
+    const token = config.huggingface.token;
+    const model = config.huggingface.model;
+
+    if (!token) {
+      throw new Error("Hugging Face token not configured");
+    }
+
+    const messages = [{ role: "system", content: CHAT_SYSTEM_PROMPT }];
+
+    // Map conversation history
+    const recentHistory = history.slice(-10);
+    for (const msg of recentHistory) {
+      messages.push({
+        role: msg.role.toUpperCase() === "USER" ? "user" : "assistant",
+        content: msg.content,
+      });
+    }
+
+    // Add current message with context
+    let prompt = currentMessage;
+    if (contextData.trim()) {
+      prompt = `CONTEXT DATA (from our internal knowledge base and resolved tickets):\n${contextData}\n\nUSER QUESTION: ${currentMessage}`;
+    }
+    messages.push({ role: "user", content: prompt });
+
+    const url = `https://api-inference.huggingface.co/models/${model}/v1/chat/completions`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: 1536,
+        temperature: 0.4,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Hugging Face API returned status ${response.status}: ${errorText}`,
+      );
+    }
+
+    const data = (await response.json()) as any;
+    const reply = data?.choices?.[0]?.message?.content;
+    if (!reply) {
+      throw new Error("No response content from Hugging Face model");
+    }
+
+    return reply;
+  }
+
+  /**
+   * Fallback when AI is unavailable — parse context data cleanly and return human-feeling response.
+   * If the user is expressing an intent to bypass troubleshooting or create/open a ticket,
+   * we inject a valid ```ticket-data block so the frontend still offers them a click-to-create button.
    */
   private fallbackResponse(message: string, contextData: string): string {
-    if (contextData.trim()) {
-      return `I found some relevant information from our knowledge base:\n\n${contextData}\n\nIf this doesn't resolve your issue, I can help you create a support ticket. Just describe your problem in detail.`;
+    const isTicketIntent =
+      /\b(create|open|submit|raise|make|just|want\s+to\s+create|get\s+a|need)\s*(a|new)?\s*(support\s*)?ticket\b/i.test(
+        message,
+      ) ||
+      /\b(create\s+ticket|just\s+create|help\s+me\s+create)\b/i.test(message);
+
+    if (isTicketIntent) {
+      // Intelligently guess details from context/message
+      const msgLower = message.toLowerCase();
+      const ctxLower = contextData.toLowerCase();
+      const hasPassword =
+        msgLower.includes("password") || ctxLower.includes("password");
+      const hasWiFi =
+        msgLower.includes("wi-fi") ||
+        msgLower.includes("wifi") ||
+        ctxLower.includes("wi-fi");
+      const hasHardware =
+        msgLower.includes("hardware") ||
+        msgLower.includes("printer") ||
+        msgLower.includes("cable") ||
+        msgLower.includes("device") ||
+        msgLower.includes("hardware");
+
+      let category = "GENERAL";
+      let title = "Support Request";
+      let type = "ITS";
+
+      if (hasPassword) {
+        category = "ACCOUNT";
+        title = "Support Request: Password Reset / Account Help";
+        type = "MIS";
+      } else if (hasWiFi) {
+        category = "NETWORK";
+        title = "Support Request: Wi-Fi / Connectivity Issue";
+        type = "ITS";
+      } else if (hasHardware) {
+        category = "HARDWARE";
+        title = "Support Request: Hardware / Office Device Repair";
+        type = "ITS";
+      }
+
+      return `Hello! While my primary AI systems are currently running through updates, I hear you loud and clear: you would like to bypass recommendations and create a support ticket directly.
+
+No problem! I have set up your ticket draft using your request details. 
+
+Please click the button below to submit this support ticket directly to our ICT staff:
+
+\`\`\`ticket-data
+{
+  "title": "${title}",
+  "description": "User requested ticket creation via chat help desk: '${message.replace(/"/g, '\\"')}'",
+  "type": "${type}",
+  "priority": "MEDIUM",
+  "category": "${category}"
+}
+\`\`\`
+
+If you'd like to adjust or add anything, let me know!`;
     }
-    return "I couldn't find a specific solution for your issue in our knowledge base. Would you like me to help you create a support ticket? Please describe:\n\n1. What is the problem?\n2. What device or system is affected?\n3. When did it start?\n4. Is it affecting other users?";
+
+    const cleanedContext = this.cleanFallbackContext(contextData);
+
+    if (cleanedContext.trim()) {
+      return `Hello! Our primary AI systems are currently running through updates, but I've searched our knowledge archives and found these matching resources that might help you solve ${message.toLowerCase().includes("password") ? "this password issue" : "this issue"} right away:\n\n${cleanedContext}\n\nIf those details don't resolve the issue, would you like me to open a support ticket for our ICT support team to take a hands-on look? Just describe what you need, and I'll queue it up for you!`;
+    }
+
+    return "Hello! Our AI systems are currently resting, but I'd be happy to help you raise a support ticket. To get started, could you describe what problem you are facing, when it started, and which system is affected?";
+  }
+
+  private cleanFallbackContext(contextData: string): string {
+    const lines = contextData.split("\n");
+    let inAllowedSection = false;
+    let allowedContent = "";
+
+    for (const line of lines) {
+      if (line.startsWith("--- ")) {
+        const sectionName = line.replace(/---/g, "").trim();
+        if (
+          sectionName === "KNOWLEDGE BASE ARTICLES" ||
+          sectionName === "TROUBLESHOOTING SOLUTIONS" ||
+          sectionName === "RESOLVED TICKETS (similar issues)"
+        ) {
+          inAllowedSection = true;
+          allowedContent += `\n### 📖 ${sectionName === "KNOWLEDGE BASE ARTICLES" ? "Knowledge Guides" : "Related Solutions"}\n`;
+        } else {
+          inAllowedSection = false;
+        }
+        continue;
+      }
+
+      if (inAllowedSection) {
+        allowedContent += line + "\n";
+      }
+    }
+
+    let clean = allowedContent.trim();
+    // Transform knowledge base items into beautiful user-facing titles
+    clean = clean.replace(
+      /\[Article ID:\s*(\d+)\]\s*Title:\s*(.+)/g,
+      "**$2** (Link: [KB: $2](kb:$1))",
+    );
+    // Clean trailing metadata tags
+    clean = clean.replace(/^\s*Category:\s*.+$/gm, "");
+    clean = clean.replace(/^\s*Relevance:\s*.+$/gm, "");
+    clean = clean.replace(/^\s*Link format:\s*.+$/gm, "");
+    // Collapse excess newlines gracefully
+    clean = clean.replace(/\n{3,}/g, "\n\n");
+
+    return clean.trim();
   }
 
   // ========================================
